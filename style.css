@@ -1,0 +1,31 @@
+.es-attendance-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.es-attendance-form input[type="text"],
+.es-attendance-form input[type="email"] {
+  margin-bottom: 12px;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.es-attendance-form input[type="submit"] {
+  padding: 10px 20px; /* Desktop padding */
+  background-color: #00a6bf; /* Dynamic background color */
+  color: #ffffff; /* Dynamic text color */
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.es-attendance-form .es-form-group {
+  color: #ffffff; /* Dynamic text color */
+  margin-bottom: 12px;
+}
+
+@media (max-width: 768px) {
+  .es-attendance-form input[type="submit"] {
+    padding: 10px; /* Mobile padding */
+  }
+}
