@@ -84,16 +84,21 @@ function es_handle_attendance()
 
   $existing_user = $wpdb->get_row(
     $wpdb->prepare(
-      "SELECT * FROM $table_name WHERE first_name = %s AND last_name = %s AND email = %s",
-      ARRAY_A
-    )
+      "SELECT * FROM $table_name WHERE email = %s",
+      $email
+    ),
+    ARRAY_A
   );
+
   $existing_entry = $wpdb->get_row(
     $wpdb->prepare(
-      "SELECT * FROM $table_name WHERE first_name = %s AND last_name = %s AND email = %s AND last_date = %s",
-      ARRAY_A
-    )
-  );
+        "SELECT * FROM $table_name WHERE email = %s AND DATE(last_date) = DATE(%s)",
+        $email,
+        $current_date
+    ),
+    ARRAY_A
+);
+
   if ($existing_entry) {
     wp_send_json_error(['message' => 'You have already submitted attendance for this person on the same date.']);
     return;
@@ -104,8 +109,6 @@ function es_handle_attendance()
       'first_name' => $first_name,
       'last_name' => $last_name,
       'phone' => $phone,
-      'email' => $email,
-      'first_date' => $existing_user['first_date'],
       'last_date' => $current_date,
       'times' => intval($existing_user['times']) + 1,
       'is_new' => false,
@@ -113,7 +116,10 @@ function es_handle_attendance()
     $wpdb->update(
       $table_name,
       $data,
-      array('email' => $email)
+      array(
+        'email' => $email,
+        'last_date' => $existing_user['last_date'], // Only update if the last_date matches the existing record
+      )
     );
   } else {
     $data = array(
@@ -122,14 +128,13 @@ function es_handle_attendance()
       'phone' => $phone,
       'email' => $email,
       'first_date' => $current_date,
-      'last_date' => '',
+      'last_date' => $current_date,
       'times' => 1,
       'is_new' => true,
     );
     $wpdb->insert($table_name, $data);
   }
   wp_send_json_success(['message' => 'Submit successfully!']);
-
 }
 
 add_action('wp_ajax_es_handle_attendance', 'es_handle_attendance');
