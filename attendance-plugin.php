@@ -41,8 +41,8 @@ register_activation_hook(__FILE__, 'create_attendance_table');
 function es_enqueue_scripts()
 {
   wp_enqueue_script('jquery');
-  wp_enqueue_script('es-subscribe', plugin_dir_url(__FILE__) . 'subscribe.js', ['jquery'], '1.0', true);
-  wp_localize_script('es-subscribe', 'esAjax', ['ajaxurl' => admin_url('admin-ajax.php')]);
+  wp_enqueue_script('es-attendance', plugin_dir_url(__FILE__) . 'main.js', ['jquery'], '1.0', true);
+  wp_localize_script('es-attendance', 'esAjax', ['ajaxurl' => admin_url('admin-ajax.php')]);
   wp_enqueue_style('custom-style', plugin_dir_url(__FILE__) . 'style.css');
 }
 
