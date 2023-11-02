@@ -53,16 +53,16 @@ function attendance_form()
 {
   ob_start();
 ?>
-  <form id="es_attendance_form" class="es-attendance-form">
-    <input type="text" name="es_first_name" required placeholder="First Name *">
-    <input type="text" name="es_last_name" required placeholder="Last Name *">
-    <input type="email" name="es_email" required placeholder="Email *">
-    <input type="text" name="es_phone" placeholder="Phone">
+<form id="es_attendance_form" class="es-attendance-form">
+  <input type="text" name="es_first_name" required placeholder="First Name *">
+  <input type="text" name="es_last_name" required placeholder="Last Name *">
+  <input type="email" name="es_email" required placeholder="Email *">
+  <input type="text" name="es_phone" placeholder="Phone">
 
 
-    <!-- Add other fields as needed -->
-    <input type="submit" name="submit_attendance" value="Submit_Attendance">
-  </form>
+  <!-- Add other fields as needed -->
+  <input type="submit" name="submit_attendance" value="Submit Attendance">
+</form>
 <?php
   return ob_get_clean();
 }
@@ -78,64 +78,58 @@ function es_handle_attendance()
   $email = sanitize_email($_POST['es_email']);
   $current_date = current_time('mysql');
 
-  // Validate the data
-  if (empty($first_name) || empty($last_name) || empty($email)) {
-    // Required fields are missing, display an error message.
-    echo '<div class="error">First Name, Last Name, and Email are required fields.</div>';
-  } else {
-    // Check for duplicate entries on the same date (you should customize this query based on your database structure)
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'attendance';
+  // Check for duplicate entries on the same date (you should customize this query based on your database structure)
+  global $wpdb;
+  $table_name = $wpdb->prefix . 'attendance';
 
-    $existing_user = $wpdb->get_row(
-      $wpdb->prepare(
-        "SELECT * FROM $table_name WHERE first_name = %s AND last_name = %s AND email = %s",
-        ARRAY_A
-      )
-    );
-    $existing_entry = $wpdb->get_row(
-      $wpdb->prepare(
-        "SELECT * FROM $table_name WHERE first_name = %s AND last_name = %s AND email = %s AND last_date = %s",
-        ARRAY_A
-      )
-    );
-
-    if ($existing_entry) {
-      // Duplicate entry found, display an error message.
-      echo '<div class="error">You have already submitted attendance for this person on the same date.</div>';
-    } else {
-      if ($existing_user) {
-
-        $data = array(
-          'first_name' => $first_name,
-          'last_name' => $last_name,
-          'phone' => $phone,
-          'email' => $email,
-          'first_date' => $existing_user['first_date'],
-          'last_date' => $current_date,
-          'times' => intval($existing_user['times']) + 1,
-          'is_new' => false,
-        );
-        $wpdb->update($table_name, $data);
-      } else {
-        $data = array(
-          'first_name' => $first_name,
-          'last_name' => $last_name,
-          'phone' => $phone,
-          'email' => $email,
-          'first_date' => $current_date,
-          'last_date' => '',
-          'times' => 1,
-          'is_new' => true,
-        );
-        $wpdb->insert($table_name, $data);
-      }
-
-
-      // Display a success message
-      echo '<div class="updated">Attendance submitted successfully.</div>';
-    }
+  $existing_user = $wpdb->get_row(
+    $wpdb->prepare(
+      "SELECT * FROM $table_name WHERE first_name = %s AND last_name = %s AND email = %s",
+      ARRAY_A
+    )
+  );
+  $existing_entry = $wpdb->get_row(
+    $wpdb->prepare(
+      "SELECT * FROM $table_name WHERE first_name = %s AND last_name = %s AND email = %s AND last_date = %s",
+      ARRAY_A
+    )
+  );
+  if ($existing_entry) {
+    wp_send_json_error(['message' => 'You have already submitted attendance for this person on the same date.']);
+    return;
   }
+
+  if ($existing_user) {
+    $data = array(
+      'first_name' => $first_name,
+      'last_name' => $last_name,
+      'phone' => $phone,
+      'email' => $email,
+      'first_date' => $existing_user['first_date'],
+      'last_date' => $current_date,
+      'times' => intval($existing_user['times']) + 1,
+      'is_new' => false,
+    );
+    $wpdb->update(
+      $table_name,
+      $data,
+      array('email' => $email)
+    );
+  } else {
+    $data = array(
+      'first_name' => $first_name,
+      'last_name' => $last_name,
+      'phone' => $phone,
+      'email' => $email,
+      'first_date' => $current_date,
+      'last_date' => '',
+      'times' => 1,
+      'is_new' => true,
+    );
+    $wpdb->insert($table_name, $data);
+  }
+  wp_send_json_success(['message' => 'Submit successfully!']);
+
 }
 
 add_action('wp_ajax_es_handle_attendance', 'es_handle_attendance');
@@ -207,10 +201,10 @@ function es_render_attendance_list()
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items();
 ?>
-  <div class="wrap">
-    <h2>Attendance</h2>
-    <?php $attendanceListTable->display(); ?>
-  </div>
+<div class="wrap">
+  <h2>Attendance</h2>
+  <?php $attendanceListTable->display(); ?>
+</div>
 <?php
 }
 
