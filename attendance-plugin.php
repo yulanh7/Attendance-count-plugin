@@ -44,9 +44,13 @@ function es_enqueue_scripts()
   wp_enqueue_script('es-attendance', plugin_dir_url(__FILE__) . 'main.js', ['jquery'], '1.0', true);
   wp_localize_script('es-attendance', 'esAjax', ['ajaxurl' => admin_url('admin-ajax.php')]);
   wp_enqueue_style('custom-style', plugin_dir_url(__FILE__) . 'style.css');
+  wp_enqueue_script('jquery-ui-datepicker');
+  wp_enqueue_style('jquery-ui-datepicker-style', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
+  
 }
 
 add_action('wp_enqueue_scripts', 'es_enqueue_scripts');
+add_action('admin_enqueue_scripts', 'es_enqueue_scripts');
 
 
 function attendance_form()
@@ -58,9 +62,6 @@ function attendance_form()
   <input type="text" name="es_last_name" required placeholder="Last Name *">
   <input type="email" name="es_email" required placeholder="Email *">
   <input type="text" name="es_phone" placeholder="Phone">
-
-
-  <!-- Add other fields as needed -->
   <input type="submit" name="submit_attendance" value="Submit Attendance">
 </form>
 <?php
@@ -147,20 +148,21 @@ if (!class_exists('WP_List_Table')) {
 
 class ES_Attendance_List extends WP_List_Table
 {
-
+  
   function get_data()
   {
     global $wpdb;
     $table_name = $wpdb->prefix . 'attendance';
     return $wpdb->get_results("SELECT * FROM $table_name", ARRAY_A);
   }
-
   function prepare_items()
   {
     $columns = $this->get_columns();
     $this->_column_headers = array($columns, array(), array());
     $this->items = $this->get_data();
   }
+
+
 
   function get_columns()
   {
@@ -212,9 +214,65 @@ function es_render_attendance_list()
 ?>
 <div class="wrap">
   <h2>Attendance</h2>
+  <div class="filter-form">
+  <input type="text" id="last_date_filter" placeholder="Last Date" value="<?php echo date('d/m/Y'); ?>">
+    <input type="text" id="last_name_filter" placeholder="Last Name">
+    <input type="text" id="first_name_filter" placeholder="First Name">
+    <input type="text" id="email_filter" placeholder="Email">
+    <button id="filter-button">Filter 1</button>
+  </div>
+  <div id="filter-table-response">
   <?php $attendanceListTable->display(); ?>
 </div>
+</div>
 <?php
+}
+
+
+add_action('wp_ajax_es_filter_attendance', 'es_filter_attendance_callback');
+
+function es_filter_attendance_callback() {
+    // Retrieve filter values from the AJAX request
+    $last_date = sanitize_text_field($_POST['last_date']);
+    $last_name = sanitize_text_field($_POST['last_name']);
+    $first_name = sanitize_text_field($_POST['first_name']);
+    $email = sanitize_text_field($_POST['email']);
+
+    // Modify the query based on the filter values
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'attendance';
+    $query = "SELECT * FROM $table_name WHERE 1=1";
+    
+    if (!empty($last_date)) {
+        $query .= " AND last_date = %s";
+    }
+    if (!empty($last_name)) {
+        $query .= " AND last_name = %s";
+    }
+    if (!empty($first_name)) {
+        $query .= " AND first_name = %s";
+    }
+    if (!empty($email)) {
+        $query .= " AND email = %s";
+    }
+
+    $results = $wpdb->get_results(
+        $wpdb->prepare($query, $last_date, $last_name, $first_name, $email),
+        ARRAY_A
+    );
+
+    // Create a new table instance and prepare it with the filtered data
+    $attendanceListTable = new ES_Attendance_List();
+    $attendanceListTable->prepare_items($results);
+
+    // Output the updated table HTML
+    ob_start();
+    $attendanceListTable->display();
+    $table_html = ob_get_clean();
+    
+    // Send the updated table HTML as a response
+    wp_send_json_success(['table_html' => $table_html]);
+    wp_die();
 }
 
 
