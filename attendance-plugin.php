@@ -177,29 +177,32 @@ class ES_Attendance_List extends WP_List_Table
   }
 
   function column_default($item, $column_name)
-{
-  switch ($column_name) {
-    case 'is_new':
-      return $item[$column_name] ? 'Yes' : 'No';
-
-    case 'first_name':
-    case 'last_name':
-    case 'email':
-    case 'phone':
-    case 'times':
-    case 'first_date':
-    case 'last_date':
-      if (DateTime::createFromFormat('Y-m-d H:i:s', $item[$column_name]) !== false) {
-        $date = new DateTime($item[$column_name]);
-        return $date->format('d/m/Y');
-      } else {
-        return $item[$column_name];
+  {
+      switch ($column_name) {
+          case 'is_new':
+              return $item[$column_name] ? 'Yes' : 'No';
+  
+          case 'first_date':
+          case 'last_date':
+            $date = DateTime::createFromFormat('Y-m-d', $item[$column_name]);
+            if ($date !== false) {
+                return $date->format('d/m/Y');
+            } else {
+                return $item[$column_name];
+            }
+  
+          case 'first_name':
+          case 'last_name':
+          case 'email':
+          case 'phone':
+          case 'times':
+              return $item[$column_name];
+              
+          default:
+              return print_r($item, true);
       }
-
-    default:
-      return print_r($item, true);
   }
-}
+  
 }
 
 function es_render_attendance_list()
