@@ -54,13 +54,21 @@ jQuery(document).ready(function ($) {
     yearRange: 'c-100:c+0', // Allow selection of the past 100 years to the current year
   });
 
-  $('#filter-button').on('click', function (e) {
+  $(document).on('click','#filter-button', function (e) {
     e.preventDefault();
     console.log('aaaaa')
-    var lastDate = $('#last_date_filter').val();
-    var lastName = $('#last_name_filter').val();
-    var firstName = $('#first_name_filter').val();
-    var email = $('#email_filter').val();
+    const lastDate = $('#last_date_filter').val();
+    const lastName = $('#last_name_filter').val();
+    const firstName = $('#first_name_filter').val();
+    const email = $('#email_filter').val();
+    const isNew = $('#is_new_filter').is(':checked'); // Get the checkbox state
+    const tableName = "#filter-table-response";
+    function bindToggleRowEvent() {
+      $('tbody').on('click', '.toggle-row', function() {
+        $(this).closest('tr').toggleClass('is-expanded');
+      });
+    }
+    
 
     $.ajax({
       url: esAjax.ajaxurl,
@@ -71,11 +79,12 @@ jQuery(document).ready(function ($) {
         last_name: lastName,
         first_name: firstName,
         email: email,
+        is_new: isNew, // Send the isNew value
+
       },
       success: function (response) {
-        // Update the table with filtered data
-        console.log(response);
-        $('#filter-table-response').html(response.data.table_html);
+        $(tableName).html(response.data.table_html);
+        bindToggleRowEvent();
       },
       error: function() {
         alert('An error occurred.');
@@ -83,3 +92,4 @@ jQuery(document).ready(function ($) {
     });
   });
 });
+
