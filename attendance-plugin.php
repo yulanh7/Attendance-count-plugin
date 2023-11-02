@@ -148,21 +148,15 @@ if (!class_exists('WP_List_Table')) {
 
 class ES_Attendance_List extends WP_List_Table
 {
-  
-  function get_data()
-  {
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'attendance';
-    return $wpdb->get_results("SELECT * FROM $table_name", ARRAY_A);
-  }
-  function prepare_items()
-  {
+
+  function prepare_items($data = array()) {
     $columns = $this->get_columns();
-    $this->_column_headers = array($columns, array(), array());
-    $this->items = $this->get_data();
-  }
+    $hidden = array();
+    $sortable = $this->get_sortable_columns();
 
-
+    $this->_column_headers = array($columns, $hidden, $sortable);
+    $this->items = $data; // Use the filtered data provided as a parameter
+}
 
   function get_columns()
   {
@@ -209,18 +203,25 @@ class ES_Attendance_List extends WP_List_Table
 
 function es_render_attendance_list()
 {
+  global $wpdb;
+  $table_name = $wpdb->prefix . 'attendance';
+  $results = $wpdb->get_results("SELECT * FROM $table_name where is_new = 1", ARRAY_A);
   $attendanceListTable = new ES_Attendance_List();
-  $attendanceListTable->prepare_items();
+  $attendanceListTable->prepare_items($results);
 ?>
 <div class="wrap">
   <h2>Attendance</h2>
   <div class="filter-form">
-  <input type="text" id="last_date_filter" placeholder="Last Date" value="<?php echo date('d/m/Y'); ?>">
+    <input type="text" id="last_date_filter" placeholder="Last Date" value="<?php echo date('d/m/Y'); ?>">
     <input type="text" id="last_name_filter" placeholder="Last Name">
     <input type="text" id="first_name_filter" placeholder="First Name">
     <input type="text" id="email_filter" placeholder="Email">
-    <button id="filter-button">Filter 1</button>
-  </div>
+    <span class="checkbox-container">
+      <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
+      <label for="is_new_filter">New Attendance</label>
+</span>
+    <button id="filter-button" type="button" class="submit-btn">Filter</button>
+
   <div id="filter-table-response">
   <?php $attendanceListTable->display(); ?>
 </div>
@@ -237,29 +238,36 @@ function es_filter_attendance_callback() {
     $last_name = sanitize_text_field($_POST['last_name']);
     $first_name = sanitize_text_field($_POST['first_name']);
     $email = sanitize_text_field($_POST['email']);
+    $last_date_formatted = date('Y-m-d H:i:s', strtotime(str_replace('/', '-', $last_date)));
+    $is_new = isset($_POST['is_new']) && $_POST['is_new'] === 'true' ? true : false; // Check the isNew value
 
-    // Modify the query based on the filter values
     global $wpdb;
     $table_name = $wpdb->prefix . 'attendance';
-    $query = "SELECT * FROM $table_name WHERE 1=1";
     
-    if (!empty($last_date)) {
-        $query .= " AND last_date = %s";
-    }
-    if (!empty($last_name)) {
-        $query .= " AND last_name = %s";
-    }
+    $query = "SELECT * FROM $table_name WHERE 1=1";
+
     if (!empty($first_name)) {
-        $query .= " AND first_name = %s";
-    }
-    if (!empty($email)) {
-        $query .= " AND email = %s";
+        $query .= $wpdb->prepare(" AND first_name = %s", $first_name);
     }
 
-    $results = $wpdb->get_results(
-        $wpdb->prepare($query, $last_date, $last_name, $first_name, $email),
-        ARRAY_A
-    );
+    if (!empty($last_name)) {
+        $query .= $wpdb->prepare(" AND last_name = %s", $last_name);
+    }
+
+    if (!empty($email)) {
+        $query .= $wpdb->prepare(" AND email = %s", $email);
+    }
+
+    if (!empty($last_date)) {
+        $query .= $wpdb->prepare(" AND DATE(last_date) = DATE(%s)", $last_date_formatted);
+    }
+
+    if ($is_new) {
+      $query .= " AND is_new = 1";
+    }
+
+    $results = $wpdb->get_results($query, ARRAY_A);
+ 
 
     // Create a new table instance and prepare it with the filtered data
     $attendanceListTable = new ES_Attendance_List();
