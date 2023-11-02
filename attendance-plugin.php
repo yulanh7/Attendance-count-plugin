@@ -146,7 +146,7 @@ class ES_Attendance_List extends WP_List_Table
   function get_data()
   {
     global $wpdb;
-    $table_name = $wpdb->prefix . 'attendance_form';
+    $table_name = $wpdb->prefix . 'attendance';
     return $wpdb->get_results("SELECT * FROM $table_name", ARRAY_A);
   }
 
@@ -172,28 +172,29 @@ class ES_Attendance_List extends WP_List_Table
   }
 
   function column_default($item, $column_name)
-  {
-    switch ($column_name) {
-      case 'email':
-      case 'first_date':
-        if (DateTime::createFromFormat('Y-m-d H:i:s', $item[$column_name]) !== false) {
-          $date = new DateTime($item[$column_name]);
-          return $date->format('d/m/Y');
-        } else {
-          return $item[$column_name];
-        }
-      case 'last_date':
-        if (DateTime::createFromFormat('Y-m-d H:i:s', $item[$column_name]) !== false) {
-          $date = new DateTime($item[$column_name]);
-          return $date->format('d/m/Y');
-        } else {
-          return $item[$column_name];
-        }
+{
+  switch ($column_name) {
+    case 'is_new':
+      return $item[$column_name] ? 'Yes' : 'No';
 
-      default:
-        return print_r($item, true);
-    }
+    case 'first_name':
+    case 'last_name':
+    case 'email':
+    case 'phone':
+    case 'times':
+    case 'first_date':
+    case 'last_date':
+      if (DateTime::createFromFormat('Y-m-d H:i:s', $item[$column_name]) !== false) {
+        $date = new DateTime($item[$column_name]);
+        return $date->format('d/m/Y');
+      } else {
+        return $item[$column_name];
+      }
+
+    default:
+      return print_r($item, true);
   }
+}
 }
 
 function es_render_attendance_list()
@@ -220,7 +221,7 @@ function es_on_deactivation()
 {
   if (!current_user_can('activate_plugins')) return;
   // global $wpdb;
-  // $table_name = $wpdb->prefix . 'attendance_form';
+  // $table_name = $wpdb->prefix . 'attendance';
   // $wpdb->query("DROP TABLE IF EXISTS $table_name");
   if (isset($_GET['es_delete_table']) && $_GET['es_delete_table'] == 'true') {
   }
