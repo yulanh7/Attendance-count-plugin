@@ -29,3 +29,46 @@
     padding: 10px; /* Mobile padding */
   }
 }
+
+.filter-form input[type="text"] {
+  margin-bottom: 12px;
+  padding: 5px 10px;
+  border-radius: 5px;
+}
+.filter-form .checkbox-container {
+  width: 130px;
+  display: inline-block;
+  padding: 0 10px;
+}
+
+.filter-form .submit-btn {
+  width: 100px;
+  height: 40px;
+  border-radius: 5px;
+  background: #FFD400;
+  border-color: #FFD400;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.filter-form .submit-btn:hover {
+  width: 100px;
+  height: 40px;
+  border-radius: 5px;
+  background: #d6b40c;
+}
+
+@media (max-width: 768px) {
+  .filter-form input[type="text"] {
+    margin-bottom: 12px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    width: 100%;
+  }
+  .filter-form .checkbox-container {
+    width: 130px;
+    display: block;
+    padding: 10px 0px 20px;
+  }
+
+}
