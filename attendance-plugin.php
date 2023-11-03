@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: A WordPress plugin to manage attendance.
- * Version: 1.34
+ * Version: 1.3
  * Author: Rachel Huang
  */
 
@@ -222,8 +222,8 @@ function es_render_attendance_list()
   <div class="wrap">
     <h2>Attendance</h2>
     <div class="filter-form">
-      <select name="es_congregation" id="es_congregation_filter">
-        <option value="" selected>All</option>
+      <select name="es_congregation_filter" id="es_congregation_filter">
+        <option value="" selected>All Congregation</option>
         <option value="Mandarin Congregation">Mandarin Congregation</option>
         <option value="Cantonese Congregation">Cantonese Congregation</option>
         <option value="English Congregation">English Congregation</option>

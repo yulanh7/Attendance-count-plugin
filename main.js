@@ -88,7 +88,7 @@ jQuery(document).ready(function ($) {
   $(document).on("click", "#filter-button", function (e) {
     e.preventDefault();
     console.log("aaaaa");
-    const esCongregation = $("#es_congregation_filter").val(); // Get the selected congregation
+    const congregation = $("#es_congregation_filter").val(); // Get the selected congregation
     const lastDate = $("#last_date_filter").val();
     const lastName = $("#last_name_filter").val();
     const firstName = $("#first_name_filter").val();
@@ -110,7 +110,7 @@ jQuery(document).ready(function ($) {
         last_name: lastName,
         first_name: firstName,
         email: email,
-        congregation: esCongregation,
+        congregation: congregation,
         is_new: isNew,
       },
       success: function (response) {
