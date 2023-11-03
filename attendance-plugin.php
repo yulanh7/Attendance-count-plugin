@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: A WordPress plugin to manage attendance.
- * Version: 1.3
+ * Version: 1.31
  * Author: Rachel Huang
  */
 
@@ -313,9 +313,9 @@ add_action('admin_menu', function () {
 function es_on_deactivation()
 {
   if (!current_user_can('activate_plugins')) return;
-  global $wpdb;
-  $table_name = $wpdb->prefix . 'attendance';
-  $wpdb->query("DROP TABLE IF EXISTS $table_name");
+  // global $wpdb;
+  // $table_name = $wpdb->prefix . 'attendance';
+  // $wpdb->query("DROP TABLE IF EXISTS $table_name");
   if (isset($_GET['es_delete_table']) && $_GET['es_delete_table'] == 'true') {
   }
 }

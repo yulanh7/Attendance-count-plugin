@@ -66,7 +66,7 @@ jQuery(document).ready(function ($) {
               "</div>"
           );
         }
-        $("form#es_attendance_form")[0].reset();
+        // $("form#es_attendance_form")[0].reset();
       }
     );
   });
