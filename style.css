@@ -9,6 +9,7 @@
   margin-bottom: 12px;
   padding: 10px;
   border-radius: 5px;
+  color: black;
 }
 
 .es-attendance-form input[type="submit"] {
@@ -36,6 +37,10 @@
   margin-bottom: 12px;
   padding: 5px 10px;
   border-radius: 5px;
+}
+.filter-form select {
+  margin-bottom: 4px;
+  width: 200px;
 }
 .filter-form .checkbox-container {
   width: 130px;
