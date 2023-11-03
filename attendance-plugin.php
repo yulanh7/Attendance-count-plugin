@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: A WordPress plugin to manage attendance.
- * Version: 1.2
+ * Version: 1.3
  * Author: Rachel Huang
  */
 
@@ -26,6 +26,7 @@ function create_attendance_table()
       email VARCHAR(255) NOT NULL,
       first_date DATE,
       last_date DATE,
+      congregation VARCHAR(255) NOT NULL,
       times INT,
       is_new BOOLEAN,
       PRIMARY KEY (id)
@@ -56,13 +57,18 @@ function attendance_form()
 {
   ob_start();
 ?>
-  <form id="es_attendance_form" class="es-attendance-form">
-    <input type="text" name="es_first_name" required placeholder="First Name *">
-    <input type="text" name="es_last_name" required placeholder="Last Name *">
-    <input type="email" name="es_email" required placeholder="Email *">
-    <input type="text" name="es_phone" placeholder="Phone">
-    <input type="submit" name="submit_attendance" value="Submit Attendance">
-  </form>
+<form id="es_attendance_form" class="es-attendance-form">
+  <input type="text" name="es_first_name" required placeholder="First Name *">
+  <input type="text" name="es_last_name" required placeholder="Last Name *">
+  <input type="email" name="es_email" required placeholder="Email *">
+  <input type="text" name="es_phone" placeholder="Phone">
+  <select name="es_congregation">
+    <option value="Mandarin Congregation">Mandarin Congregation</option>
+    <option value="Cantonese Congregation">Cantonese Congregation</option>
+    <option value="English Congregation">English Congregation</option>
+  </select>
+  <input type="submit" name="submit_attendance" value="Submit Attendance">
+</form>
 <?php
   return ob_get_clean();
 }
@@ -75,6 +81,7 @@ function es_handle_attendance()
   $first_name = sanitize_text_field($_POST['es_first_name']);
   $last_name = sanitize_text_field($_POST['es_last_name']);
   $phone = sanitize_text_field($_POST['es_phone']);
+  $congregation = sanitize_text_field($_POST['es_congregation']);
   $email = sanitize_email($_POST['es_email']);
   $current_date = current_time('mysql');
 
@@ -108,6 +115,7 @@ function es_handle_attendance()
     $data = array(
       'first_name' => $first_name,
       'last_name' => $last_name,
+      'congregation' => $congregation,
       'phone' => $phone,
       'last_date' => $current_date,
       'times' => intval($existing_user['times']) + 1,
@@ -130,6 +138,7 @@ function es_handle_attendance()
       'first_date' => $current_date,
       'last_date' => $current_date,
       'times' => 1,
+      'congregation' => $congregation,
       'is_new' => true,
     );
     $wpdb->insert($table_name, $data);
@@ -161,6 +170,7 @@ class ES_Attendance_List extends WP_List_Table
   function get_columns()
   {
     return [
+      'congregation' => 'Congregation',
       'first_name' => 'First Name',
       'last_name' => 'Last Name',
       'phone' => 'Phone',
@@ -191,6 +201,7 @@ class ES_Attendance_List extends WP_List_Table
       case 'last_name':
       case 'email':
       case 'phone':
+      case 'congregation':
       case 'times':
         return $item[$column_name];
 
@@ -208,23 +219,28 @@ function es_render_attendance_list()
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
 ?>
-  <div class="wrap">
-    <h2>Attendance</h2>
-    <div class="filter-form">
-      <input type="text" id="last_date_filter" placeholder="Last Date" value="<?php echo date('d/m/Y'); ?>">
-      <input type="text" id="last_name_filter" placeholder="Last Name">
-      <input type="text" id="first_name_filter" placeholder="First Name">
-      <input type="text" id="email_filter" placeholder="Email">
-      <span class="checkbox-container">
-        <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
-        <label for="is_new_filter">New Attendance</label>
-      </span>
-      <button id="filter-button" type="button" class="submit-btn">Filter</button>
+<div class="wrap">
+  <h2>Attendance</h2>
+  <div class="filter-form">
+    <select name="es_congregation" id="es_congregation_filter">
+      <option value="Mandarin Congregation" selected>Mandarin Congregation</option>
+      <option value="Cantonese Congregation">Cantonese Congregation</option>
+      <option value="English Congregation">English Congregation</option>
+    </select>
+    <input type="text" id="last_date_filter" placeholder="Last Date" value="<?php echo date('d/m/Y'); ?>">
+    <input type="text" id="last_name_filter" placeholder="Last Name">
+    <input type="text" id="first_name_filter" placeholder="First Name">
+    <input type="text" id="email_filter" placeholder="Email">
+    <span class="checkbox-container">
+      <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
+      <label for="is_new_filter">New Attendance</label>
+    </span>
+    <button id="filter-button" type="button" class="submit-btn">Filter</button>
 
-      <div id="filter-table-response">
-        <?php $attendanceListTable->display(); ?>
-      </div>
+    <div id="filter-table-response">
+      <?php $attendanceListTable->display(); ?>
     </div>
+  </div>
   <?php
 }
 
@@ -235,6 +251,7 @@ function es_filter_attendance_callback()
 {
   // Retrieve filter values from the AJAX request
   $last_date = sanitize_text_field($_POST['last_date']);
+  $congregation = sanitize_text_field($_POST['congregation']);
   $last_name = sanitize_text_field($_POST['last_name']);
   $first_name = sanitize_text_field($_POST['first_name']);
   $email = sanitize_text_field($_POST['email']);
@@ -246,9 +263,13 @@ function es_filter_attendance_callback()
 
   $query = "SELECT * FROM $table_name WHERE 1=1";
 
+  if (!empty($congregation)) {
+    $query .= $wpdb->prepare(" AND congregation = %s", $congregation);
+  }
   if (!empty($first_name)) {
     $query .= $wpdb->prepare(" AND first_name = %s", $first_name);
   }
+
 
   if (!empty($last_name)) {
     $query .= $wpdb->prepare(" AND last_name = %s", $last_name);

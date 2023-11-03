@@ -4,6 +4,7 @@ jQuery(document).ready(function ($) {
   const storedLastName = localStorage.getItem("es_last_name");
   const storedEmail = localStorage.getItem("es_email");
   const storedPhone = localStorage.getItem("es_phone");
+  const storedCongregation = localStorage.getItem("es_congregation"); // Added for dropdown
 
   // Set form field values if they exist in local storage
   if (storedFirstName) {
@@ -18,18 +19,25 @@ jQuery(document).ready(function ($) {
   if (storedPhone) {
     $("input[name=es_phone]").val(storedPhone);
   }
-
+  if (storedCongregation) {
+    // Set the selected option for the dropdown
+    $("select[name=es_congregation]").val(storedCongregation);
+  }
   $("form#es_attendance_form").submit(function (e) {
     e.preventDefault();
     const es_first_name = $("input[name=es_first_name]").val();
     const es_last_name = $("input[name=es_last_name]").val();
     const es_email = $("input[name=es_email]").val();
     const es_phone = $("input[name=es_phone]").val();
+    const es_congregation = $("select[name=es_congregation]").val(); // Get the selected dropdown value
+
     // Store values in local storage
     localStorage.setItem("es_first_name", es_first_name);
     localStorage.setItem("es_last_name", es_last_name);
     localStorage.setItem("es_email", es_email);
     localStorage.setItem("es_phone", es_phone);
+    localStorage.setItem("es_congregation", es_congregation); // Store the selected dropdown value
+
     $.post(
       esAjax.ajaxurl,
       {
@@ -38,6 +46,7 @@ jQuery(document).ready(function ($) {
         es_last_name,
         es_email,
         es_phone,
+        es_congregation,
       },
       function (response) {
         // Remove existing messages
@@ -79,6 +88,7 @@ jQuery(document).ready(function ($) {
   $(document).on("click", "#filter-button", function (e) {
     e.preventDefault();
     console.log("aaaaa");
+    const esCongregation = $("#es_congregation_filter").val(); // Get the selected congregation
     const lastDate = $("#last_date_filter").val();
     const lastName = $("#last_name_filter").val();
     const firstName = $("#first_name_filter").val();
@@ -100,7 +110,8 @@ jQuery(document).ready(function ($) {
         last_name: lastName,
         first_name: firstName,
         email: email,
-        is_new: isNew, // Send the isNew value
+        congregation: esCongregation,
+        is_new: isNew,
       },
       success: function (response) {
         $(tableName).html(response.data.table_html);
