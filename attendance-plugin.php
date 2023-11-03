@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: A WordPress plugin to manage attendance.
- * Version: 1.32
+ * Version: 1.33
  * Author: Rachel Huang
  */
 
@@ -215,7 +215,8 @@ function es_render_attendance_list()
 {
   global $wpdb;
   $table_name = $wpdb->prefix . 'attendance';
-  $results = $wpdb->get_results("SELECT * FROM $table_name where is_new = 1", ARRAY_A);
+  $current_date = current_time('mysql');
+  $results = $wpdb->get_results("SELECT * FROM $table_name where is_new = 1 and DATE(last_date) = DATE($current_date)", ARRAY_A);
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
 ?>
@@ -223,7 +224,8 @@ function es_render_attendance_list()
     <h2>Attendance</h2>
     <div class="filter-form">
       <select name="es_congregation" id="es_congregation_filter">
-        <option value="Mandarin Congregation" selected>Mandarin Congregation</option>
+        <option value="" selected>All</option>
+        <option value="Mandarin Congregation">Mandarin Congregation</option>
         <option value="Cantonese Congregation">Cantonese Congregation</option>
         <option value="English Congregation">English Congregation</option>
       </select>
@@ -312,9 +314,9 @@ add_action('admin_menu', function () {
 function es_on_deactivation()
 {
   if (!current_user_can('activate_plugins')) return;
-  // global $wpdb;
-  // $table_name = $wpdb->prefix . 'attendance';
-  // $wpdb->query("DROP TABLE IF EXISTS $table_name");
+  global $wpdb;
+  $table_name = $wpdb->prefix . 'attendance';
+  $wpdb->query("DROP TABLE IF EXISTS $table_name");
   if (isset($_GET['es_delete_table']) && $_GET['es_delete_table'] == 'true') {
   }
 }
