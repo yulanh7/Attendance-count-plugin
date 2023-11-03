@@ -4,7 +4,8 @@
 }
 
 .es-attendance-form input[type="text"],
-.es-attendance-form input[type="email"] {
+.es-attendance-form input[type="email"],
+.es-attendance-form select {
   margin-bottom: 12px;
   padding: 10px;
   border-radius: 5px;
@@ -30,7 +31,8 @@
   }
 }
 
-.filter-form input[type="text"] {
+.filter-form input[type="text"],
+.filter-form select {
   margin-bottom: 12px;
   padding: 5px 10px;
   border-radius: 5px;
@@ -45,8 +47,8 @@
   width: 100px;
   height: 40px;
   border-radius: 5px;
-  background: #FFD400;
-  border-color: #FFD400;
+  background: #ffd400;
+  border-color: #ffd400;
   font-size: 18px;
   font-weight: 500;
 }
@@ -70,5 +72,4 @@
     display: block;
     padding: 10px 0px 20px;
   }
-
 }
