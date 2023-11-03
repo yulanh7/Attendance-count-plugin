@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: A WordPress plugin to manage attendance.
- * Version: 1.3
+ * Version: 1.31
  * Author: Rachel Huang
  */
 
@@ -57,18 +57,18 @@ function attendance_form()
 {
   ob_start();
 ?>
-<form id="es_attendance_form" class="es-attendance-form">
-  <input type="text" name="es_first_name" required placeholder="First Name *">
-  <input type="text" name="es_last_name" required placeholder="Last Name *">
-  <input type="email" name="es_email" required placeholder="Email *">
-  <input type="text" name="es_phone" placeholder="Phone">
-  <select name="es_congregation">
-    <option value="Mandarin Congregation" selected>Mandarin Congregation</option>
-    <option value="Cantonese Congregation">Cantonese Congregation</option>
-    <option value="English Congregation">English Congregation</option>
-  </select>
-  <input type="submit" name="submit_attendance" value="Submit Attendance">
-</form>
+  <form id="es_attendance_form" class="es-attendance-form">
+    <input type="text" name="es_first_name" required placeholder="First Name *">
+    <input type="text" name="es_last_name" required placeholder="Last Name *">
+    <input type="email" name="es_email" required placeholder="Email *">
+    <input type="text" name="es_phone" placeholder="Phone">
+    <select name="es_congregation">
+      <option value="Mandarin Congregation" selected>Mandarin Congregation</option>
+      <option value="Cantonese Congregation">Cantonese Congregation</option>
+      <option value="English Congregation">English Congregation</option>
+    </select>
+    <input type="submit" name="submit_attendance" value="Submit Attendance">
+  </form>
 <?php
   return ob_get_clean();
 }
@@ -219,28 +219,28 @@ function es_render_attendance_list()
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
 ?>
-<div class="wrap">
-  <h2>Attendance</h2>
-  <div class="filter-form">
-    <select name="es_congregation" id="es_congregation_filter">
-      <option value="Mandarin Congregation" selected>Mandarin Congregation</option>
-      <option value="Cantonese Congregation">Cantonese Congregation</option>
-      <option value="English Congregation">English Congregation</option>
-    </select>
-    <input type="text" id="last_date_filter" placeholder="Last Date" value="<?php echo date('d/m/Y'); ?>">
-    <input type="text" id="last_name_filter" placeholder="Last Name">
-    <input type="text" id="first_name_filter" placeholder="First Name">
-    <input type="text" id="email_filter" placeholder="Email">
-    <span class="checkbox-container">
-      <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
-      <label for="is_new_filter">New Attendance</label>
-    </span>
-    <button id="filter-button" type="button" class="submit-btn">Filter</button>
+  <div class="wrap">
+    <h2>Attendance</h2>
+    <div class="filter-form">
+      <select name="es_congregation" id="es_congregation_filter">
+        <option value="Mandarin Congregation" selected>Mandarin Congregation</option>
+        <option value="Cantonese Congregation">Cantonese Congregation</option>
+        <option value="English Congregation">English Congregation</option>
+      </select>
+      <input type="text" id="last_date_filter" placeholder="Last Date" value="<?php echo date('d/m/Y'); ?>">
+      <input type="text" id="last_name_filter" placeholder="Last Name">
+      <input type="text" id="first_name_filter" placeholder="First Name">
+      <input type="text" id="email_filter" placeholder="Email">
+      <span class="checkbox-container">
+        <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
+        <label for="is_new_filter">New Attendance</label>
+      </span>
+      <button id="filter-button" type="button" class="submit-btn">Filter</button>
 
-    <div id="filter-table-response">
-      <?php $attendanceListTable->display(); ?>
+      <div id="filter-table-response">
+        <?php $attendanceListTable->display(); ?>
+      </div>
     </div>
-  </div>
   <?php
 }
 
