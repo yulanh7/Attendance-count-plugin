@@ -219,14 +219,14 @@ function es_render_attendance_list()
     <span class="checkbox-container">
       <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
       <label for="is_new_filter">New Attendance</label>
-</span>
+    </span>
     <button id="filter-button" type="button" class="submit-btn">Filter</button>
 
-  <div id="filter-table-response">
-  <?php $attendanceListTable->display(); ?>
-</div>
-</div>
-<?php
+    <div id="filter-table-response">
+      <?php $attendanceListTable->display(); ?>
+    </div>
+  </div>
+  <?php
 }
 
 
@@ -283,12 +283,9 @@ function es_filter_attendance_callback() {
     wp_die();
 }
 
-
 add_action('admin_menu', function () {
-  add_menu_page('Attendance', 'Attendance', 'manage_options', 'es-attendance', 'es_render_attendance_list');
+  add_menu_page('Attendance', 'Attendance', 'manage_options', 'es-attendance', 'es_render_attendance_list', 'dashicons-calendar', 1);
 });
-
-
 
 
 function es_on_deactivation()
