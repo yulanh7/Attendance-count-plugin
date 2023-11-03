@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: A WordPress plugin to manage attendance.
- * Version: 1.33
+ * Version: 1.34
  * Author: Rachel Huang
  */
 
@@ -215,8 +215,7 @@ function es_render_attendance_list()
 {
   global $wpdb;
   $table_name = $wpdb->prefix . 'attendance';
-  $current_date = current_time('mysql');
-  $results = $wpdb->get_results("SELECT * FROM $table_name where is_new = 1 and DATE(last_date) = DATE($current_date)", ARRAY_A);
+  $results = $wpdb->get_results("SELECT * FROM $table_name WHERE is_new = 1 AND last_date = CURDATE()", ARRAY_A);
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
 ?>
