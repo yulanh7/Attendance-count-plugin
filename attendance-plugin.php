@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: A WordPress plugin to manage attendance.
- * Version: 1.4
+ * Version: 1.45
  * Author: Rachel Huang
  */
 
@@ -395,23 +395,23 @@ add_action('admin_menu', function () {
 });
 
 
-function es_on_deactivation()
-{
-  if (!current_user_can('activate_plugins')) return;
-  global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+// function es_on_deactivation() {
+//   global $wpdb;
+//   if (!current_user_can('activate_plugins')) return;
 
-  $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
-  $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
-  if (isset($_GET['es_delete_table']) && $_GET['es_delete_table'] == 'true') {
-  }
-}
+//   $attendance_table_name = $wpdb->prefix . 'attendance';
+//   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
-register_deactivation_hook(__FILE__, 'es_on_deactivation');
+//   $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
+//   $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
 
-add_action('admin_notices', function () {
-  if (isset($_GET['deactivate'])) {
-    echo '<div class="updated"><p>Do you want to delete the attendance table? <a href="' . admin_url('plugins.php?es_delete_table=true') . '">Yes</a> | <a href="' . admin_url('plugins.php') . '">No</a></p></div>';
-  }
-});
+//   if ($result1 === false || $result2 === false) {
+//       error_log("Error dropping tables: " . $wpdb->last_error);
+//   } else {
+//       error_log("Tables dropped successfully.");
+//   }
+// }
+
+// register_deactivation_hook(__FILE__, 'es_on_deactivation');
+
+
