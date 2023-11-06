@@ -63,7 +63,13 @@ add_action('admin_enqueue_scripts', 'es_enqueue_scripts');
 function attendance_form()
 {
   ob_start();
+  $currentDayOfWeek = date('w');
+  $isSunday = ($currentDayOfWeek == 0);
+  $todayDate = date('d/m/Y');
+  $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: red'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
+
 ?>
+
   <form id="es_attendance_form" class="es-attendance-form">
     <input type="text" name="es_first_name" required placeholder="First Name *">
     <input type="text" name="es_last_name" required placeholder="Last Name *">
@@ -74,7 +80,9 @@ function attendance_form()
       <option value="Cantonese Congregation">Cantonese Congregation</option>
       <option value="English Congregation">English Congregation</option>
     </select>
-    <input type="submit" name="submit_attendance" value="Submit Attendance">
+    <div id="date-message"><?php echo $dateMessage; ?></div>
+
+    <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isSunday ? '' : 'disabled'; ?>>
   </form>
 <?php
   return ob_get_clean();
