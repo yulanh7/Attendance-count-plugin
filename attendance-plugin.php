@@ -31,8 +31,10 @@ function create_attendance_table()
   ) $charset_collate;";
 
   $sql .= "CREATE TABLE $attendance_dates_table_name (
+      id INT NOT NULL AUTO_INCREMENT,
       attendance_id INT NOT NULL,
       date_attended DATE NOT NULL,
+      PRIMARY KEY (id),
       FOREIGN KEY (attendance_id) REFERENCES $attendance_table_name(id)
   ) $charset_collate;";
 
@@ -97,9 +99,8 @@ function es_handle_attendance()
 
   $existing_entry = $wpdb->get_row(
     $wpdb->prepare(
-      "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = (SELECT id FROM $attendance_table_name WHERE email = %s) AND date_attended = %s",
+      "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = (SELECT id FROM $attendance_table_name WHERE email = %s)",
       $email,
-      $current_date
     ),
     ARRAY_A
   );
@@ -394,7 +395,7 @@ function es_on_deactivation()
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
   $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
-  $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
+  // $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
   if (isset($_GET['es_delete_table']) && $_GET['es_delete_table'] == 'true') {
   }
 }

@@ -37,10 +37,10 @@ jQuery(document).ready(function ($) {
     localStorage.setItem("es_email", es_email);
     localStorage.setItem("es_phone", es_phone);
     localStorage.setItem("es_congregation", es_congregation); // Store the selected dropdown value
-
-    $.post(
-      esAjax.ajaxurl,
-      {
+    $.ajax({
+      url: esAjax.ajaxurl,
+      type: "POST",
+      data: {
         action: "es_handle_attendance",
         es_first_name,
         es_last_name,
@@ -48,11 +48,10 @@ jQuery(document).ready(function ($) {
         es_phone,
         es_congregation,
       },
-      function (response) {
-        // Remove existing messages
+      success: function (response) {
+        // Handle success
         $(".es-message").remove();
 
-        // Append new message
         if (response.success) {
           $("form#es_attendance_form").after(
             '<div class="es-message" style="color:green;">' +
@@ -66,9 +65,15 @@ jQuery(document).ready(function ($) {
               "</div>"
           );
         }
-        // $("form#es_attendance_form")[0].reset();
-      }
-    );
+      },
+      error: function (xhr, textStatus, errorThrown) {
+        console.error('Error: ' + xhr.responseText);
+      },
+      
+    });
+    
+
+ 
   });
 
   $("form#es_attendance_form input").focus(function () {
