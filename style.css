@@ -4,6 +4,7 @@
 }
 
 .es-attendance-form input[type="text"],
+.es-attendance-form input[type="date"],
 .es-attendance-form input[type="email"],
 .es-attendance-form select {
   margin-bottom: 12px;
@@ -21,6 +22,17 @@
   cursor: pointer;
 }
 
+.es-attendance-form input[disabled] {
+  background-color: gray!important;
+  border-radius: 5px;
+  cursor: default;
+}
+.es-attendance-form input[disabled]:hover{
+  background-color: gray!important;
+  border-radius: 5px;
+  cursor: default;
+}
+
 .es-attendance-form .es-form-group {
   color: #ffffff; /* Dynamic text color */
   margin-bottom: 12px;
@@ -33,6 +45,7 @@
 }
 
 .filter-form input[type="text"],
+.filter-form input[type="date"],
 .filter-form select {
   margin-bottom: 12px;
   padding: 5px 10px;
