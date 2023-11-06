@@ -15,26 +15,31 @@ defined('ABSPATH') or die('No script kiddies please!');
 function create_attendance_table()
 {
   global $wpdb;
-  $table_name = $wpdb->prefix . 'attendance';
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates'; // New table for attendance dates
   $charset_collate = $wpdb->get_charset_collate();
 
-  $sql = "CREATE TABLE $table_name (
+  $sql = "CREATE TABLE $attendance_table_name (
       id INT NOT NULL AUTO_INCREMENT,
       first_name VARCHAR(255) NOT NULL,
       last_name VARCHAR(255) NOT NULL,
       phone VARCHAR(20),
       email VARCHAR(255) NOT NULL,
-      first_date DATE,
-      last_date DATE,
       congregation VARCHAR(255) NOT NULL,
-      times INT,
-      is_new BOOLEAN,
+      is_new BOOLEAN DEFAULT 1,
       PRIMARY KEY (id)
+  ) $charset_collate;";
+
+  $sql .= "CREATE TABLE $attendance_dates_table_name (
+      attendance_id INT NOT NULL,
+      date_attended DATE NOT NULL,
+      FOREIGN KEY (attendance_id) REFERENCES $attendance_table_name(id)
   ) $charset_collate;";
 
   require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
   dbDelta($sql);
 }
+
 
 register_activation_hook(__FILE__, 'create_attendance_table');
 
@@ -85,21 +90,14 @@ function es_handle_attendance()
   $email = sanitize_email($_POST['es_email']);
   $current_date = current_time('mysql');
 
-  // Check for duplicate entries on the same date (you should customize this query based on your database structure)
+  // Check for duplicate entries on the same date
   global $wpdb;
-  $table_name = $wpdb->prefix . 'attendance';
-
-  $existing_user = $wpdb->get_row(
-    $wpdb->prepare(
-      "SELECT * FROM $table_name WHERE email = %s",
-      $email
-    ),
-    ARRAY_A
-  );
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
   $existing_entry = $wpdb->get_row(
     $wpdb->prepare(
-      "SELECT * FROM $table_name WHERE email = %s AND DATE(last_date) = DATE(%s)",
+      "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = (SELECT id FROM $attendance_table_name WHERE email = %s) AND date_attended = %s",
       $email,
       $current_date
     ),
@@ -111,40 +109,45 @@ function es_handle_attendance()
     return;
   }
 
-  if ($existing_user) {
-    $data = array(
-      'first_name' => $first_name,
-      'last_name' => $last_name,
-      'congregation' => $congregation,
-      'phone' => $phone,
-      'last_date' => $current_date,
-      'times' => intval($existing_user['times']) + 1,
-      'is_new' => false,
-    );
-    $wpdb->update(
-      $table_name,
-      $data,
-      array(
-        'email' => $email,
-        'last_date' => $existing_user['last_date'], // Only update if the last_date matches the existing record
-      )
-    );
+  // Check if the attendee is new (based on the is_new field)
+  $is_new = $wpdb->get_var(
+    $wpdb->prepare(
+      "SELECT is_new FROM $attendance_table_name WHERE email = %s",
+      $email
+    )
+  );
+
+  if ($is_new === null) {
+    $is_new = 1; 
   } else {
-    $data = array(
-      'first_name' => $first_name,
-      'last_name' => $last_name,
-      'phone' => $phone,
-      'email' => $email,
-      'first_date' => $current_date,
-      'last_date' => $current_date,
-      'times' => 1,
-      'congregation' => $congregation,
-      'is_new' => true,
-    );
-    $wpdb->insert($table_name, $data);
+    $is_new = 0; 
   }
+
+  // Insert into the main attendance table
+  $data = array(
+    'first_name' => $first_name,
+    'last_name' => $last_name,
+    'congregation' => $congregation,
+    'phone' => $phone,
+    'email' => $email,
+    'is_new' => $is_new,
+  );
+
+  $wpdb->insert($attendance_table_name, $data);
+  $attendance_id = $wpdb->insert_id;
+
+  // Insert into the attendance_dates table
+  $data = array(
+    'attendance_id' => $attendance_id,
+    'date_attended' => $current_date,
+  );
+
+  $wpdb->insert($attendance_dates_table_name, $data);
+
   wp_send_json_success(['message' => 'Submit successfully!']);
 }
+
+
 
 add_action('wp_ajax_es_handle_attendance', 'es_handle_attendance');
 
@@ -175,47 +178,107 @@ class ES_Attendance_List extends WP_List_Table
       'last_name' => 'Last Name',
       'phone' => 'Phone',
       'email' => 'Email',
-      'first_date' => 'First Date',
-      'last_date' => 'Last Date',
-      'times' => 'Times',
-      'is_new' => 'Is New',
+      'percentage' => 'Percentage',
+      'last_attended' => 'Last Attended Date',
     ];
   }
 
   function column_default($item, $column_name)
   {
     switch ($column_name) {
-      case 'is_new':
-        return $item[$column_name] ? 'Yes' : 'No';
-
-      case 'first_date':
-      case 'last_date':
-        $date = DateTime::createFromFormat('Y-m-d', $item[$column_name]);
-        if ($date !== false) {
-          return $date->format('d/m/Y');
-        } else {
-          return $item[$column_name];
-        }
-
       case 'first_name':
       case 'last_name':
       case 'email':
       case 'phone':
       case 'congregation':
-      case 'times':
         return $item[$column_name];
-
+  
+      case 'percentage':
+        // Calculate and display the percentage here
+        $attendance_count = calculate_attendance_count($item['email']);
+        $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
+        if ($sunday_count > 0) {
+          $percentage = ($attendance_count / $sunday_count) * 100;
+          return round($percentage, 2) . '%';
+        } else {
+          return "N/A";
+        }
+  
+      case 'last_attended':
+        // Get and display the last attended date here
+        $last_attended_date = get_last_attended_date($item['email']);
+        return ($last_attended_date !== null) ? date('d/m/Y', strtotime($last_attended_date)) : 'N/A';
+  
       default:
         return print_r($item, true);
     }
   }
+  
 }
+
+function calculate_attendance_count($email)
+{
+  global $wpdb;
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+
+  $query = $wpdb->prepare(
+    "SELECT COUNT(DISTINCT A.id)
+    FROM $attendance_table_name AS A
+    INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id
+    WHERE A.email = %s",
+    $email
+  );
+
+  return $wpdb->get_var($query);
+}
+
+function calculate_sunday_count($start_date, $end_date)
+{
+  $start = new DateTime($start_date);
+  $end = new DateTime($end_date);
+  $interval = new DateInterval('P1D'); // 1 day interval
+
+  $sunday_count = 0;
+
+  while ($start <= $end) {
+    if ($start->format('N') == 7) { // Sunday is day number 7
+      $sunday_count++;
+    }
+    $start->add($interval);
+  }
+
+  return $sunday_count;
+}
+
+
+function get_last_attended_date($email)
+{
+  global $wpdb;
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+
+  $query = $wpdb->prepare(
+    "SELECT MAX(D.date_attended)
+    FROM $attendance_table_name AS A
+    INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id
+    WHERE A.email = %s",
+    $email
+  );
+
+  return $wpdb->get_var($query);
+}
+
 
 function es_render_attendance_list()
 {
   global $wpdb;
   $table_name = $wpdb->prefix . 'attendance';
-  $results = $wpdb->get_results("SELECT * FROM $table_name WHERE is_new = 1 AND last_date = CURDATE()", ARRAY_A);
+  $results = $wpdb->get_results("SELECT * FROM $table_name", ARRAY_A);
+  foreach ($results as &$item) {
+    $item['start_date'] = date('Y-m-d');
+    $item['end_date'] = date('Y-m-d');
+  }
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
 ?>
@@ -228,7 +291,6 @@ function es_render_attendance_list()
         <option value="Cantonese Congregation">Cantonese Congregation</option>
         <option value="English Congregation">English Congregation</option>
       </select>
-      <input type="text" id="last_date_filter" placeholder="Last Date" value="<?php echo date('d/m/Y'); ?>">
       <input type="text" id="last_name_filter" placeholder="Last Name">
       <input type="text" id="first_name_filter" placeholder="First Name">
       <input type="text" id="email_filter" placeholder="Email">
@@ -236,8 +298,9 @@ function es_render_attendance_list()
         <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
         <label for="is_new_filter">New Attendance</label>
       </span>
+      <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo date('Y-m-d'); ?>">
+      <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo date('Y-m-d'); ?>">
       <button id="filter-button" type="button" class="submit-btn">Filter</button>
-
       <div id="filter-table-response">
         <?php $attendanceListTable->display(); ?>
       </div>
@@ -251,18 +314,24 @@ add_action('wp_ajax_es_filter_attendance', 'es_filter_attendance_callback');
 function es_filter_attendance_callback()
 {
   // Retrieve filter values from the AJAX request
-  $last_date = sanitize_text_field($_POST['last_date']);
   $congregation = sanitize_text_field($_POST['congregation']);
   $last_name = sanitize_text_field($_POST['last_name']);
   $first_name = sanitize_text_field($_POST['first_name']);
   $email = sanitize_text_field($_POST['email']);
-  $last_date_formatted = date('Y-m-d H:i:s', strtotime(str_replace('/', '-', $last_date)));
-  $is_new = isset($_POST['is_new']) && $_POST['is_new'] === 'true' ? true : false; // Check the isNew value
+  $is_new = isset($_POST['is_new_filter']) ? 1 : 0;
+  $start_date = sanitize_text_field($_POST['start_date_filter']);
+  $end_date = sanitize_text_field($_POST['end_date_filter']);
+  
 
   global $wpdb;
-  $table_name = $wpdb->prefix . 'attendance';
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
-  $query = "SELECT * FROM $table_name WHERE 1=1";
+  // Query to select attendance data based on filters
+  $query = "SELECT A.*, D.date_attended 
+            FROM $attendance_table_name AS A
+            INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
+            WHERE 1=1";
 
   if (!empty($congregation)) {
     $query .= $wpdb->prepare(" AND congregation = %s", $congregation);
@@ -270,7 +339,6 @@ function es_filter_attendance_callback()
   if (!empty($first_name)) {
     $query .= $wpdb->prepare(" AND first_name = %s", $first_name);
   }
-
 
   if (!empty($last_name)) {
     $query .= $wpdb->prepare(" AND last_name = %s", $last_name);
@@ -280,17 +348,25 @@ function es_filter_attendance_callback()
     $query .= $wpdb->prepare(" AND email = %s", $email);
   }
 
-  if (!empty($last_date)) {
-    $query .= $wpdb->prepare(" AND DATE(last_date) = DATE(%s)", $last_date_formatted);
-  }
-
   if ($is_new) {
-    $query .= " AND is_new = 1";
+    $query .= " AND A.is_new = 1";
   }
+  if (!empty($start_date)) {
+    $start_date = date('Y-m-d', strtotime($start_date));
+    $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
+  }
+  if (!empty($end_date)) {
+    $end_date = date('Y-m-d', strtotime($end_date));
+    $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
+  }
+  
 
   $results = $wpdb->get_results($query, ARRAY_A);
 
-
+  foreach ($results as &$item) {
+    $item['start_date'] = isset($_POST['start_date_filter']) ? sanitize_text_field($_POST['start_date_filter']) : date('Y-m-d');
+    $item['end_date'] = isset($_POST['end_date_filter']) ? sanitize_text_field($_POST['end_date_filter']) : date('Y-m-d');
+  }
   // Create a new table instance and prepare it with the filtered data
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
@@ -313,9 +389,12 @@ add_action('admin_menu', function () {
 function es_on_deactivation()
 {
   if (!current_user_can('activate_plugins')) return;
-  // global $wpdb;
-  // $table_name = $wpdb->prefix . 'attendance';
-  // $wpdb->query("DROP TABLE IF EXISTS $table_name");
+  global $wpdb;
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+
+  $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
+  $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
   if (isset($_GET['es_delete_table']) && $_GET['es_delete_table'] == 'true') {
   }
 }

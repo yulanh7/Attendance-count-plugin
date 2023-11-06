@@ -87,9 +87,9 @@ jQuery(document).ready(function ($) {
 
   $(document).on("click", "#filter-button", function (e) {
     e.preventDefault();
-    console.log("aaaaa");
     const congregation = $("#es_congregation_filter").val(); // Get the selected congregation
-    const lastDate = $("#last_date_filter").val();
+    const start_date_filter = $("#start_date_filter").val();
+    const end_date_filter = $("#end_date_filter").val();
     const lastName = $("#last_name_filter").val();
     const firstName = $("#first_name_filter").val();
     const email = $("#email_filter").val();
@@ -106,7 +106,8 @@ jQuery(document).ready(function ($) {
       type: "POST",
       data: {
         action: "es_filter_attendance",
-        last_date: lastDate,
+        start_date_filter,
+        end_date_filter,
         last_name: lastName,
         first_name: firstName,
         email: email,
