@@ -80,9 +80,6 @@ if (recaptchaResponse === "") {
       },
       
     });
-    
-
- 
   });
 
   $("form#es_attendance_form input").focus(function () {
@@ -99,8 +96,25 @@ if (recaptchaResponse === "") {
     yearRange: "c-100:c+0", // Allow selection of the past 100 years to the current year
   });
 
-  $(document).on("click", "#filter-button", function (e) {
-    e.preventDefault();
+  function bindPaginationEvent() {
+    $(document).on('click', '.pagination-links a', function(e) {
+      e.preventDefault();
+      // This will extract the page number from the query string in the href attribute
+      var href = $(this).attr('href');
+      var match = href.match(/paged=(\d+)/);
+      var page = match ? parseInt(match[1], 10) : false;
+  
+      console.log('Page number:', page);
+      if (page) {
+        fetchFilteredResults(page);
+      } else {
+        console.error('Page number is undefined.');
+      }
+    });
+  }
+  
+
+  function fetchFilteredResults(page) {
     const congregation = $("#es_congregation_filter").val(); // Get the selected congregation
     const start_date_filter = $("#start_date_filter").val();
     const end_date_filter = $("#end_date_filter").val();
@@ -115,6 +129,7 @@ if (recaptchaResponse === "") {
         $(this).closest("tr").toggleClass("is-expanded");
       });
     }
+    
 
     $.ajax({
       url: esAjax.ajaxurl,
@@ -129,14 +144,27 @@ if (recaptchaResponse === "") {
         congregation: congregation,
         is_new: isNew,
         percentage_filter: percentageFilter,
+        paged: page,
       },
       success: function (response) {
         $(tableName).html(response.data.table_html);
         bindToggleRowEvent();
+        bindPaginationEvent();
+
       },
       error: function () {
         alert("An error occurred.");
       },
     });
+  }
+
+
+
+
+
+
+  $(document).on("click", "#filter-button", function (e) {
+    e.preventDefault();
+    fetchFilteredResults(1); // Fetch results for the first page
   });
 });
