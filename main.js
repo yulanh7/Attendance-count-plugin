@@ -108,6 +108,7 @@ if (recaptchaResponse === "") {
     const firstName = $("#first_name_filter").val();
     const email = $("#email_filter").val();
     const isNew = $("#is_new_filter").is(":checked"); // Get the checkbox state
+    const percentageFilter = $("#percentage_filter").is(":checked"); // Get the checkbox state
     const tableName = "#filter-table-response";
     function bindToggleRowEvent() {
       $("tbody").on("click", ".toggle-row", function () {
@@ -127,6 +128,7 @@ if (recaptchaResponse === "") {
         email: email,
         congregation: congregation,
         is_new: isNew,
+        percentage_filter: percentageFilter,
       },
       success: function (response) {
         $(tableName).html(response.data.table_html);

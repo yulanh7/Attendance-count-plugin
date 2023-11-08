@@ -330,12 +330,16 @@ function es_render_attendance_list()
       <input type="text" id="last_name_filter" placeholder="Last Name">
       <input type="text" id="first_name_filter" placeholder="First Name">
       <input type="text" id="email_filter" placeholder="Email">
+      <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo date('Y-m-d'); ?>">
+      <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo date('Y-m-d'); ?>">
       <span class="checkbox-container">
         <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
         <label for="is_new_filter">New Attendance</label>
       </span>
-      <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo date('Y-m-d'); ?>">
-      <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo date('Y-m-d'); ?>">
+      <span class="checkbox-container">
+        <input type="checkbox" id="percentage_filter" name="percentage_filter">
+        <label for="percentage_filter">>= 50%</label>
+      </span>
       <button id="filter-button" type="button" class="submit-btn">Filter</button>
       <div id="filter-table-response">
         <?php $attendanceListTable->display(); ?>
@@ -403,6 +407,17 @@ function es_filter_attendance_callback()
     $item['start_date'] = isset($_POST['start_date_filter']) ? sanitize_text_field($_POST['start_date_filter']) : date('Y-m-d');
     $item['end_date'] = isset($_POST['end_date_filter']) ? sanitize_text_field($_POST['end_date_filter']) : date('Y-m-d');
   }
+
+  $percentageFilter = isset($_POST['percentage_filter']) ? $_POST['percentage_filter'] : 'all';
+  if ($percentageFilter) {
+    $results = array_filter($results, function ($item) {
+      $attendance_count = calculate_attendance_count($item['email']);
+      $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
+      $percentage = $sunday_count > 0 ? ($attendance_count / $sunday_count) * 100 : 0;
+      return $percentage >= 0.5;
+    });
+  }
+
   // Create a new table instance and prepare it with the filtered data
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
