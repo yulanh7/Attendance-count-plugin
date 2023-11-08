@@ -30,7 +30,16 @@ jQuery(document).ready(function ($) {
     const es_email = $("input[name=es_email]").val();
     const es_phone = $("input[name=es_phone]").val();
     const es_congregation = $("select[name=es_congregation]").val(); // Get the selected dropdown value
+// Capture the reCAPTCHA response
+var recaptchaResponse = grecaptcha.getResponse();
 
+// Check if the response is empty (indicating the user didn't complete the reCAPTCHA)
+if (recaptchaResponse === "") {
+  $("form#es_attendance_form").after(
+    '<div class="es-message" style="color:red;">Please complete the reCAPTCHA.</div>' 
+  );
+  return;
+}
     // Store values in local storage
     localStorage.setItem("es_first_name", es_first_name);
     localStorage.setItem("es_last_name", es_last_name);

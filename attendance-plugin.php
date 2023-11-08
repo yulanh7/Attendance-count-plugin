@@ -54,12 +54,36 @@ function es_enqueue_scripts()
   wp_enqueue_style('custom-style', plugin_dir_url(__FILE__) . 'style.css');
   wp_enqueue_script('jquery-ui-datepicker');
   wp_enqueue_style('jquery-ui-datepicker-style', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
+  wp_enqueue_script('google-recaptcha', 'https://www.google.com/recaptcha/api.js');
+
 }
 
 add_action('wp_enqueue_scripts', 'es_enqueue_scripts');
 add_action('admin_enqueue_scripts', 'es_enqueue_scripts');
 
+// Function to verify reCAPTCHA
+function verify_recaptcha($response) {
+  $secretKey = 'YOUR_RECAPTCHA_SECRET_KEY'; // Replace with your Secret Key
+  $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
+  $data = array(
+      'secret' => $secretKey,
+      'response' => $response,
+  );
 
+  $options = array(
+      'http' => array(
+          'header' => 'Content-type: application/x-www-form-urlencoded',
+          'method' => 'POST',
+          'content' => http_build_query($data),
+      ),
+  );
+
+  $context = stream_context_create($options);
+  $verify = file_get_contents($verifyUrl, false, $context);
+  $captchaSuccess = json_decode($verify);
+
+  return $captchaSuccess->success;
+}
 function attendance_form()
 {
   ob_start();
@@ -81,6 +105,7 @@ function attendance_form()
       <option value="English Congregation">English Congregation</option>
     </select>
     <div id="date-message"><?php echo $dateMessage; ?></div>
+    <div class="g-recaptcha" data-sitekey="6Lcpl_soAAAAABWk5dR0MVbuWMaTaucZyPVA1ApX"></div>
 
     <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isSunday ? '' : 'disabled'; ?>>
   </form>
@@ -92,7 +117,6 @@ add_shortcode('attendance_form', 'attendance_form');
 
 function es_handle_attendance()
 {
-  // Get the submitted form data
   $first_name = sanitize_text_field($_POST['es_first_name']);
   $last_name = sanitize_text_field($_POST['es_last_name']);
   $phone = sanitize_text_field($_POST['es_phone']);
@@ -187,6 +211,7 @@ class ES_Attendance_List extends WP_List_Table
       'last_name' => 'Last Name',
       'phone' => 'Phone',
       'email' => 'Email',
+      'times' => 'Times',
       'percentage' => 'Percentage',
       'last_attended' => 'Last Attended Date',
     ];
@@ -201,7 +226,9 @@ class ES_Attendance_List extends WP_List_Table
       case 'phone':
       case 'congregation':
         return $item[$column_name];
-  
+      case 'times':
+        $attendance_count = calculate_attendance_count($item['email']);
+        return $attendance_count;
       case 'percentage':
         // Calculate and display the percentage here
         $attendance_count = calculate_attendance_count($item['email']);
