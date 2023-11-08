@@ -159,14 +159,40 @@ if (recaptchaResponse === "") {
       },
     });
   }
-
-
-
-
-
-
   $(document).on("click", "#filter-button", function (e) {
     e.preventDefault();
     fetchFilteredResults(1); // Fetch results for the first page
   });
+
+
+  $(document).on("click", "#export-csv-button", function (e) {
+    e.preventDefault();
+    const dataForCSV = {
+        action: "es_export_attendance_csv",
+        // Include any other parameters you want to filter or include in the CSV
+    };
+    
+    // Use AJAX to send data to server and handle file download
+    $.ajax({
+        url: esAjax.ajaxurl,
+        type: "POST",
+        data: dataForCSV,
+        success: function(response) {
+            // Create a Blob from the PDF Stream
+            const blob = new Blob([response], { type: 'text/csv' });
+            // Create an anchor element and dispatch a click event on it
+            // to trigger a download
+            const downloadUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = downloadUrl;
+            a.download = "attendance_data.csv";
+            document.body.appendChild(a);
+            a.click();
+        },
+        error: function() {
+            alert("An error occurred.");
+        }
+    });
+  });
+
 });

@@ -353,6 +353,7 @@ function es_render_attendance_list()
         <label for="percentage_filter">>= 50%</label>
       </span>
       <button id="filter-button" type="button" class="submit-btn">Filter</button>
+      <button id="export-csv-button" type="button" class="submit-btn">Export to CSV</button>
       <div id="filter-table-response">
         <?php $attendanceListTable->display(); ?>
         <div id="loader-box" style="display: none;">
@@ -453,6 +454,24 @@ function es_filter_attendance_callback()
 add_action('admin_menu', function () {
   add_menu_page('Attendance', 'Attendance', 'manage_options', 'es-attendance', 'es_render_attendance_list', 'dashicons-calendar', 1);
 });
+
+
+function es_export_attendance_csv() {
+
+  global $wpdb;
+  $table_name = $wpdb->prefix . 'attendance';
+  $results = $wpdb->get_results("SELECT * FROM $table_name", ARRAY_A);
+  $csv_data = array();
+  foreach ($results as $row) {
+      $csv_data[] = implode(',', $row);
+  }
+  $csv_string = implode("\n", $csv_data);  
+  header('Content-Type: text/csv');
+  header('Content-Disposition: attachment; filename="attendance_data.csv"');
+  echo $csv_string;
+  wp_die();
+}
+add_action('wp_ajax_es_export_attendance_csv', 'es_export_attendance_csv');
 
 
 // function es_on_deactivation() {
