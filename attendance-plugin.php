@@ -358,7 +358,7 @@ function es_filter_attendance_callback()
   $last_name = sanitize_text_field($_POST['last_name']);
   $first_name = sanitize_text_field($_POST['first_name']);
   $email = sanitize_text_field($_POST['email']);
-  $is_new = isset($_POST['is_new_filter']) ? 1 : 0;
+  $is_new = isset($_POST['is_new_filter'])&&  $_POST['is_new_filter']== 'true' ? 1 : 0;
   $start_date = sanitize_text_field($_POST['start_date_filter']);
   $end_date = sanitize_text_field($_POST['end_date_filter']);
   
@@ -408,15 +408,17 @@ function es_filter_attendance_callback()
     $item['end_date'] = isset($_POST['end_date_filter']) ? sanitize_text_field($_POST['end_date_filter']) : date('Y-m-d');
   }
 
-  $percentageFilter = isset($_POST['percentage_filter']) ? $_POST['percentage_filter'] : 'all';
-  if ($percentageFilter) {
+  $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter']== 'true'? 1 : 0;
+ 
+  if ($percentage_filter) {
     $results = array_filter($results, function ($item) {
       $attendance_count = calculate_attendance_count($item['email']);
       $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
-      $percentage = $sunday_count > 0 ? ($attendance_count / $sunday_count) * 100 : 0;
+      $percentage = $sunday_count > 0 ? ($attendance_count / $sunday_count) : 0;
       return $percentage >= 0.5;
     });
   }
+
 
   // Create a new table instance and prepare it with the filtered data
   $attendanceListTable = new ES_Attendance_List();
