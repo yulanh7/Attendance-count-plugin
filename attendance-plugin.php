@@ -88,7 +88,7 @@ function attendance_form()
 {
   ob_start();
   $currentDayOfWeek = date('w');
-  $isSunday = ($currentDayOfWeek == 0);
+  $isSunday = ($currentDayOfWeek == 3);
   $todayDate = date('d/m/Y');
   $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: red'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
 
@@ -192,6 +192,7 @@ if (!class_exists('WP_List_Table')) {
 
 class ES_Attendance_List extends WP_List_Table
 {
+  public $per_page = 10; 
 
   function prepare_items($data = array())
   {
@@ -200,7 +201,18 @@ class ES_Attendance_List extends WP_List_Table
     $sortable = $this->get_sortable_columns();
 
     $this->_column_headers = array($columns, $hidden, $sortable);
-    $this->items = $data; // Use the filtered data provided as a parameter
+    $current_page = $this->get_pagenum();
+    $total_items = count($data);
+  
+    // Set pagination arguments
+    $this->set_pagination_args(array(
+      'total_items' => $total_items,                  // Calculate the total number of items
+      'per_page'    => $this->per_page,               // Determine how many items to show on a page
+      'total_pages' => ceil($total_items / $this->per_page)  // Calculate the total number of pages
+    ));
+  
+    // Slice the data array according to the current page and per_page
+    $this->items = array_slice($data, (($current_page - 1) * $this->per_page), $this->per_page);
   }
 
   function get_columns()
