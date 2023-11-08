@@ -103,8 +103,6 @@ if (recaptchaResponse === "") {
       var href = $(this).attr('href');
       var match = href.match(/paged=(\d+)/);
       var page = match ? parseInt(match[1], 10) : false;
-  
-      console.log('Page number:', page);
       if (page) {
         fetchFilteredResults(page);
       } else {
@@ -130,6 +128,7 @@ if (recaptchaResponse === "") {
       });
     }
     
+    $('#loader-box').show();
 
     $.ajax({
       url: esAjax.ajaxurl,
@@ -148,11 +147,14 @@ if (recaptchaResponse === "") {
       },
       success: function (response) {
         $(tableName).html(response.data.table_html);
+        $('#loader-box').hide();
         bindToggleRowEvent();
         bindPaginationEvent();
 
       },
       error: function () {
+        $('#loader-box').hide();
+
         alert("An error occurred.");
       },
     });

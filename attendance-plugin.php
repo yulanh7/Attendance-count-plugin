@@ -355,6 +355,9 @@ function es_render_attendance_list()
       <button id="filter-button" type="button" class="submit-btn">Filter</button>
       <div id="filter-table-response">
         <?php $attendanceListTable->display(); ?>
+        <div id="loader-box" style="display: none;">
+          <div id="es-loading-spinner" class="loader"></div>
+        </div>
       </div>
     </div>
   <?php
@@ -439,6 +442,7 @@ function es_filter_attendance_callback()
   // Output the updated table HTML
   ob_start();
   $attendanceListTable->display();
+  echo '<div id="loader-box" style="display: none;"><div id="es-loading-spinner" class="loader"></div></div>';
   $table_html = ob_get_clean();
 
   // Send the updated table HTML as a response
