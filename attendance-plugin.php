@@ -125,6 +125,7 @@ function es_handle_attendance()
   $congregation = sanitize_text_field($_POST['es_congregation']);
   $email = sanitize_email($_POST['es_email']);
   $current_date = current_time('mysql');
+  // $yesterday_date_only = date('Y-m-d', strtotime($current_time . ' -1 day')); // This will give you just the date part for yesterday
 
   // Check for duplicate entries on the same date
   global $wpdb;
@@ -167,21 +168,18 @@ function es_handle_attendance()
     $attendance_id = $existing_user['id'];
 
   } else {
-
       $data = array(
         'first_name' => $first_name,
         'last_name' => $last_name,
         'congregation' => $congregation,
         'phone' => $phone,
         'email' => $email,
-        'is_new' => $is_new,
+        'is_new' => 1,
       );
     
       $wpdb->insert($attendance_table_name, $data);
       $attendance_id = $wpdb->insert_id;
   }
-
- 
 
   // Insert into the attendance_dates table
   $data = array(
@@ -208,16 +206,14 @@ class ES_Attendance_List extends WP_List_Table
 {
   public $per_page = 10; 
 
-  function prepare_items($data = array(), $paged = null)
+  function prepare_items($data = array())
   {
     $columns = $this->get_columns();
     $hidden = array();
     $sortable = $this->get_sortable_columns();
-
     $this->_column_headers = array($columns, $hidden, $sortable);
-    $current_page = $paged? 1 : $this->get_pagenum();
+    $current_page = $this->get_pagenum();
     $total_items = count($data);
-  
     // Set pagination arguments
     $this->set_pagination_args(array(
       'total_items' => $total_items,                  // Calculate the total number of items
@@ -253,11 +249,11 @@ class ES_Attendance_List extends WP_List_Table
       case 'congregation':
         return $item[$column_name];
       case 'times':
-        $attendance_count = calculate_attendance_count($item['email']);
+        $attendance_count = calculate_attendance_count($item['id'], $item['start_date'], $item['end_date']);
         return $attendance_count;
       case 'percentage':
         // Calculate and display the percentage here
-        $attendance_count = calculate_attendance_count($item['email']);
+        $attendance_count = calculate_attendance_count($item['id'], $item['start_date'], $item['end_date']);
         $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
         if ($sunday_count > 0) {
           $percentage = ($attendance_count / $sunday_count) * 100;
@@ -278,18 +274,22 @@ class ES_Attendance_List extends WP_List_Table
   
 }
 
-function calculate_attendance_count($email)
+function calculate_attendance_count($id, $start_date, $end_date)
 {
   global $wpdb;
   $attendance_table_name = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $start_date = date('Y-m-d', strtotime($start_date));
+  $end_date = date('Y-m-d', strtotime($end_date));
 
   $query = $wpdb->prepare(
-    "SELECT COUNT(DISTINCT A.id)
-    FROM $attendance_table_name AS A
-    INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id
-    WHERE A.email = %s",
-    $email
+    "SELECT COUNT(A.attendance_id)
+    FROM $attendance_dates_table_name AS A
+    INNER JOIN $attendance_table_name AS D ON A.attendance_id = D.id
+    WHERE A.attendance_id = %s AND A.date_attended >= %s AND A.date_attended <= %s",
+    $id,
+    $start_date,
+    $end_date
   );
 
   return $wpdb->get_var($query);
@@ -335,14 +335,26 @@ function get_last_attended_date($email)
 function es_render_attendance_list()
 {
   global $wpdb;
-  $table_name = $wpdb->prefix . 'attendance';
-  $results = $wpdb->get_results("SELECT * FROM $table_name", ARRAY_A);
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $start_date = date('Y-m-d');
+  $end_date = date('Y-m-d');
+  // Query to select attendance data based on filters
+  $query = "SELECT A.*
+  FROM $attendance_table_name AS A
+  INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
+  WHERE 1=1";
+  $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
+  $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
+  $results = $wpdb->get_results($query, ARRAY_A);
+
   foreach ($results as &$item) {
-    $item['start_date'] = date('Y-m-d');
+    $item['start_date'] = $start_date;
     $item['end_date'] = date('Y-m-d');
   }
+ 
   $attendanceListTable = new ES_Attendance_List();
-  $attendanceListTable->prepare_items($results, 1);
+  $attendanceListTable->prepare_items($results);
 ?>
   <div class="wrap">
     <h2>Attendance</h2>
@@ -398,7 +410,7 @@ function es_filter_attendance_callback()
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
   // Query to select attendance data based on filters
-  $query = "SELECT A.*, D.date_attended 
+  $query = "SELECT A.*
             FROM $attendance_table_name AS A
             INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
             WHERE 1=1";
@@ -442,13 +454,13 @@ function es_filter_attendance_callback()
  
   if ($percentage_filter) {
     $results = array_filter($results, function ($item) {
-      $attendance_count = calculate_attendance_count($item['email']);
+      $attendance_count = calculate_attendance_count($item['id'], $item['start_date'], $item['end_date']);
       $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
       $percentage = $sunday_count > 0 ? ($attendance_count / $sunday_count) : 0;
       return $percentage >= 0.5;
     });
   }
-
+ 
 
   // Create a new table instance and prepare it with the filtered data
   $attendanceListTable = new ES_Attendance_List();
@@ -522,20 +534,13 @@ function es_export_attendance_csv() {
 
    $query .= " ORDER BY D.date_attended DESC";
 
-   
- 
    $results = $wpdb->get_results($query, ARRAY_A);
- 
-  //  foreach ($results as &$item) {
-  //    $item['start_date'] = isset($_POST['start_date_filter']) ? sanitize_text_field($_POST['start_date_filter']) : date('Y-m-d');
-  //    $item['end_date'] = isset($_POST['end_date_filter']) ? sanitize_text_field($_POST['end_date_filter']) : date('Y-m-d');
-  //  }
  
    $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter']== 'true'? 1 : 0;
   
    if ($percentage_filter) {
      $results = array_filter($results, function ($item) {
-       $attendance_count = calculate_attendance_count($item['email']);
+       $attendance_count = calculate_attendance_count($item['id'],$item['start_date'], $item['end_date']);
        $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
        $percentage = $sunday_count > 0 ? ($attendance_count / $sunday_count) : 0;
        return $percentage >= 0.5;
