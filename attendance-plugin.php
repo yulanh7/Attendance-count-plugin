@@ -88,7 +88,9 @@ function attendance_form()
 {
   ob_start();
   $currentDayOfWeek = date('w');
-  $isSunday = ($currentDayOfWeek == 0);
+  // FIXME
+  // $isSunday = ($currentDayOfWeek == 0);
+  $isSunday = true;
   $todayDate = date('d/m/Y');
   $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: red'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
 
@@ -129,6 +131,15 @@ function es_handle_attendance()
   $attendance_table_name = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
+  // Check if the user already exists in the database
+  $existing_user = $wpdb->get_row(
+    $wpdb->prepare(
+      "SELECT * FROM $attendance_table_name WHERE email = %s",
+      $email
+    ),
+    ARRAY_A
+  );
+
   $existing_entry = $wpdb->get_results(
     $wpdb->prepare(
       "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = (
@@ -144,32 +155,33 @@ function es_handle_attendance()
     return;
   }
 
-  // Check if the attendee is new (based on the is_new field)
-  $is_new = $wpdb->get_var(
-    $wpdb->prepare(
-      "SELECT is_new FROM $attendance_table_name WHERE email = %s",
-      $email
-    )
-  );
 
-  if ($is_new === null) {
-    $is_new = 1; 
+  $attendance_id = '';
+  if ($existing_user) {
+    $wpdb->update(
+      $attendance_table_name,
+      ['is_new' => 0], 
+      ['email' => $email] 
+    );
+
+    $attendance_id = $existing_user['id'];
+
   } else {
-    $is_new = 0; 
+
+      $data = array(
+        'first_name' => $first_name,
+        'last_name' => $last_name,
+        'congregation' => $congregation,
+        'phone' => $phone,
+        'email' => $email,
+        'is_new' => $is_new,
+      );
+    
+      $wpdb->insert($attendance_table_name, $data);
+      $attendance_id = $wpdb->insert_id;
   }
 
-  // Insert into the main attendance table
-  $data = array(
-    'first_name' => $first_name,
-    'last_name' => $last_name,
-    'congregation' => $congregation,
-    'phone' => $phone,
-    'email' => $email,
-    'is_new' => $is_new,
-  );
-
-  $wpdb->insert($attendance_table_name, $data);
-  $attendance_id = $wpdb->insert_id;
+ 
 
   // Insert into the attendance_dates table
   $data = array(
