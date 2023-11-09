@@ -88,7 +88,7 @@ function attendance_form()
 {
   ob_start();
   $currentDayOfWeek = date('w');
-  $isSunday = ($currentDayOfWeek == 3);
+  $isSunday = ($currentDayOfWeek == 0);
   $todayDate = date('d/m/Y');
   $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: red'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
 
@@ -129,10 +129,12 @@ function es_handle_attendance()
   $attendance_table_name = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
-  $existing_entry = $wpdb->get_row(
+  $existing_entry = $wpdb->get_results(
     $wpdb->prepare(
-      "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = (SELECT id FROM $attendance_table_name WHERE email = %s)",
-      $email,
+      "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = (
+        SELECT id FROM $attendance_table_name WHERE email = %s ORDER BY email DESC LIMIT 1
+      ) AND date_attended = CURDATE()",
+      $email
     ),
     ARRAY_A
   );
@@ -458,9 +460,76 @@ add_action('admin_menu', function () {
 
 function es_export_attendance_csv() {
 
-  global $wpdb;
-  $table_name = $wpdb->prefix . 'attendance';
-  $results = $wpdb->get_results("SELECT * FROM $table_name", ARRAY_A);
+   // Retrieve filter values from the AJAX request
+   $congregation = sanitize_text_field($_POST['congregation']);
+   $last_name = sanitize_text_field($_POST['last_name']);
+   $first_name = sanitize_text_field($_POST['first_name']);
+   $email = sanitize_text_field($_POST['email']);
+   $is_new = isset($_POST['is_new_filter'])&&  $_POST['is_new_filter']== 'true' ? 1 : 0;
+   $start_date = sanitize_text_field($_POST['start_date_filter']);
+   $end_date = sanitize_text_field($_POST['end_date_filter']);
+   
+ 
+   global $wpdb;
+   $attendance_table_name = $wpdb->prefix . 'attendance';
+   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+ 
+  // Query to select attendance data based on filters
+  $query = "SELECT ROW_NUMBER() OVER(ORDER BY D.date_attended DESC) as row_num, A.congregation, A.first_name,A.last_name,A.phone,A.email 
+    FROM $attendance_table_name AS A
+    INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
+    WHERE 1=1";
+
+          
+   if (!empty($congregation)) {
+     $query .= $wpdb->prepare(" AND congregation = %s", $congregation);
+   }
+   if (!empty($first_name)) {
+     $query .= $wpdb->prepare(" AND first_name = %s", $first_name);
+   }
+ 
+   if (!empty($last_name)) {
+     $query .= $wpdb->prepare(" AND last_name = %s", $last_name);
+   }
+ 
+   if (!empty($email)) {
+     $query .= $wpdb->prepare(" AND email = %s", $email);
+   }
+ 
+   if ($is_new) {
+     $query .= " AND A.is_new = 1";
+   }
+   if (!empty($start_date)) {
+     $start_date = date('Y-m-d', strtotime($start_date));
+     $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
+   }
+   if (!empty($end_date)) {
+     $end_date = date('Y-m-d', strtotime($end_date));
+     $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
+   }
+
+   $query .= " ORDER BY D.date_attended DESC";
+
+   
+ 
+   $results = $wpdb->get_results($query, ARRAY_A);
+ 
+  //  foreach ($results as &$item) {
+  //    $item['start_date'] = isset($_POST['start_date_filter']) ? sanitize_text_field($_POST['start_date_filter']) : date('Y-m-d');
+  //    $item['end_date'] = isset($_POST['end_date_filter']) ? sanitize_text_field($_POST['end_date_filter']) : date('Y-m-d');
+  //  }
+ 
+   $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter']== 'true'? 1 : 0;
+  
+   if ($percentage_filter) {
+     $results = array_filter($results, function ($item) {
+       $attendance_count = calculate_attendance_count($item['email']);
+       $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
+       $percentage = $sunday_count > 0 ? ($attendance_count / $sunday_count) : 0;
+       return $percentage >= 0.5;
+     });
+   }
+ 
   $csv_data = array();
   foreach ($results as $row) {
       $csv_data[] = implode(',', $row);
@@ -474,23 +543,23 @@ function es_export_attendance_csv() {
 add_action('wp_ajax_es_export_attendance_csv', 'es_export_attendance_csv');
 
 
-// function es_on_deactivation() {
-//   global $wpdb;
-//   if (!current_user_can('activate_plugins')) return;
+function es_on_deactivation() {
+  global $wpdb;
+  if (!current_user_can('activate_plugins')) return;
 
-//   $attendance_table_name = $wpdb->prefix . 'attendance';
-//   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
-//   $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
-//   $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
+  $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
+  $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
 
-//   if ($result1 === false || $result2 === false) {
-//       error_log("Error dropping tables: " . $wpdb->last_error);
-//   } else {
-//       error_log("Tables dropped successfully.");
-//   }
-// }
+  if ($result1 === false || $result2 === false) {
+      error_log("Error dropping tables: " . $wpdb->last_error);
+  } else {
+      error_log("Tables dropped successfully.");
+  }
+}
 
-// register_deactivation_hook(__FILE__, 'es_on_deactivation');
+register_deactivation_hook(__FILE__, 'es_on_deactivation');
 
 

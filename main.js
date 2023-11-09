@@ -112,7 +112,7 @@ if (recaptchaResponse === "") {
   }
   
 
-  function fetchFilteredResults(page) {
+  function fetchFilteredResults(page, exportCsv = false) {
     const congregation = $("#es_congregation_filter").val(); // Get the selected congregation
     const start_date_filter = $("#start_date_filter").val();
     const end_date_filter = $("#end_date_filter").val();
@@ -122,29 +122,51 @@ if (recaptchaResponse === "") {
     const isNew = $("#is_new_filter").is(":checked"); // Get the checkbox state
     const percentageFilter = $("#percentage_filter").is(":checked"); // Get the checkbox state
     const tableName = "#filter-table-response";
+    const data = {
+      action: exportCsv? "es_export_attendance_csv":"es_filter_attendance",
+      start_date_filter,
+      end_date_filter,
+      last_name: lastName,
+      first_name: firstName,
+      email: email,
+      congregation: congregation,
+      is_new: isNew,
+      percentage_filter: percentageFilter,
+      paged: page,
+    };
+
+    if (exportCsv) {
+      $.ajax({
+        url: esAjax.ajaxurl,
+        type: "POST",
+        data: data,
+        success: function(response) {
+            const blob = new Blob([response], { type: 'text/csv' });
+            const downloadUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = downloadUrl;
+            a.download = "attendance_data.csv";
+            document.body.appendChild(a);
+            a.click();
+        },
+        error: function() {
+            alert("An error occurred.");
+        }
+      });
+      return;
+    }
+
+
     function bindToggleRowEvent() {
       $("tbody").on("click", ".toggle-row", function () {
         $(this).closest("tr").toggleClass("is-expanded");
       });
     }
-    
     $('#loader-box').show();
-
     $.ajax({
       url: esAjax.ajaxurl,
       type: "POST",
-      data: {
-        action: "es_filter_attendance",
-        start_date_filter,
-        end_date_filter,
-        last_name: lastName,
-        first_name: firstName,
-        email: email,
-        congregation: congregation,
-        is_new: isNew,
-        percentage_filter: percentageFilter,
-        paged: page,
-      },
+      data: data,
       success: function (response) {
         $(tableName).html(response.data.table_html);
         $('#loader-box').hide();
@@ -159,6 +181,7 @@ if (recaptchaResponse === "") {
       },
     });
   }
+
   $(document).on("click", "#filter-button", function (e) {
     e.preventDefault();
     fetchFilteredResults(1); // Fetch results for the first page
@@ -167,32 +190,7 @@ if (recaptchaResponse === "") {
 
   $(document).on("click", "#export-csv-button", function (e) {
     e.preventDefault();
-    const dataForCSV = {
-        action: "es_export_attendance_csv",
-        // Include any other parameters you want to filter or include in the CSV
-    };
-    
-    // Use AJAX to send data to server and handle file download
-    $.ajax({
-        url: esAjax.ajaxurl,
-        type: "POST",
-        data: dataForCSV,
-        success: function(response) {
-            // Create a Blob from the PDF Stream
-            const blob = new Blob([response], { type: 'text/csv' });
-            // Create an anchor element and dispatch a click event on it
-            // to trigger a download
-            const downloadUrl = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = downloadUrl;
-            a.download = "attendance_data.csv";
-            document.body.appendChild(a);
-            a.click();
-        },
-        error: function() {
-            alert("An error occurred.");
-        }
-    });
+    fetchFilteredResults(1, true); // Fetch results for the first page
   });
 
 });
