@@ -208,14 +208,14 @@ class ES_Attendance_List extends WP_List_Table
 {
   public $per_page = 10; 
 
-  function prepare_items($data = array())
+  function prepare_items($data = array(), $paged = null)
   {
     $columns = $this->get_columns();
     $hidden = array();
     $sortable = $this->get_sortable_columns();
 
     $this->_column_headers = array($columns, $hidden, $sortable);
-    $current_page = $this->get_pagenum();
+    $current_page = $paged? 1 : $this->get_pagenum();
     $total_items = count($data);
   
     // Set pagination arguments
@@ -342,7 +342,7 @@ function es_render_attendance_list()
     $item['end_date'] = date('Y-m-d');
   }
   $attendanceListTable = new ES_Attendance_List();
-  $attendanceListTable->prepare_items($results);
+  $attendanceListTable->prepare_items($results, 1);
 ?>
   <div class="wrap">
     <h2>Attendance</h2>
