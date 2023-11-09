@@ -431,7 +431,7 @@ function es_filter_attendance_callback()
   }
 
   if ($is_new) {
-    $query .= " AND A.is_new = 1";
+    $query .= $wpdb->prepare(" AND is_new >= %s", $is_new);
   }
   if (!empty($start_date)) {
     $start_date = date('Y-m-d', strtotime($start_date));
@@ -521,7 +521,7 @@ function es_export_attendance_csv() {
    }
  
    if ($is_new) {
-     $query .= " AND A.is_new = 1";
+    $query .= $wpdb->prepare(" AND is_new >= %s", $is_new);
    }
    if (!empty($start_date)) {
      $start_date = date('Y-m-d', strtotime($start_date));
