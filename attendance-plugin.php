@@ -403,66 +403,66 @@ function es_render_attendance_list()
 
 add_action('wp_ajax_es_filter_attendance', 'es_filter_attendance_callback');
 
+function get_filtered_attendance_results($query) {
+   $congregation = sanitize_text_field($_POST['congregation']);
+   $last_name = sanitize_text_field($_POST['last_name']);
+   $first_name = sanitize_text_field($_POST['first_name']);
+   $email = sanitize_text_field($_POST['email']);
+   $is_new = isset($_POST['is_new'])&&  $_POST['is_new']== 'true' ? 1 : 0;
+   $start_date = sanitize_text_field($_POST['start_date_filter']);
+   $end_date = sanitize_text_field($_POST['end_date_filter']);
+   $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter']== 'true'? 1 : 0;
+
+   global $wpdb;
+  
+ 
+   if (!empty($congregation)) {
+     $query .= $wpdb->prepare(" AND congregation = %s", $congregation);
+   }
+   if (!empty($first_name)) {
+     $query .= $wpdb->prepare(" AND first_name = %s", $first_name);
+   }
+ 
+   if (!empty($last_name)) {
+     $query .= $wpdb->prepare(" AND last_name = %s", $last_name);
+   }
+ 
+   if (!empty($email)) {
+     $query .= $wpdb->prepare(" AND email = %s", $email);
+   }
+ 
+   if ($is_new) {
+     $query .= $wpdb->prepare(" AND is_new = %s", $is_new);
+   }
+   if (!empty($start_date)) {
+     $start_date = date('Y-m-d', strtotime($start_date));
+     $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
+   }
+   if (!empty($end_date)) {
+     $end_date = date('Y-m-d', strtotime($end_date));
+     $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
+   }
+ 
+   $results = $wpdb->get_results($query, ARRAY_A);
+   $results = combine_attendace_with_same_email($results,$percentage_filter, $item['start_date'], $item['end_date']);
+ 
+
+  // Get and return the results
+  return $results;
+}
+
+
 function es_filter_attendance_callback()
 {
-  // Retrieve filter values from the AJAX request
-  $congregation = sanitize_text_field($_POST['congregation']);
-  $last_name = sanitize_text_field($_POST['last_name']);
-  $first_name = sanitize_text_field($_POST['first_name']);
-  $email = sanitize_text_field($_POST['email']);
-  $is_new = isset($_POST['is_new'])&&  $_POST['is_new']== 'true' ? 1 : 0;
-  $start_date = sanitize_text_field($_POST['start_date_filter']);
-  $end_date = sanitize_text_field($_POST['end_date_filter']);
-  
-
   global $wpdb;
   $attendance_table_name = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
-
-  // Query to select attendance data based on filters
   $query = "SELECT A.*
             FROM $attendance_table_name AS A
             INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
             WHERE 1=1";
 
-  if (!empty($congregation)) {
-    $query .= $wpdb->prepare(" AND congregation = %s", $congregation);
-  }
-  if (!empty($first_name)) {
-    $query .= $wpdb->prepare(" AND first_name = %s", $first_name);
-  }
-
-  if (!empty($last_name)) {
-    $query .= $wpdb->prepare(" AND last_name = %s", $last_name);
-  }
-
-  if (!empty($email)) {
-    $query .= $wpdb->prepare(" AND email = %s", $email);
-  }
-
-  if ($is_new) {
-    $query .= $wpdb->prepare(" AND is_new = %s", $is_new);
-  }
-  if (!empty($start_date)) {
-    $start_date = date('Y-m-d', strtotime($start_date));
-    $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
-  }
-  if (!empty($end_date)) {
-    $end_date = date('Y-m-d', strtotime($end_date));
-    $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
-  }
-
-  $results = $wpdb->get_results($query, ARRAY_A);
-
-  foreach ($results as &$item) {
-    $item['start_date'] = isset($_POST['start_date_filter']) ? sanitize_text_field($_POST['start_date_filter']) : date('Y-m-d');
-    $item['end_date'] = isset($_POST['end_date_filter']) ? sanitize_text_field($_POST['end_date_filter']) : date('Y-m-d');
-  }
-
-  $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter']== 'true'? 1 : 0;
-  $results = combine_attendace_with_same_email($results,$percentage_filter, $item['start_date'], $item['end_date']);
-
-  // Create a new table instance and prepare it with the filtered data
+  $results = get_filtered_attendance_results($query);
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
  
@@ -483,63 +483,15 @@ add_action('admin_menu', function () {
 
 
 function es_export_attendance_csv() {
-
-   // Retrieve filter values from the AJAX request
-   $congregation = sanitize_text_field($_POST['congregation']);
-   $last_name = sanitize_text_field($_POST['last_name']);
-   $first_name = sanitize_text_field($_POST['first_name']);
-   $email = sanitize_text_field($_POST['email']);
-   $is_new = isset($_POST['is_new_filter'])&&  $_POST['is_new_filter']== 'true' ? 1 : 0;
-   $start_date = sanitize_text_field($_POST['start_date_filter']);
-   $end_date = sanitize_text_field($_POST['end_date_filter']);
-   
- 
-   global $wpdb;
-   $attendance_table_name = $wpdb->prefix . 'attendance';
-   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
- 
-  // Query to select attendance data based on filters
-  $query = "SELECT ROW_NUMBER() OVER(ORDER BY D.date_attended DESC) as row_num, A.congregation, A.first_name,A.last_name,A.phone,A.email 
+  global $wpdb;
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $query = "SELECT A.congregation, A.first_name,A.last_name,A.phone,A.email 
     FROM $attendance_table_name AS A
     INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
     WHERE 1=1";
-
-          
-   if (!empty($congregation)) {
-     $query .= $wpdb->prepare(" AND congregation = %s", $congregation);
-   }
-   if (!empty($first_name)) {
-     $query .= $wpdb->prepare(" AND first_name = %s", $first_name);
-   }
- 
-   if (!empty($last_name)) {
-     $query .= $wpdb->prepare(" AND last_name = %s", $last_name);
-   }
- 
-   if (!empty($email)) {
-     $query .= $wpdb->prepare(" AND email = %s", $email);
-   }
- 
-   if ($is_new) {
-    $query .= $wpdb->prepare(" AND is_new = %s", $is_new);
-   }
-   if (!empty($start_date)) {
-     $start_date = date('Y-m-d', strtotime($start_date));
-     $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
-   }
-   if (!empty($end_date)) {
-     $end_date = date('Y-m-d', strtotime($end_date));
-     $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
-   }
-
-   $query .= " ORDER BY D.date_attended DESC";
-
-   $results = $wpdb->get_results($query, ARRAY_A);
- 
-   $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter']== 'true'? 1 : 0;
-   $results = combine_attendace_with_same_email($results,$percentage_filter, $item['start_date'], $item['end_date']);
-
- 
+  $results = get_filtered_attendance_results($query);
+  
   $csv_data = array();
   foreach ($results as $row) {
       $csv_data[] = implode(',', $row);
