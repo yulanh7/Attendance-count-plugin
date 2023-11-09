@@ -247,10 +247,11 @@ class ES_Attendance_List extends WP_List_Table
       case 'email':
       case 'phone':
       case 'times':
-      case 'percentage':
       case 'congregation':
       case 'last_attended':
-        return $item[$column_name];      
+          return $item[$column_name];      
+      case 'percentage':
+          return $item[$column_name]."%";
       default:
         return print_r($item, true);
     }
@@ -263,7 +264,7 @@ function combine_attendace_with_same_email($data,$percentage_filter = false, $st
 {
   
   $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
-  $sunday_count = 2;
+  // $sunday_count = 3;
 
   $combinedData = [];
   foreach ($data as $entry) {
@@ -272,13 +273,13 @@ function combine_attendace_with_same_email($data,$percentage_filter = false, $st
           // If this email doesn't exist in the combined array, add it.
           $combinedData[$email] = $entry;
           $combinedData[$email]['times'] = 1;
-          $combinedData[$email]['percentage'] = 1 / $sunday_count;
+          $combinedData[$email]['percentage'] = number_format(1 / $sunday_count * 100, 2, '.', '');
           $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
 
       } else {
           // If this email exists, increment the times counter.
           $combinedData[$email]['times']++;
-          $combinedData[$email]['percentage'] = $combinedData[$email]['times'] / $sunday_count;
+          $combinedData[$email]['percentage'] = number_format($combinedData[$email]['times'] / $sunday_count * 100, 2, '.', '');
           // Update the fields if the current entry has a larger ID (is more recent).
           if ($entry['id'] > $combinedData[$email]['id']) {
               $combinedData[$email]['first_name'] = $entry['first_name'];
@@ -297,7 +298,7 @@ function combine_attendace_with_same_email($data,$percentage_filter = false, $st
     $combinedData = array_values($combinedData);
     if ($percentage_filter) {
       $combinedData = array_filter($combinedData, function ($item) {
-        return $item['percentage'] >= 0.5;
+        return $item['percentage'] >= 50;
       });
     }
     return $combinedData;
