@@ -249,12 +249,8 @@ class ES_Attendance_List extends WP_List_Table
       case 'times':
       case 'percentage':
       case 'congregation':
-        return $item[$column_name];      
       case 'last_attended':
-        // Get and display the last attended date here
-        $last_attended_date = get_last_attended_date($item['email']);
-        return ($last_attended_date !== null) ? date('d/m/Y', strtotime($last_attended_date)) : 'N/A';
-  
+        return $item[$column_name];      
       default:
         return print_r($item, true);
     }
@@ -277,6 +273,8 @@ function combine_attendace_with_same_email($data,$percentage_filter = false, $st
           $combinedData[$email] = $entry;
           $combinedData[$email]['times'] = 1;
           $combinedData[$email]['percentage'] = 1 / $sunday_count;
+          $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
+
       } else {
           // If this email exists, increment the times counter.
           $combinedData[$email]['times']++;
@@ -291,6 +289,10 @@ function combine_attendace_with_same_email($data,$percentage_filter = false, $st
               // Add any other fields that you want to update to the latest one.
           }
       }
+
+      $last_attended_date = get_last_attended_date($email);
+      $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
+
     }
     $combinedData = array_values($combinedData);
     if ($percentage_filter) {
@@ -299,27 +301,6 @@ function combine_attendace_with_same_email($data,$percentage_filter = false, $st
       });
     }
     return $combinedData;
-}
-
-function calculate_attendance_count($id, $start_date, $end_date)
-{
-  global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
-  $start_date = date('Y-m-d', strtotime($start_date));
-  $end_date = date('Y-m-d', strtotime($end_date));
-
-  $query = $wpdb->prepare(
-    "SELECT COUNT(A.attendance_id)
-    FROM $attendance_dates_table_name AS A
-    INNER JOIN $attendance_table_name AS D ON A.attendance_id = D.id
-    WHERE A.attendance_id = %s AND A.date_attended >= %s AND A.date_attended <= %s",
-    $id,
-    $start_date,
-    $end_date
-  );
-
-  return $wpdb->get_var($query);
 }
 
 function calculate_sunday_count($start_date, $end_date)
