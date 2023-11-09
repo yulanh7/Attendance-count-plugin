@@ -400,7 +400,7 @@ function es_filter_attendance_callback()
   $last_name = sanitize_text_field($_POST['last_name']);
   $first_name = sanitize_text_field($_POST['first_name']);
   $email = sanitize_text_field($_POST['email']);
-  $is_new = isset($_POST['is_new_filter'])&&  $_POST['is_new_filter']== 'true' ? 1 : 0;
+  $is_new = isset($_POST['is_new'])&&  $_POST['is_new']== 'true' ? 1 : 0;
   $start_date = sanitize_text_field($_POST['start_date_filter']);
   $end_date = sanitize_text_field($_POST['end_date_filter']);
   
@@ -431,7 +431,7 @@ function es_filter_attendance_callback()
   }
 
   if ($is_new) {
-    $query .= $wpdb->prepare(" AND is_new >= %s", $is_new);
+    $query .= $wpdb->prepare(" AND is_new = %s", $is_new);
   }
   if (!empty($start_date)) {
     $start_date = date('Y-m-d', strtotime($start_date));
@@ -461,7 +461,6 @@ function es_filter_attendance_callback()
     });
   }
  
-
   // Create a new table instance and prepare it with the filtered data
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
@@ -521,7 +520,7 @@ function es_export_attendance_csv() {
    }
  
    if ($is_new) {
-    $query .= $wpdb->prepare(" AND is_new >= %s", $is_new);
+    $query .= $wpdb->prepare(" AND is_new = %s", $is_new);
    }
    if (!empty($start_date)) {
      $start_date = date('Y-m-d', strtotime($start_date));
