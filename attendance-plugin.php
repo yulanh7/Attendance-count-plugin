@@ -263,7 +263,7 @@ class ES_Attendance_List extends WP_List_Table
 function combine_attendace_with_same_email($data,$percentage_filter = false, $start_date, $end_date) 
 {
   
-  $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
+  $sunday_count = calculate_sunday_count($start_date, $end_date);
   // $sunday_count = 3;
 
   $combinedData = [];
@@ -389,7 +389,7 @@ function es_render_attendance_list()
         <label for="percentage_filter">>= 50%</label>
       </span>
       <button id="filter-button" type="button" class="submit-btn">Filter</button>
-      <button id="export-csv-button" type="button" class="submit-btn">Export to CSV</button>
+      <button id="export-csv-button" type="button" class="export-csv">Export to CSV</button>
       <div id="filter-table-response">
         <?php $attendanceListTable->display(); ?>
         <div id="loader-box" style="display: none;">
