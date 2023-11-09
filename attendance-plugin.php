@@ -246,22 +246,10 @@ class ES_Attendance_List extends WP_List_Table
       case 'last_name':
       case 'email':
       case 'phone':
-      case 'congregation':
-        return $item[$column_name];
       case 'times':
-        $attendance_count = calculate_attendance_count($item['id'], $item['start_date'], $item['end_date']);
-        return $attendance_count;
       case 'percentage':
-        // Calculate and display the percentage here
-        $attendance_count = calculate_attendance_count($item['id'], $item['start_date'], $item['end_date']);
-        $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
-        if ($sunday_count > 0) {
-          $percentage = ($attendance_count / $sunday_count) * 100;
-          return round($percentage, 2) . '%';
-        } else {
-          return "N/A";
-        }
-  
+      case 'congregation':
+        return $item[$column_name];      
       case 'last_attended':
         // Get and display the last attended date here
         $last_attended_date = get_last_attended_date($item['email']);
@@ -272,6 +260,45 @@ class ES_Attendance_List extends WP_List_Table
     }
   }
   
+}
+
+
+function combine_attendace_with_same_email($data,$percentage_filter = false, $start_date, $end_date) 
+{
+  
+  $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
+  $sunday_count = 2;
+
+  $combinedData = [];
+  foreach ($data as $entry) {
+      $email = $entry['email'];
+      if (!isset($combinedData[$email])) {
+          // If this email doesn't exist in the combined array, add it.
+          $combinedData[$email] = $entry;
+          $combinedData[$email]['times'] = 1;
+          $combinedData[$email]['percentage'] = 1 / $sunday_count;
+      } else {
+          // If this email exists, increment the times counter.
+          $combinedData[$email]['times']++;
+          $combinedData[$email]['percentage'] = $combinedData[$email]['times'] / $sunday_count;
+          // Update the fields if the current entry has a larger ID (is more recent).
+          if ($entry['id'] > $combinedData[$email]['id']) {
+              $combinedData[$email]['first_name'] = $entry['first_name'];
+              $combinedData[$email]['last_name'] = $entry['last_name'];
+              $combinedData[$email]['phone'] = $entry['phone'];
+              $combinedData[$email]['congregation'] = $entry['congregation'];
+              $combinedData[$email]['is_new'] = $entry['is_new'];
+              // Add any other fields that you want to update to the latest one.
+          }
+      }
+    }
+    $combinedData = array_values($combinedData);
+    if ($percentage_filter) {
+      $combinedData = array_filter($combinedData, function ($item) {
+        return $item['percentage'] >= 0.5;
+      });
+    }
+    return $combinedData;
 }
 
 function calculate_attendance_count($id, $start_date, $end_date)
@@ -350,9 +377,10 @@ function es_render_attendance_list()
 
   foreach ($results as &$item) {
     $item['start_date'] = $start_date;
-    $item['end_date'] = date('Y-m-d');
+    $item['end_date'] = $end_date;
   }
- 
+  $results = combine_attendace_with_same_email($results,false, $start_date, $end_date);
+
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
 ?>
@@ -441,7 +469,6 @@ function es_filter_attendance_callback()
     $end_date = date('Y-m-d', strtotime($end_date));
     $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
   }
-  
 
   $results = $wpdb->get_results($query, ARRAY_A);
 
@@ -451,20 +478,12 @@ function es_filter_attendance_callback()
   }
 
   $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter']== 'true'? 1 : 0;
- 
-  if ($percentage_filter) {
-    $results = array_filter($results, function ($item) {
-      $attendance_count = calculate_attendance_count($item['id'], $item['start_date'], $item['end_date']);
-      $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
-      $percentage = $sunday_count > 0 ? ($attendance_count / $sunday_count) : 0;
-      return $percentage >= 0.5;
-    });
-  }
- 
+  $results = combine_attendace_with_same_email($results,$percentage_filter, $item['start_date'], $item['end_date']);
+
   // Create a new table instance and prepare it with the filtered data
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
-
+ 
   // Output the updated table HTML
   ob_start();
   $attendanceListTable->display();
@@ -536,15 +555,8 @@ function es_export_attendance_csv() {
    $results = $wpdb->get_results($query, ARRAY_A);
  
    $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter']== 'true'? 1 : 0;
-  
-   if ($percentage_filter) {
-     $results = array_filter($results, function ($item) {
-       $attendance_count = calculate_attendance_count($item['id'],$item['start_date'], $item['end_date']);
-       $sunday_count = calculate_sunday_count($item['start_date'], $item['end_date']);
-       $percentage = $sunday_count > 0 ? ($attendance_count / $sunday_count) : 0;
-       return $percentage >= 0.5;
-     });
-   }
+   $results = combine_attendace_with_same_email($results,$percentage_filter, $item['start_date'], $item['end_date']);
+
  
   $csv_data = array();
   foreach ($results as $row) {
