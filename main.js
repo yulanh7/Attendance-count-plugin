@@ -1,85 +1,61 @@
 jQuery(document).ready(function ($) {
-  // Check if values exist in local storage
-  const storedFirstName = localStorage.getItem("es_first_name");
-  const storedLastName = localStorage.getItem("es_last_name");
-  const storedEmail = localStorage.getItem("es_email");
-  const storedPhone = localStorage.getItem("es_phone");
-  const storedCongregation = localStorage.getItem("es_congregation"); // Added for dropdown
 
-  // Set form field values if they exist in local storage
-  if (storedFirstName) {
-    $("input[name=es_first_name]").val(storedFirstName);
+  function updateFormFields() {
+    const storedData = JSON.parse(localStorage.getItem('es_attendance_form_data')) || {};
+    $("input[name=es_first_name]").val(storedData.es_first_name || '');
+    $("input[name=es_last_name]").val(storedData.es_last_name || '');
+    $("input[name=es_email]").val(storedData.es_email || '');
+    $("input[name=es_phone]").val(storedData.es_phone || '');
+    $("select[name=es_congregation]").val(storedData.es_congregation || '');
   }
-  if (storedLastName) {
-    $("input[name=es_last_name]").val(storedLastName);
-  }
-  if (storedEmail) {
-    $("input[name=es_email]").val(storedEmail);
-  }
-  if (storedPhone) {
-    $("input[name=es_phone]").val(storedPhone);
-  }
-  if (storedCongregation) {
-    // Set the selected option for the dropdown
-    $("select[name=es_congregation]").val(storedCongregation);
-  }
+  updateFormFields();
+
+ 
   $("form#es_attendance_form").submit(function (e) {
     e.preventDefault();
-    const es_first_name = $("input[name=es_first_name]").val();
-    const es_last_name = $("input[name=es_last_name]").val();
-    const es_email = $("input[name=es_email]").val();
-    const es_phone = $("input[name=es_phone]").val();
-    const es_congregation = $("select[name=es_congregation]").val(); // Get the selected dropdown value
-// Capture the reCAPTCHA response
-var recaptchaResponse = grecaptcha.getResponse();
+    const formData = {
+      es_first_name: $("input[name=es_first_name]").val(),
+      es_last_name: $("input[name=es_last_name]").val(),
+      es_email: $("input[name=es_email]").val(),
+      es_phone: $("input[name=es_phone]").val(),
+      es_congregation: $("select[name=es_congregation]").val()
+    };
+    // Capture the reCAPTCHA response
+    const recaptchaResponse = grecaptcha.getResponse();
 
-// Check if the response is empty (indicating the user didn't complete the reCAPTCHA)
-if (recaptchaResponse === "") {
-  $("form#es_attendance_form").after(
-    '<div class="es-message" style="color:red;">Please complete the reCAPTCHA.</div>' 
-  );
-  return;
-}
-    // Store values in local storage
-    localStorage.setItem("es_first_name", es_first_name);
-    localStorage.setItem("es_last_name", es_last_name);
-    localStorage.setItem("es_email", es_email);
-    localStorage.setItem("es_phone", es_phone);
-    localStorage.setItem("es_congregation", es_congregation); // Store the selected dropdown value
+    // Check if the response is empty (indicating the user didn't complete the reCAPTCHA)
+    if (recaptchaResponse === "") {
+      displayMessage('Please complete the reCAPTCHA.', 'red');
+      return;
+    }
+    localStorage.setItem('es_attendance_form_data', JSON.stringify(formData));
+
     $.ajax({
       url: esAjax.ajaxurl,
       type: "POST",
-      data: {
-        action: "es_handle_attendance",
-        es_first_name,
-        es_last_name,
-        es_email,
-        es_phone,
-        es_congregation,
-      },
+      data: $.extend({ action: "es_handle_attendance" }, formData),
       success: function (response) {
         // Handle success
         $(".es-message").remove();
-
-        if (response.success) {
-          $("form#es_attendance_form").after(
-            '<div class="es-message" style="color:green;">' +
-              response.data.message +
-              "</div>"
-          );
-        } else {
-          $("form#es_attendance_form").after(
-            '<div class="es-message" style="color:red;">' +
-              response.data.message +
-              "</div>"
-          );
-        }
+        displayMessage(response.data.message, response.success ? 'green' : 'red');
       },
       error: function (xhr, textStatus, errorThrown) {
         console.error('Error: ' + xhr.responseText);
+        displayMessage('An error occurred. Please try again.', 'red');
+
       },
       
     });
+    function displayMessage(message, color) {
+      $(".es-message").remove();
+      $("<div>", {
+        "class": "es-message",
+        "text": message,
+        "css": {
+          "color": color
+        }
+      }).insertAfter("form#es_attendance_form");
+    }
   });
 
   $("form#es_attendance_form input").focus(function () {
