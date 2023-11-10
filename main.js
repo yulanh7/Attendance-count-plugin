@@ -141,11 +141,17 @@ if (recaptchaResponse === "") {
         type: "POST",
         data: data,
         success: function(response) {
+          debugger
             const blob = new Blob([response], { type: 'text/csv' });
             const downloadUrl = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = downloadUrl;
-            a.download = "attendance_data.csv";
+            const currentDate = new Date();
+            const day = ("0" + currentDate.getDate()).slice(-2); 
+            const month = ("0" + (currentDate.getMonth() + 1)).slice(-2); 
+            const year = currentDate.getFullYear();
+            const formattedDate = `${day}-${month}-${year}`;
+            a.download = `Attendance_Report_${formattedDate}.csv`;
             document.body.appendChild(a);
             a.click();
         },

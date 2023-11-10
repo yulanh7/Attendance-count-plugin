@@ -228,6 +228,7 @@ class ES_Attendance_List extends WP_List_Table
   function get_columns()
   {
     return [
+      'row_num' => 'No.',
       'congregation' => 'Congregation',
       'first_name' => 'First Name',
       'last_name' => 'Last Name',
@@ -242,6 +243,7 @@ class ES_Attendance_List extends WP_List_Table
   function column_default($item, $column_name)
   {
     switch ($column_name) {
+      case 'row_num':
       case 'first_name':
       case 'last_name':
       case 'email':
@@ -274,7 +276,7 @@ function combine_attendace_with_same_email($data,$percentage_filter = false, $st
           $combinedData[$email] = $entry;
           $combinedData[$email]['times'] = 1;
           $combinedData[$email]['percentage'] = number_format(1 / $sunday_count * 100, 2, '.', '');
-          $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
+          $combinedData[$email]['last_attended'] = date('d/m/Y');
 
       } else {
           // If this email exists, increment the times counter.
@@ -289,10 +291,10 @@ function combine_attendace_with_same_email($data,$percentage_filter = false, $st
               $combinedData[$email]['is_new'] = $entry['is_new'];
               // Add any other fields that you want to update to the latest one.
           }
+          $last_attended_date = get_last_attended_date($email);
+          $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
       }
 
-      $last_attended_date = get_last_attended_date($email);
-      $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
 
     }
     $combinedData = array_values($combinedData);
@@ -301,6 +303,9 @@ function combine_attendace_with_same_email($data,$percentage_filter = false, $st
         return $item['percentage'] >= 50;
       });
     }
+    foreach ($combinedData as $key => $value) {
+      $combinedData[$key] = ['row_num' => $key + 1] + $value;
+    }    
     return $combinedData;
 }
 
@@ -353,6 +358,7 @@ function es_render_attendance_list()
   FROM $attendance_table_name AS A
   INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
   WHERE 1=1";
+  $query .= $wpdb->prepare(" AND is_new = %s", 1);
   $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
   $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
   $results = $wpdb->get_results($query, ARRAY_A);
@@ -446,8 +452,6 @@ function get_filtered_attendance_results($query) {
    $results = $wpdb->get_results($query, ARRAY_A);
    $results = combine_attendace_with_same_email($results,$percentage_filter, $item['start_date'], $item['end_date']);
  
-
-  // Get and return the results
   return $results;
 }
 
@@ -491,14 +495,24 @@ function es_export_attendance_csv() {
     INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
     WHERE 1=1";
   $results = get_filtered_attendance_results($query);
-  
   $csv_data = array();
   foreach ($results as $row) {
       $csv_data[] = implode(',', $row);
   }
-  $csv_string = implode("\n", $csv_data);  
-  header('Content-Type: text/csv');
-  header('Content-Disposition: attachment; filename="attendance_data.csv"');
+  $fileName = array(
+    'No.',
+    'Congregation',
+    'First Name	',
+    'Last Name	',
+    'Phone',
+    'Email',
+    'Times',
+    'Percentage',
+    'Last Attended Date'
+  );
+  $csv_string = implode(',', $fileName);
+  $csv_string .= "\n";
+  $csv_string .= implode("\n", $csv_data);  
   echo $csv_string;
   wp_die();
 }
