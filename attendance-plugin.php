@@ -124,7 +124,7 @@ function es_handle_attendance()
   $phone = sanitize_text_field($_POST['es_phone']);
   $congregation = sanitize_text_field($_POST['es_congregation']);
   $email = sanitize_email($_POST['es_email']);
-  $current_date = current_time('mysql');
+  $current_date = date('Y-m-d');
   // $yesterday_date_only = date('Y-m-d', strtotime($current_time . ' -1 day')); // This will give you just the date part for yesterday
 
   // Check for duplicate entries on the same date
@@ -386,16 +386,18 @@ function es_render_attendance_list()
       <input type="text" id="email_filter" placeholder="Email">
       <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo date('Y-m-d'); ?>">
       <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo date('Y-m-d'); ?>">
-      <span class="checkbox-container">
-        <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
-        <label for="is_new_filter">New Attendance</label>
-      </span>
-      <span class="checkbox-container">
-        <input type="checkbox" id="percentage_filter" name="percentage_filter">
-        <label for="percentage_filter">>= 50%</label>
-      </span>
-      <button id="filter-button" type="button" class="submit-btn">Filter</button>
-      <button id="export-csv-button" type="button" class="export-csv">Export to CSV</button>
+      <div>
+        <span class="checkbox-container">
+          <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
+          <label for="is_new_filter">New Attendance</label>
+        </span>
+        <span class="checkbox-container">
+          <input type="checkbox" id="percentage_filter" name="percentage_filter">
+          <label for="percentage_filter">>= 50%</label>
+        </span>
+        <button id="filter-button" type="button" class="submit-btn">Filter</button>
+        <button id="export-csv-button" type="button" class="export-csv">Export to CSV</button>
+      </div>
       <div id="filter-table-response">
         <?php $attendanceListTable->display(); ?>
         <div id="loader-box" style="display: none;">
