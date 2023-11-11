@@ -107,7 +107,7 @@ function attendance_form()
       <option value="English Congregation">English Congregation</option>
     </select>
     <div id="date-message"><?php echo $dateMessage; ?></div>
-    <div class="g-recaptcha" data-sitekey="6Lcpl_soAAAAABWk5dR0MVbuWMaTaucZyPVA1ApX"></div>
+    <div class="g-recaptcha" data-sitekey="6LceSgspAAAAABEtw-MN8TlWYiKDKp7VumOYM06n"></div>
 
     <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isSunday ? '' : 'disabled'; ?>>
   </form>
