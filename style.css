@@ -140,3 +140,8 @@
 .g-recaptcha {
   padding: 10px 0;
 }
+
+.es-message {
+  font-size: 16px;
+  margin-top: 5px;
+}
