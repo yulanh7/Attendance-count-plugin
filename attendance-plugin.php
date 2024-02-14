@@ -55,27 +55,27 @@ function es_enqueue_scripts()
   wp_enqueue_script('jquery-ui-datepicker');
   wp_enqueue_style('jquery-ui-datepicker-style', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
   wp_enqueue_script('google-recaptcha', 'https://www.google.com/recaptcha/api.js');
-
 }
 
 add_action('wp_enqueue_scripts', 'es_enqueue_scripts');
 add_action('admin_enqueue_scripts', 'es_enqueue_scripts');
 
 // Function to verify reCAPTCHA
-function verify_recaptcha($response) {
+function verify_recaptcha($response)
+{
   $secretKey = 'YOUR_RECAPTCHA_SECRET_KEY'; // Replace with your Secret Key
   $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
   $data = array(
-      'secret' => $secretKey,
-      'response' => $response,
+    'secret' => $secretKey,
+    'response' => $response,
   );
 
   $options = array(
-      'http' => array(
-          'header' => 'Content-type: application/x-www-form-urlencoded',
-          'method' => 'POST',
-          'content' => http_build_query($data),
-      ),
+    'http' => array(
+      'header' => 'Content-type: application/x-www-form-urlencoded',
+      'method' => 'POST',
+      'content' => http_build_query($data),
+    ),
   );
 
   $context = stream_context_create($options);
@@ -89,28 +89,28 @@ function attendance_form()
   ob_start();
   $currentDayOfWeek = date('w');
   // FIXME
-  $isSunday = ($currentDayOfWeek == 0);
-  // $isSunday = true;
+  // $isSunday = ($currentDayOfWeek == 0);
+  $isSunday = true;
   $todayDate = date('d/m/Y');
   $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: red'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
 
 ?>
 
-  <form id="es_attendance_form" class="es-attendance-form">
-    <input type="text" name="es_first_name" required placeholder="First Name *">
-    <input type="text" name="es_last_name" required placeholder="Last Name *">
-    <input type="email" name="es_email" required placeholder="Email *">
-    <input type="text" name="es_phone" placeholder="Phone">
-    <select name="es_congregation">
-      <option value="Mandarin Congregation" selected>Mandarin Congregation</option>
-      <option value="Cantonese Congregation">Cantonese Congregation</option>
-      <option value="English Congregation">English Congregation</option>
-    </select>
-    <div id="date-message"><?php echo $dateMessage; ?></div>
-    <div class="g-recaptcha" data-sitekey="6LceSgspAAAAABEtw-MN8TlWYiKDKp7VumOYM06n"></div>
+<form id="es_attendance_form" class="es-attendance-form">
+  <input type="text" name="es_first_name" required placeholder="First Name *">
+  <input type="text" name="es_last_name" required placeholder="Last Name *">
+  <input type="email" name="es_email" required placeholder="Email *">
+  <input type="text" name="es_phone" placeholder="Phone">
+  <select name="es_congregation">
+    <option value="Mandarin Congregation" selected>Mandarin Congregation</option>
+    <option value="Cantonese Congregation">Cantonese Congregation</option>
+    <option value="English Congregation">English Congregation</option>
+  </select>
+  <div id="date-message"><?php echo $dateMessage; ?></div>
+  <div class="g-recaptcha" data-sitekey="6LceSgspAAAAABEtw-MN8TlWYiKDKp7VumOYM06n"></div>
 
-    <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isSunday ? '' : 'disabled'; ?>>
-  </form>
+  <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isSunday ? '' : 'disabled'; ?>>
+</form>
 <?php
   return ob_get_clean();
 }
@@ -161,24 +161,23 @@ function es_handle_attendance()
   if ($existing_user) {
     $wpdb->update(
       $attendance_table_name,
-      ['is_new' => 0], 
-      ['email' => $email] 
+      ['is_new' => 0],
+      ['email' => $email]
     );
 
     $attendance_id = $existing_user['id'];
-
   } else {
-      $data = array(
-        'first_name' => $first_name,
-        'last_name' => $last_name,
-        'congregation' => $congregation,
-        'phone' => $phone,
-        'email' => $email,
-        'is_new' => 1,
-      );
-    
-      $wpdb->insert($attendance_table_name, $data);
-      $attendance_id = $wpdb->insert_id;
+    $data = array(
+      'first_name' => $first_name,
+      'last_name' => $last_name,
+      'congregation' => $congregation,
+      'phone' => $phone,
+      'email' => $email,
+      'is_new' => 1,
+    );
+
+    $wpdb->insert($attendance_table_name, $data);
+    $attendance_id = $wpdb->insert_id;
   }
 
   // Insert into the attendance_dates table
@@ -204,7 +203,7 @@ if (!class_exists('WP_List_Table')) {
 
 class ES_Attendance_List extends WP_List_Table
 {
-  public $per_page = 10; 
+  public $per_page = 10;
 
   function prepare_items($data = array())
   {
@@ -220,7 +219,7 @@ class ES_Attendance_List extends WP_List_Table
       'per_page'    => $this->per_page,               // Determine how many items to show on a page
       'total_pages' => ceil($total_items / $this->per_page)  // Calculate the total number of pages
     ));
-  
+
     // Slice the data array according to the current page and per_page
     $this->items = array_slice($data, (($current_page - 1) * $this->per_page), $this->per_page);
   }
@@ -251,62 +250,58 @@ class ES_Attendance_List extends WP_List_Table
       case 'times':
       case 'congregation':
       case 'last_attended':
-          return $item[$column_name];      
+        return $item[$column_name];
       case 'percentage':
-          return $item[$column_name]."%";
+        return $item[$column_name] . "%";
       default:
         return print_r($item, true);
     }
   }
-  
 }
 
 
-function combine_attendace_with_same_email($data,$percentage_filter = false, $start_date, $end_date) 
+function combine_attendace_with_same_email($data, $percentage_filter = false, $start_date, $end_date)
 {
-  
+
   $sunday_count = calculate_sunday_count($start_date, $end_date);
   // $sunday_count = 3;
 
   $combinedData = [];
   foreach ($data as $entry) {
-      $email = $entry['email'];
-      if (!isset($combinedData[$email])) {
-          // If this email doesn't exist in the combined array, add it.
-          $combinedData[$email] = $entry;
-          $combinedData[$email]['times'] = 1;
-          $combinedData[$email]['percentage'] = number_format(1 / $sunday_count * 100, 2, '.', '');
-          $combinedData[$email]['last_attended'] = date('d/m/Y');
-
-      } else {
-          // If this email exists, increment the times counter.
-          $combinedData[$email]['times']++;
-          $combinedData[$email]['percentage'] = number_format($combinedData[$email]['times'] / $sunday_count * 100, 2, '.', '');
-          // Update the fields if the current entry has a larger ID (is more recent).
-          if ($entry['id'] > $combinedData[$email]['id']) {
-              $combinedData[$email]['first_name'] = $entry['first_name'];
-              $combinedData[$email]['last_name'] = $entry['last_name'];
-              $combinedData[$email]['phone'] = $entry['phone'];
-              $combinedData[$email]['congregation'] = $entry['congregation'];
-              $combinedData[$email]['is_new'] = $entry['is_new'];
-              // Add any other fields that you want to update to the latest one.
-          }
-          $last_attended_date = get_last_attended_date($email);
-          $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
+    $email = $entry['email'];
+    if (!isset($combinedData[$email])) {
+      // If this email doesn't exist in the combined array, add it.
+      $combinedData[$email] = $entry;
+      $combinedData[$email]['times'] = 1;
+      $combinedData[$email]['percentage'] = number_format(1 / $sunday_count * 100, 2, '.', '');
+      $combinedData[$email]['last_attended'] = date('d/m/Y');
+    } else {
+      // If this email exists, increment the times counter.
+      $combinedData[$email]['times']++;
+      $combinedData[$email]['percentage'] = number_format($combinedData[$email]['times'] / $sunday_count * 100, 2, '.', '');
+      // Update the fields if the current entry has a larger ID (is more recent).
+      if ($entry['id'] > $combinedData[$email]['id']) {
+        $combinedData[$email]['first_name'] = $entry['first_name'];
+        $combinedData[$email]['last_name'] = $entry['last_name'];
+        $combinedData[$email]['phone'] = $entry['phone'];
+        $combinedData[$email]['congregation'] = $entry['congregation'];
+        $combinedData[$email]['is_new'] = $entry['is_new'];
+        // Add any other fields that you want to update to the latest one.
       }
-
-
+      $last_attended_date = get_last_attended_date($email);
+      $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
     }
-    $combinedData = array_values($combinedData);
-    if ($percentage_filter) {
-      $combinedData = array_filter($combinedData, function ($item) {
-        return $item['percentage'] >= 50;
-      });
-    }
-    foreach ($combinedData as $key => $value) {
-      $combinedData[$key] = ['row_num' => $key + 1] + $value;
-    }    
-    return $combinedData;
+  }
+  $combinedData = array_values($combinedData);
+  if ($percentage_filter) {
+    $combinedData = array_filter($combinedData, function ($item) {
+      return $item['percentage'] >= 50;
+    });
+  }
+  foreach ($combinedData as $key => $value) {
+    $combinedData[$key] = ['row_num' => $key + 1] + $value;
+  }
+  return $combinedData;
 }
 
 function calculate_sunday_count($start_date, $end_date)
@@ -367,93 +362,94 @@ function es_render_attendance_list()
     $item['start_date'] = $start_date;
     $item['end_date'] = $end_date;
   }
-  $results = combine_attendace_with_same_email($results,false, $start_date, $end_date);
+  $results = combine_attendace_with_same_email($results, false, $start_date, $end_date);
 
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
 ?>
-  <div class="wrap">
-    <h2>Attendance</h2>
-    <div class="filter-form">
-      <select name="es_congregation_filter" id="es_congregation_filter">
-        <option value="" selected>All Congregation</option>
-        <option value="Mandarin Congregation">Mandarin Congregation</option>
-        <option value="Cantonese Congregation">Cantonese Congregation</option>
-        <option value="English Congregation">English Congregation</option>
-      </select>
-      <input type="text" id="last_name_filter" placeholder="Last Name">
-      <input type="text" id="first_name_filter" placeholder="First Name">
-      <input type="text" id="email_filter" placeholder="Email">
-      <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo date('Y-m-d'); ?>">
-      <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo date('Y-m-d'); ?>">
-      <div>
-        <span class="checkbox-container">
-          <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
-          <label for="is_new_filter">New Attendance</label>
-        </span>
-        <span class="checkbox-container">
-          <input type="checkbox" id="percentage_filter" name="percentage_filter">
-          <label for="percentage_filter">>= 50%</label>
-        </span>
-        <button id="filter-button" type="button" class="submit-btn">Filter</button>
-        <button id="export-csv-button" type="button" class="export-csv">Export to CSV</button>
-      </div>
-      <div id="filter-table-response">
-        <?php $attendanceListTable->display(); ?>
-        <div id="loader-box" style="display: none;">
-          <div id="es-loading-spinner" class="loader"></div>
-        </div>
+<div class="wrap">
+  <h2>Attendance</h2>
+  <div class="filter-form">
+    <select name="es_congregation_filter" id="es_congregation_filter">
+      <option value="" selected>All Congregation</option>
+      <option value="Mandarin Congregation">Mandarin Congregation</option>
+      <option value="Cantonese Congregation">Cantonese Congregation</option>
+      <option value="English Congregation">English Congregation</option>
+    </select>
+    <input type="text" id="last_name_filter" placeholder="Last Name">
+    <input type="text" id="first_name_filter" placeholder="First Name">
+    <input type="text" id="email_filter" placeholder="Email">
+    <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo date('Y-m-d'); ?>">
+    <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo date('Y-m-d'); ?>">
+    <div>
+      <span class="checkbox-container">
+        <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
+        <label for="is_new_filter">New Attendance</label>
+      </span>
+      <span class="checkbox-container">
+        <input type="checkbox" id="percentage_filter" name="percentage_filter">
+        <label for="percentage_filter">>= 50%</label>
+      </span>
+      <button id="filter-button" type="button" class="submit-btn">Filter</button>
+      <button id="export-csv-button" type="button" class="export-csv">Export to CSV</button>
+    </div>
+    <div id="filter-table-response">
+      <?php $attendanceListTable->display(); ?>
+      <div id="loader-box" style="display: none;">
+        <div id="es-loading-spinner" class="loader"></div>
       </div>
     </div>
+  </div>
   <?php
 }
 
 
 add_action('wp_ajax_es_filter_attendance', 'es_filter_attendance_callback');
 
-function get_filtered_attendance_results($query) {
-   $congregation = sanitize_text_field($_POST['congregation']);
-   $last_name = sanitize_text_field($_POST['last_name']);
-   $first_name = sanitize_text_field($_POST['first_name']);
-   $email = sanitize_text_field($_POST['email']);
-   $is_new = isset($_POST['is_new'])&&  $_POST['is_new']== 'true' ? 1 : 0;
-   $start_date = sanitize_text_field($_POST['start_date_filter']);
-   $end_date = sanitize_text_field($_POST['end_date_filter']);
-   $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter']== 'true'? 1 : 0;
+function get_filtered_attendance_results($query)
+{
+  $congregation = sanitize_text_field($_POST['congregation']);
+  $last_name = sanitize_text_field($_POST['last_name']);
+  $first_name = sanitize_text_field($_POST['first_name']);
+  $email = sanitize_text_field($_POST['email']);
+  $is_new = isset($_POST['is_new']) &&  $_POST['is_new'] == 'true' ? 1 : 0;
+  $start_date = sanitize_text_field($_POST['start_date_filter']);
+  $end_date = sanitize_text_field($_POST['end_date_filter']);
+  $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter'] == 'true' ? 1 : 0;
 
-   global $wpdb;
-  
- 
-   if (!empty($congregation)) {
-     $query .= $wpdb->prepare(" AND congregation = %s", $congregation);
-   }
-   if (!empty($first_name)) {
-     $query .= $wpdb->prepare(" AND first_name = %s", $first_name);
-   }
- 
-   if (!empty($last_name)) {
-     $query .= $wpdb->prepare(" AND last_name = %s", $last_name);
-   }
- 
-   if (!empty($email)) {
-     $query .= $wpdb->prepare(" AND email = %s", $email);
-   }
- 
-   if ($is_new) {
-     $query .= $wpdb->prepare(" AND is_new = %s", $is_new);
-   }
-   if (!empty($start_date)) {
-     $start_date = date('Y-m-d', strtotime($start_date));
-     $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
-   }
-   if (!empty($end_date)) {
-     $end_date = date('Y-m-d', strtotime($end_date));
-     $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
-   }
- 
-   $results = $wpdb->get_results($query, ARRAY_A);
-   $results = combine_attendace_with_same_email($results,$percentage_filter, $item['start_date'], $item['end_date']);
- 
+  global $wpdb;
+
+
+  if (!empty($congregation)) {
+    $query .= $wpdb->prepare(" AND congregation = %s", $congregation);
+  }
+  if (!empty($first_name)) {
+    $query .= $wpdb->prepare(" AND first_name = %s", $first_name);
+  }
+
+  if (!empty($last_name)) {
+    $query .= $wpdb->prepare(" AND last_name = %s", $last_name);
+  }
+
+  if (!empty($email)) {
+    $query .= $wpdb->prepare(" AND email = %s", $email);
+  }
+
+  if ($is_new) {
+    $query .= $wpdb->prepare(" AND is_new = %s", $is_new);
+  }
+  if (!empty($start_date)) {
+    $start_date = date('Y-m-d', strtotime($start_date));
+    $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
+  }
+  if (!empty($end_date)) {
+    $end_date = date('Y-m-d', strtotime($end_date));
+    $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
+  }
+
+  $results = $wpdb->get_results($query, ARRAY_A);
+  $results = combine_attendace_with_same_email($results, $percentage_filter, $start_date, $end_date);
+
   return $results;
 }
 
@@ -471,7 +467,7 @@ function es_filter_attendance_callback()
   $results = get_filtered_attendance_results($query);
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
- 
+
   // Output the updated table HTML
   ob_start();
   $attendanceListTable->display();
@@ -488,7 +484,8 @@ add_action('admin_menu', function () {
 });
 
 
-function es_export_attendance_csv() {
+function es_export_attendance_csv()
+{
   global $wpdb;
   $attendance_table_name = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
@@ -499,7 +496,7 @@ function es_export_attendance_csv() {
   $results = get_filtered_attendance_results($query);
   $csv_data = array();
   foreach ($results as $row) {
-      $csv_data[] = implode(',', $row);
+    $csv_data[] = implode(',', $row);
   }
   $fileName = array(
     'No.',
@@ -514,14 +511,15 @@ function es_export_attendance_csv() {
   );
   $csv_string = implode(',', $fileName);
   $csv_string .= "\n";
-  $csv_string .= implode("\n", $csv_data);  
+  $csv_string .= implode("\n", $csv_data);
   echo $csv_string;
   wp_die();
 }
 add_action('wp_ajax_es_export_attendance_csv', 'es_export_attendance_csv');
 
 
-function es_on_deactivation() {
+function es_on_deactivation()
+{
   global $wpdb;
   if (!current_user_can('activate_plugins')) return;
 
@@ -532,12 +530,10 @@ function es_on_deactivation() {
   $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
 
   if ($result1 === false || $result2 === false) {
-      error_log("Error dropping tables: " . $wpdb->last_error);
+    error_log("Error dropping tables: " . $wpdb->last_error);
   } else {
-      error_log("Tables dropped successfully.");
+    error_log("Tables dropped successfully.");
   }
 }
 
 register_deactivation_hook(__FILE__, 'es_on_deactivation');
-
-
