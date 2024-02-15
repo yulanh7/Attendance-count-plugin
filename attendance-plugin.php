@@ -92,7 +92,7 @@ function attendance_form()
   $isSunday = ($currentDayOfWeek == 0);
   // $isSunday = true;
   $todayDate = date('d/m/Y');
-  $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: red'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
+  $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: #ef2723;font-size: 18px'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
 
 ?>
 
