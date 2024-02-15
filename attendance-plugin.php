@@ -276,13 +276,21 @@ function combine_attendace_with_same_email($data, $start_date, $end_date, $perce
       // If this email doesn't exist in the combined array, add it.
       $combinedData[$email] = $entry;
       $combinedData[$email]['times'] = 1;
-      $combinedData[$email]['percentage'] = number_format(1 / $sunday_count * 100, 2, '.', '');
+      if ($sunday_count <= 0) {
+        $combinedData[$email]['percentage'] = 100;
+      } else {
+        $combinedData[$email]['percentage'] = number_format(1 / $sunday_count * 100, 2, '.', '');
+      }
       $last_attended_date = get_last_attended_date($email);
       $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
     } else {
       // If this email exists, increment the times counter.
       $combinedData[$email]['times']++;
-      $combinedData[$email]['percentage'] = number_format($combinedData[$email]['times'] / $sunday_count * 100, 2, '.', '');
+      if ($sunday_count <= 0) {
+        $combinedData[$email]['percentage'] = 100;
+      } else {
+        $combinedData[$email]['percentage'] = number_format($combinedData[$email]['times'] / $sunday_count * 100, 2, '.', '');
+      }
       // Update the fields if the current entry has a larger ID (is more recent).
       if ($entry['id'] > $combinedData[$email]['id']) {
         $combinedData[$email]['first_name'] = $entry['first_name'];
