@@ -106,11 +106,10 @@ function attendance_form()
     <option value="Cantonese Congregation">Cantonese Congregation</option>
     <option value="English Congregation">English Congregation</option>
   </select>
-  <div id="date-message"><?php echo $dateMessage; ?></div>
   <div class="g-recaptcha" data-sitekey="6LceSgspAAAAABEtw-MN8TlWYiKDKp7VumOYM06n"></div>
   <!-- For test website -->
   <!-- <div class="g-recaptcha" data-sitekey="6Lcpl_soAAAAABWk5dR0MVbuWMaTaucZyPVA1ApX"></div> -->
-
+  <div id="date-message"><?php echo $dateMessage; ?></div>
   <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isSunday ? '' : 'disabled'; ?>>
 </form>
 <?php
@@ -263,8 +262,9 @@ class ES_Attendance_List extends WP_List_Table
 }
 
 
-function combine_attendace_with_same_email($data, $percentage_filter = false, $start_date, $end_date)
+function combine_attendace_with_same_email($data, $start_date, $end_date, $percentage_filter = false)
 {
+
 
   $sunday_count = calculate_sunday_count($start_date, $end_date);
   // $sunday_count = 3;
@@ -366,7 +366,7 @@ function es_render_attendance_list()
     $item['start_date'] = $start_date;
     $item['end_date'] = $end_date;
   }
-  $results = combine_attendace_with_same_email($results, false, $start_date, $end_date);
+  $results = combine_attendace_with_same_email($results, $start_date, $end_date, false);
 
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
@@ -452,7 +452,7 @@ function get_filtered_attendance_results($query)
   }
 
   $results = $wpdb->get_results($query, ARRAY_A);
-  $results = combine_attendace_with_same_email($results, $percentage_filter, $start_date, $end_date);
+  $results = combine_attendace_with_same_email($results, $start_date, $end_date, $percentage_filter);
 
   return $results;
 }
