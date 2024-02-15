@@ -89,8 +89,8 @@ function attendance_form()
   ob_start();
   $currentDayOfWeek = date('w');
   // FIXME
-  // $isSunday = ($currentDayOfWeek == 0);
-  $isSunday = true;
+  $isSunday = ($currentDayOfWeek == 0);
+  // $isSunday = true;
   $todayDate = date('d/m/Y');
   $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: red'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
 
@@ -108,6 +108,8 @@ function attendance_form()
   </select>
   <div id="date-message"><?php echo $dateMessage; ?></div>
   <div class="g-recaptcha" data-sitekey="6LceSgspAAAAABEtw-MN8TlWYiKDKp7VumOYM06n"></div>
+  <!-- For test website -->
+  <!-- <div class="g-recaptcha" data-sitekey="6Lcpl_soAAAAABWk5dR0MVbuWMaTaucZyPVA1ApX"></div> -->
 
   <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isSunday ? '' : 'disabled'; ?>>
 </form>
@@ -184,6 +186,7 @@ function es_handle_attendance()
   $data = array(
     'attendance_id' => $attendance_id,
     'date_attended' => $current_date,
+    // 'date_attended' => date("2024-2-5"),
   );
 
   $wpdb->insert($attendance_dates_table_name, $data);
@@ -274,7 +277,8 @@ function combine_attendace_with_same_email($data, $percentage_filter = false, $s
       $combinedData[$email] = $entry;
       $combinedData[$email]['times'] = 1;
       $combinedData[$email]['percentage'] = number_format(1 / $sunday_count * 100, 2, '.', '');
-      $combinedData[$email]['last_attended'] = date('d/m/Y');
+      $last_attended_date = get_last_attended_date($email);
+      $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
     } else {
       // If this email exists, increment the times counter.
       $combinedData[$email]['times']++;
@@ -520,20 +524,20 @@ add_action('wp_ajax_es_export_attendance_csv', 'es_export_attendance_csv');
 
 function es_on_deactivation()
 {
-  global $wpdb;
-  if (!current_user_can('activate_plugins')) return;
+  // global $wpdb;
+  // if (!current_user_can('activate_plugins')) return;
 
-  $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  // $attendance_table_name = $wpdb->prefix . 'attendance';
+  // $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
-  $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
-  $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
+  // $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
+  // $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
 
-  if ($result1 === false || $result2 === false) {
-    error_log("Error dropping tables: " . $wpdb->last_error);
-  } else {
-    error_log("Tables dropped successfully.");
-  }
+  // if ($result1 === false || $result2 === false) {
+  //   error_log("Error dropping tables: " . $wpdb->last_error);
+  // } else {
+  //   error_log("Tables dropped successfully.");
+  // }
 }
 
 register_deactivation_hook(__FILE__, 'es_on_deactivation');
