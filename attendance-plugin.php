@@ -25,7 +25,7 @@ function create_attendance_table()
       last_name VARCHAR(255) NOT NULL,
       phone VARCHAR(20),
       email VARCHAR(255) NOT NULL,
-      congregation VARCHAR(255) NOT NULL,
+      fellowship VARCHAR(255) NOT NULL,
       is_new BOOLEAN DEFAULT 1,
       PRIMARY KEY (id)
   ) $charset_collate;";
@@ -101,10 +101,12 @@ function attendance_form()
   <input type="text" name="es_last_name" required placeholder="Last Name *">
   <input type="email" name="es_email" required placeholder="Email *">
   <input type="text" name="es_phone" placeholder="Phone">
-  <select name="es_congregation">
-    <option value="Mandarin Congregation" selected>Mandarin Congregation</option>
-    <option value="Cantonese Congregation">Cantonese Congregation</option>
-    <option value="English Congregation">English Congregation</option>
+  <select name="es_fellowship">
+    <option value="Daniel" selected>但以理团契</option>
+    <option value="True love">真爱团团契</option>
+    <option value="Faith Hope Love">信望爱团契</option>
+    <option value="Peace&Joy Prayer">平安喜乐祷告会</option>
+    <option value="other">其他</option>
   </select>
   <div class="g-recaptcha" data-sitekey="6LceSgspAAAAABEtw-MN8TlWYiKDKp7VumOYM06n"></div>
   <!-- For test website -->
@@ -123,7 +125,7 @@ function es_handle_attendance()
   $first_name = sanitize_text_field($_POST['es_first_name']);
   $last_name = sanitize_text_field($_POST['es_last_name']);
   $phone = sanitize_text_field($_POST['es_phone']);
-  $congregation = sanitize_text_field($_POST['es_congregation']);
+  $fellowship = sanitize_text_field($_POST['es_fellowship']);
   $email = sanitize_email($_POST['es_email']);
   $current_date = date('Y-m-d');
   // $yesterday_date_only = date('Y-m-d', strtotime($current_time . ' -1 day')); // This will give you just the date part for yesterday
@@ -171,7 +173,7 @@ function es_handle_attendance()
     $data = array(
       'first_name' => $first_name,
       'last_name' => $last_name,
-      'congregation' => $congregation,
+      'fellowship' => $fellowship,
       'phone' => $phone,
       'email' => $email,
       'is_new' => 1,
@@ -230,7 +232,7 @@ class ES_Attendance_List extends WP_List_Table
   {
     return [
       'row_num' => 'No.',
-      'congregation' => 'Congregation',
+      'fellowship' => 'Fellowships',
       'first_name' => 'First Name',
       'last_name' => 'Last Name',
       'phone' => 'Phone',
@@ -250,7 +252,7 @@ class ES_Attendance_List extends WP_List_Table
       case 'email':
       case 'phone':
       case 'times':
-      case 'congregation':
+      case 'fellowship':
       case 'last_attended':
         return $item[$column_name];
       case 'percentage':
@@ -296,7 +298,7 @@ function combine_attendace_with_same_email($data, $start_date, $end_date, $perce
         $combinedData[$email]['first_name'] = $entry['first_name'];
         $combinedData[$email]['last_name'] = $entry['last_name'];
         $combinedData[$email]['phone'] = $entry['phone'];
-        $combinedData[$email]['congregation'] = $entry['congregation'];
+        $combinedData[$email]['fellowship'] = $entry['fellowship'];
         $combinedData[$email]['is_new'] = $entry['is_new'];
         // Add any other fields that you want to update to the latest one.
       }
@@ -382,11 +384,13 @@ function es_render_attendance_list()
 <div class="wrap">
   <h2>Attendance</h2>
   <div class="filter-form">
-    <select name="es_congregation_filter" id="es_congregation_filter">
-      <option value="" selected>All Congregation</option>
-      <option value="Mandarin Congregation">Mandarin Congregation</option>
-      <option value="Cantonese Congregation">Cantonese Congregation</option>
-      <option value="English Congregation">English Congregation</option>
+    <select name="es_fellowship_filter" id="es_fellowship_filter">
+      <option value="" selected>全部</option>
+      <option value="Daniel" selected>但以理团契</option>
+      <option value="True love">真爱团团契</option>
+      <option value="Faith Hope Love">信望爱团契</option>
+      <option value="Peace&Joy Prayer">平安喜乐祷告会</option>
+      <option value="other">其他</option>
     </select>
     <input type="text" id="last_name_filter" placeholder="Last Name">
     <input type="text" id="first_name_filter" placeholder="First Name">
@@ -420,7 +424,7 @@ add_action('wp_ajax_es_filter_attendance', 'es_filter_attendance_callback');
 
 function get_filtered_attendance_results($query)
 {
-  $congregation = sanitize_text_field($_POST['congregation']);
+  $fellowship = sanitize_text_field($_POST['fellowship']);
   $last_name = sanitize_text_field($_POST['last_name']);
   $first_name = sanitize_text_field($_POST['first_name']);
   $email = sanitize_text_field($_POST['email']);
@@ -432,8 +436,8 @@ function get_filtered_attendance_results($query)
   global $wpdb;
 
 
-  if (!empty($congregation)) {
-    $query .= $wpdb->prepare(" AND congregation = %s", $congregation);
+  if (!empty($fellowship)) {
+    $query .= $wpdb->prepare(" AND fellowship = %s", $fellowship);
   }
   if (!empty($first_name)) {
     $query .= $wpdb->prepare(" AND first_name = %s", $first_name);
@@ -501,7 +505,7 @@ function es_export_attendance_csv()
   global $wpdb;
   $attendance_table_name = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
-  $query = "SELECT A.congregation, A.first_name,A.last_name,A.phone,A.email 
+  $query = "SELECT A.fellowship, A.first_name,A.last_name,A.phone,A.email 
     FROM $attendance_table_name AS A
     INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
     WHERE 1=1";
@@ -512,7 +516,7 @@ function es_export_attendance_csv()
   }
   $fileName = array(
     'No.',
-    'Congregation',
+    'Fellowships',
     'First Name	',
     'Last Name	',
     'Phone',

@@ -6,7 +6,7 @@ jQuery(document).ready(function ($) {
     $("input[name=es_last_name]").val(storedData.es_last_name || '');
     $("input[name=es_email]").val(storedData.es_email || '');
     $("input[name=es_phone]").val(storedData.es_phone || '');
-    $("select[name=es_congregation]").val(storedData.es_congregation || '');
+    $("select[name=es_fellowship]").val(storedData.es_fellowship || '');
   }
   updateFormFields();
 
@@ -18,7 +18,7 @@ jQuery(document).ready(function ($) {
       es_last_name: $("input[name=es_last_name]").val(),
       es_email: $("input[name=es_email]").val(),
       es_phone: $("input[name=es_phone]").val(),
-      es_congregation: $("select[name=es_congregation]").val()
+      es_fellowship: $("select[name=es_fellowship]").val()
     };
     // Capture the reCAPTCHA response
     const recaptchaResponse = grecaptcha.getResponse();
@@ -89,7 +89,7 @@ jQuery(document).ready(function ($) {
   
 
   function fetchFilteredResults(page, exportCsv = false) {
-    const congregation = $("#es_congregation_filter").val(); // Get the selected congregation
+    const fellowship = $("#es_fellowship_filter").val(); // Get the selected fellowship
     const start_date_filter = $("#start_date_filter").val();
     const end_date_filter = $("#end_date_filter").val();
     const lastName = $("#last_name_filter").val();
@@ -105,7 +105,7 @@ jQuery(document).ready(function ($) {
       last_name: lastName,
       first_name: firstName,
       email: email,
-      congregation: congregation,
+      fellowship: fellowship,
       is_new: isNew,
       percentage_filter: percentageFilter,
       paged: page,
