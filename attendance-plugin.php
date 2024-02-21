@@ -433,7 +433,6 @@ function get_filtered_attendance_results($query)
   $last_name = sanitize_text_field($_POST['last_name']);
   $first_name = sanitize_text_field($_POST['first_name']);
   $email = sanitize_text_field($_POST['email']);
-  $is_new = isset($_POST['is_new']) &&  $_POST['is_new'] == 'true' ? 1 : 0;
   $start_date = sanitize_text_field($_POST['start_date_filter']);
   $end_date = sanitize_text_field($_POST['end_date_filter']);
   $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter'] == 'true' ? 1 : 0;
@@ -456,15 +455,15 @@ function get_filtered_attendance_results($query)
     $query .= $wpdb->prepare(" AND email = %s", $email);
   }
 
-  if ($is_new) {
-    $query .= $wpdb->prepare(" AND is_new = %s", $is_new);
+  if (isset($_POST['is_new']) &&  $_POST['is_new'] == 'true') {
+    $query .= $wpdb->prepare(" AND is_new = %s", 1);
   }
   if (!empty($start_date)) {
-    $start_date = current_time('Y-m-d', strtotime($start_date));
+    $start_date = date('Y-m-d', strtotime($start_date));
     $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
   }
   if (!empty($end_date)) {
-    $end_date = current_time('Y-m-d', strtotime($end_date));
+    $end_date = date('Y-m-d', strtotime($end_date));
     $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
   }
 
