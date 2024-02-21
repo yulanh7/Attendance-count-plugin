@@ -27,6 +27,7 @@ function create_attendance_table()
       email VARCHAR(255) NOT NULL,
       fellowship VARCHAR(255) NOT NULL,
       is_new BOOLEAN DEFAULT 1,
+      first_attendance_date DATE NOT NULL,
       PRIMARY KEY (id)
   ) $charset_collate;";
 
@@ -180,6 +181,8 @@ function es_handle_attendance()
       'phone' => $phone,
       'email' => $email,
       'is_new' => 1,
+      'first_attendance_date' => $current_date,
+      // 'first_attendance_date' => date("2024-2-5"),
     );
 
     $wpdb->insert($attendance_table_name, $data);
@@ -242,6 +245,7 @@ class ES_Attendance_List extends WP_List_Table
       'email' => 'Email',
       'times' => 'Times',
       'percentage' => 'Percentage',
+      'first_attendance_date' => 'First attended Date',
       'last_attended' => 'Last Attended Date',
     ];
   }
@@ -258,6 +262,8 @@ class ES_Attendance_List extends WP_List_Table
       case 'fellowship':
       case 'last_attended':
         return $item[$column_name];
+      case 'first_attendance_date':
+        return date('d/m/Y', strtotime($item[$column_name]));
       case 'percentage':
         return $item[$column_name] . "%";
       default:
