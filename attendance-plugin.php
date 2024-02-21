@@ -182,7 +182,7 @@ function es_handle_attendance()
       'email' => $email,
       'is_new' => 1,
       'first_attendance_date' => $current_date,
-      // 'first_attendance_date' => date("2024-2-5"),
+      // 'first_attendance_date' => date("2024-2-4"),
     );
 
     $wpdb->insert($attendance_table_name, $data);
@@ -193,7 +193,7 @@ function es_handle_attendance()
   $data = array(
     'attendance_id' => $attendance_id,
     'date_attended' => $current_date,
-    // 'date_attended' => date("2024-2-5"),
+    // 'date_attended' => date("2024-2-4"),
   );
 
   $wpdb->insert($attendance_dates_table_name, $data);
@@ -283,6 +283,10 @@ function combine_attendace_with_same_email($data, $start_date, $end_date, $perce
   $combinedData = [];
   foreach ($data as $entry) {
     $email = $entry['email'];
+    $new_start_date = date('Y-m-d', strtotime($entry['first_attendance_date']));
+    if ($start_date < $new_start_date) {
+      $sunday_count = calculate_sunday_count($new_start_date, $end_date);
+    }
     if (!isset($combinedData[$email])) {
       // If this email doesn't exist in the combined array, add it.
       $combinedData[$email] = $entry;
