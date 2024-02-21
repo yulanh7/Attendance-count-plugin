@@ -87,11 +87,11 @@ function verify_recaptcha($response)
 function attendance_form()
 {
   ob_start();
-  $currentDayOfWeek = date('w');
+  $currentDayOfWeek = current_time('w');
   // FIXME
   $isSunday = ($currentDayOfWeek == 0);
   // $isSunday = true;
-  $todayDate = date('d/m/Y');
+  $todayDate = current_time('d/m/Y');
   $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: #ef2723;font-size: 18px'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
 
 ?>
@@ -112,6 +112,7 @@ function attendance_form()
   <!-- For test website -->
   <!-- <div class="g-recaptcha" data-sitekey="6Lcpl_soAAAAABWk5dR0MVbuWMaTaucZyPVA1ApX"></div> -->
   <div id="date-message"><?php echo $dateMessage; ?></div>
+  <!-- <div id="date-message"><?php echo date('d/m/Y'); ?></div> -->
   <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isSunday ? '' : 'disabled'; ?>>
 </form>
 <?php
@@ -127,7 +128,7 @@ function es_handle_attendance()
   $phone = sanitize_text_field($_POST['es_phone']);
   $fellowship = sanitize_text_field($_POST['es_fellowship']);
   $email = sanitize_email($_POST['es_email']);
-  $current_date = date('Y-m-d');
+  $current_date = current_time('Y-m-d');
   // $yesterday_date_only = date('Y-m-d', strtotime($current_time . ' -1 day')); // This will give you just the date part for yesterday
 
   // Check for duplicate entries on the same date
@@ -144,12 +145,14 @@ function es_handle_attendance()
     ARRAY_A
   );
 
+  // Prepare your SQL query using the current date
   $existing_entry = $wpdb->get_results(
     $wpdb->prepare(
       "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = (
-        SELECT id FROM $attendance_table_name WHERE email = %s ORDER BY email DESC LIMIT 1
-      ) AND date_attended = CURDATE()",
-      $email
+      SELECT id FROM $attendance_table_name WHERE email = %s ORDER BY email DESC LIMIT 1
+    ) AND date_attended = %s",
+      $email,
+      $current_date
     ),
     ARRAY_A
   );
@@ -285,6 +288,7 @@ function combine_attendace_with_same_email($data, $start_date, $end_date, $perce
       }
       $last_attended_date = get_last_attended_date($email);
       $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
+      // $combinedData[$email]['last_attended'] = $last_attended_date;
     } else {
       // If this email exists, increment the times counter.
       $combinedData[$email]['times']++;
@@ -304,6 +308,7 @@ function combine_attendace_with_same_email($data, $start_date, $end_date, $perce
       }
       $last_attended_date = get_last_attended_date($email);
       $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
+      // $combinedData[$email]['last_attended'] = $last_attended_date;
     }
   }
   $combinedData = array_values($combinedData);
@@ -360,8 +365,8 @@ function es_render_attendance_list()
   global $wpdb;
   $attendance_table_name = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
-  $start_date = date('Y-m-d');
-  $end_date = date('Y-m-d');
+  $start_date = current_time('Y-m-d');
+  $end_date = current_time('Y-m-d');
   // Query to select attendance data based on filters
   $query = "SELECT A.*
   FROM $attendance_table_name AS A
@@ -395,8 +400,8 @@ function es_render_attendance_list()
     <input type="text" id="last_name_filter" placeholder="Last Name">
     <input type="text" id="first_name_filter" placeholder="First Name">
     <input type="text" id="email_filter" placeholder="Email">
-    <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo date('Y-m-d'); ?>">
-    <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo date('Y-m-d'); ?>">
+    <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo current_time('Y-m-d'); ?>">
+    <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo current_time('Y-m-d'); ?>">
     <div>
       <span class="checkbox-container">
         <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
@@ -455,11 +460,11 @@ function get_filtered_attendance_results($query)
     $query .= $wpdb->prepare(" AND is_new = %s", $is_new);
   }
   if (!empty($start_date)) {
-    $start_date = date('Y-m-d', strtotime($start_date));
+    $start_date = current_time('Y-m-d', strtotime($start_date));
     $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
   }
   if (!empty($end_date)) {
-    $end_date = date('Y-m-d', strtotime($end_date));
+    $end_date = current_time('Y-m-d', strtotime($end_date));
     $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
   }
 
@@ -536,20 +541,20 @@ add_action('wp_ajax_es_export_attendance_csv', 'es_export_attendance_csv');
 
 function es_on_deactivation()
 {
-  // global $wpdb;
-  // if (!current_user_can('activate_plugins')) return;
+  global $wpdb;
+  if (!current_user_can('activate_plugins')) return;
 
-  // $attendance_table_name = $wpdb->prefix . 'attendance';
-  // $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
-  // $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
-  // $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
+  $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
+  $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
 
-  // if ($result1 === false || $result2 === false) {
-  //   error_log("Error dropping tables: " . $wpdb->last_error);
-  // } else {
-  //   error_log("Tables dropped successfully.");
-  // }
+  if ($result1 === false || $result2 === false) {
+    error_log("Error dropping tables: " . $wpdb->last_error);
+  } else {
+    error_log("Tables dropped successfully.");
+  }
 }
 
 register_deactivation_hook(__FILE__, 'es_on_deactivation');
