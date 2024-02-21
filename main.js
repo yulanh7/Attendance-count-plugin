@@ -10,7 +10,7 @@ jQuery(document).ready(function ($) {
   }
   updateFormFields();
 
- 
+
   $("form#es_attendance_form").submit(function (e) {
     e.preventDefault();
     const formData = {
@@ -44,7 +44,7 @@ jQuery(document).ready(function ($) {
         displayMessage('An error occurred. Please try again.', 'red');
 
       },
-      
+
     });
     function displayMessage(message, color) {
       $(".es-message").remove();
@@ -73,7 +73,7 @@ jQuery(document).ready(function ($) {
   });
 
   function bindPaginationEvent() {
-    $(document).on('click', '.pagination-links a', function(e) {
+    $(document).on('click', '.pagination-links a', function (e) {
       e.preventDefault();
       // This will extract the page number from the query string in the href attribute
       var href = $(this).attr('href');
@@ -86,7 +86,7 @@ jQuery(document).ready(function ($) {
       }
     });
   }
-  
+
 
   function fetchFilteredResults(page, exportCsv = false) {
     const fellowship = $("#es_fellowship_filter").val(); // Get the selected fellowship
@@ -99,7 +99,7 @@ jQuery(document).ready(function ($) {
     const percentageFilter = $("#percentage_filter").is(":checked"); // Get the checkbox state
     const tableName = "#filter-table-response";
     const data = {
-      action: exportCsv? "es_export_attendance_csv":"es_filter_attendance",
+      action: exportCsv ? "es_export_attendance_csv" : "es_filter_attendance",
       start_date_filter,
       end_date_filter,
       last_name: lastName,
@@ -116,26 +116,24 @@ jQuery(document).ready(function ($) {
         url: esAjax.ajaxurl,
         type: "POST",
         data: data,
-        success: function(response) {
-          debugger
-            const blob = new Blob([response], { type: 'text/csv' });
-            const downloadUrl = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = downloadUrl;
-            const currentDate = new Date();
-            const day = ("0" + currentDate.getDate()).slice(-2); 
-            const month = ("0" + (currentDate.getMonth() + 1)).slice(-2); 
-            const year = currentDate.getFullYear();
-            const formattedDate = `${day}-${month}-${year}`;
-            a.download = `Attendance_Report_${formattedDate}.csv`;
-            document.body.appendChild(a);
-            a.click();
+        success: function (response) {
+          const blob = new Blob([response], { type: 'text/csv' });
+          const downloadUrl = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          const currentDate = new Date();
+          const day = ("0" + currentDate.getDate()).slice(-2);
+          const month = ("0" + (currentDate.getMonth() + 1)).slice(-2);
+          const year = currentDate.getFullYear();
+          const formattedDate = `${day}-${month}-${year}`;
+          a.download = `Attendance_Report_${formattedDate}.csv`;
+          document.body.appendChild(a);
+          a.click();
         },
-        error: function() {
-            alert("An error occurred.");
+        error: function () {
+          alert("An error occurred.");
         }
       });
-      return;
     }
 
 
