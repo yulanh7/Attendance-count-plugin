@@ -214,7 +214,7 @@ if (!class_exists('WP_List_Table')) {
 
 class ES_Attendance_List extends WP_List_Table
 {
-  public $per_page = 10;
+  public $per_page = 20;
 
   function prepare_items($data = array())
   {
