@@ -27,6 +27,7 @@ function create_attendance_table()
       email VARCHAR(255) NOT NULL,
       fellowship VARCHAR(255) NOT NULL,
       is_new BOOLEAN DEFAULT 1,
+      is_member BOOLEAN DEFAULT 0,
       first_attendance_date DATE NOT NULL,
       PRIMARY KEY (id)
   ) $charset_collate;";
@@ -91,7 +92,7 @@ function attendance_form()
   $currentDayOfWeek = current_time('w');
   // FIXME
   $isSunday = ($currentDayOfWeek == 0);
-  // $isSunday = true;
+  $isSunday = true;
   $todayDate = current_time('d/m/Y');
   $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: #ef2723;font-size: 18px'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
 
@@ -392,7 +393,6 @@ function es_render_attendance_list()
     $item['end_date'] = $end_date;
   }
   $results = combine_attendace_with_same_email($results, $start_date, $end_date, false);
-
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
 ?>
