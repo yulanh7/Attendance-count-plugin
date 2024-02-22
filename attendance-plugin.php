@@ -238,6 +238,7 @@ class ES_Attendance_List extends WP_List_Table
   function get_columns()
   {
     return [
+      'cb' => '<input type="checkbox" />', // Add this line
       'row_num' => 'No.',
       'fellowship' => 'Fellowships',
       'first_name' => 'First Name',
@@ -252,6 +253,21 @@ class ES_Attendance_List extends WP_List_Table
     ];
   }
 
+  function column_cb($item)
+  {
+    return sprintf(
+      '<input type="checkbox" name="bulk-select[]" value="%s" />',
+      $item['id']
+    );
+  }
+  function get_bulk_actions()
+  {
+    $actions = array(
+      'make_member'    => 'Make Member',
+      'make_non_member' => 'Make Non-Member',
+    );
+    return $actions;
+  }
   function column_default($item, $column_name)
   {
     switch ($column_name) {
@@ -549,6 +565,28 @@ function es_export_attendance_csv()
   wp_die();
 }
 add_action('wp_ajax_es_export_attendance_csv', 'es_export_attendance_csv');
+
+
+add_action('wp_ajax_handle_member_status_update', 'handle_member_status_update');
+
+function handle_member_status_update()
+{
+  global $wpdb;
+  $ids = isset($_POST['ids']) ? $_POST['ids'] : array();
+  $action = isset($_POST['member_action']) ? $_POST['member_action'] : '';
+
+  $is_member = ($action == 'make_member') ? 1 : 0;
+
+  foreach ($ids as $id) {
+    $wpdb->update(
+      $wpdb->prefix . 'attendance',
+      array('is_member' => $is_member),
+      array('id' => intval($id))
+    );
+  }
+
+  wp_send_json_success(array('message' => 'Member status updated successfully.'));
+}
 
 
 function es_on_deactivation()

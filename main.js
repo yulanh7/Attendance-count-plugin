@@ -173,4 +173,30 @@ jQuery(document).ready(function ($) {
     fetchFilteredResults(1, true); // Fetch results for the first page
   });
 
+  $(document).on("click", "#doaction, #doaction2", function (e) {
+    e.preventDefault();
+    var action = $(this).prev('select').val();
+    if (action === 'make_member' || action === 'make_non_member') {
+
+      var selectedIDs = $('input[name="bulk-select[]"]:checked').map(function () {
+        return this.value;
+      }).get();
+      if (selectedIDs.length > 0) {
+        $.ajax({
+          url: esAjax.ajaxurl,
+          type: "POST",
+          data: {
+            action: 'handle_member_status_update',
+            ids: selectedIDs,
+            member_action: action
+          },
+          success: function (response) {
+            alert(response.data.message); // Alert the response
+            location.reload(); // Optionally, reload the page to reflect changes
+          }
+        });
+      }
+    }
+  });
+
 });
