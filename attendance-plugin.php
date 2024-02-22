@@ -549,13 +549,30 @@ function es_export_attendance_csv()
   global $wpdb;
   $attendance_table_name = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
-  $query = "SELECT A.fellowship, A.first_name,A.last_name,A.phone,A.email 
+  $query = "SELECT A.fellowship, A.first_name,A.last_name,A.phone,A.email, A.is_member,A.first_attendance_date
     FROM $attendance_table_name AS A
     INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
     WHERE 1=1";
   $results = get_filtered_attendance_results($query);
-  $csv_data = array();
+  $reorderedResults = [];
+
   foreach ($results as $row) {
+    $reorderedResults[] = array(
+      $row['row_num'],
+      $row['fellowship'],
+      $row['first_name'],
+      $row['last_name'],
+      $row['phone'],
+      $row['email'],
+      $row['times'],
+      $row['percentage'] . '%',
+      $row['first_attendance_date'],
+      $row['last_attended'],
+      $row['is_member'] == '1' ? 'Yes' : 'No',
+    );
+  }
+  $csv_data = array();
+  foreach ($reorderedResults as $row) {
     $csv_data[] = implode(',', $row);
   }
   $fileName = array(
@@ -567,7 +584,9 @@ function es_export_attendance_csv()
     'Email',
     'Times',
     'Percentage',
-    'Last Attended Date'
+    'First attended Date',
+    'Last Attended Date',
+    'Member',
   );
   $csv_string = implode(',', $fileName);
   $csv_string .= "\n";
