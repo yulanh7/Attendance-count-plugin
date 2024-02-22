@@ -92,7 +92,7 @@ function attendance_form()
   $currentDayOfWeek = current_time('w');
   // FIXME
   $isSunday = ($currentDayOfWeek == 0);
-  $isSunday = true;
+  // $isSunday = true;
   $todayDate = current_time('d/m/Y');
   $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: #ef2723;font-size: 18px'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
 
@@ -248,6 +248,7 @@ class ES_Attendance_List extends WP_List_Table
       'percentage' => 'Percentage',
       'first_attendance_date' => 'First attended Date',
       'last_attended' => 'Last Attended Date',
+      'is_member' => 'Member',
     ];
   }
 
@@ -263,6 +264,8 @@ class ES_Attendance_List extends WP_List_Table
       case 'fellowship':
       case 'last_attended':
         return $item[$column_name];
+      case 'is_member':
+        return $item[$column_name] ? "Yes" : "No";
       case 'first_attendance_date':
         return date('d/m/Y', strtotime($item[$column_name]));
       case 'percentage':
