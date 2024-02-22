@@ -427,7 +427,7 @@ function es_render_attendance_list()
       <option value="other">其他</option>
     </select>
     <select name="es_member_filter" id="es_member_filter">
-      <option value="" selected>全部会有友</option>
+      <option value="" selected>全部会友</option>
       <option value="isMember">会員</option>
       <option value="isNonMember">非会員</option>
     </select>
@@ -539,10 +539,12 @@ function es_filter_attendance_callback()
   wp_die();
 }
 
-add_action('admin_menu', function () {
-  add_menu_page('Attendance', 'Attendance', 'manage_options', 'es-attendance', 'es_render_attendance_list', 'dashicons-calendar', 1);
-});
 
+add_action('admin_menu', function () {
+  // 'read' capability allows access to all logged-in users (including subscribers)
+  // Note: You may need additional code or a plugin to allow subscribers to access the admin dashboard.
+  add_menu_page('Attendance', 'Attendance', 'read', 'es-attendance', 'es_render_attendance_list', 'dashicons-calendar', 1);
+});
 
 function es_export_attendance_csv()
 {
@@ -601,6 +603,10 @@ add_action('wp_ajax_handle_member_status_update', 'handle_member_status_update')
 
 function handle_member_status_update()
 {
+  if (!current_user_can('edit_others_posts')) {
+    wp_send_json_error(array('message' => 'You do not have permission to update member status.'));
+    return;
+  }
   global $wpdb;
   $ids = isset($_POST['ids']) ? $_POST['ids'] : array();
   $action = isset($_POST['member_action']) ? $_POST['member_action'] : '';
