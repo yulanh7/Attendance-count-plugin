@@ -420,11 +420,16 @@ function es_render_attendance_list()
   <div class="filter-form">
     <select name="es_fellowship_filter" id="es_fellowship_filter">
       <option value="" selected>全部</option>
-      <option value="Daniel" selected>但以理团契</option>
+      <option value="Daniel">但以理团契</option>
       <option value="True love">真爱团团契</option>
       <option value="Faith Hope Love">信望爱团契</option>
       <option value="Peace&Joy Prayer">平安喜乐祷告会</option>
       <option value="other">其他</option>
+    </select>
+    <select name="es_member_filter" id="es_member_filter">
+      <option value="" selected>全部</option>
+      <option value="isMember">会員</option>
+      <option value="isNonMember">非会員</option>
     </select>
     <input type="text" id="last_name_filter" placeholder="Last Name">
     <input type="text" id="first_name_filter" placeholder="First Name">
@@ -462,6 +467,7 @@ function get_filtered_attendance_results($query)
   $last_name = sanitize_text_field($_POST['last_name']);
   $first_name = sanitize_text_field($_POST['first_name']);
   $email = sanitize_text_field($_POST['email']);
+  $is_member = sanitize_text_field($_POST['is_member']);
   $start_date = sanitize_text_field($_POST['start_date_filter']);
   $end_date = sanitize_text_field($_POST['end_date_filter']);
   $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter'] == 'true' ? 1 : 0;
@@ -482,6 +488,11 @@ function get_filtered_attendance_results($query)
 
   if (!empty($email)) {
     $query .= $wpdb->prepare(" AND email = %s", $email);
+  }
+  if (!empty($is_member)) {
+    $is_member = $is_member == "isMember" ? 1 : 0;
+
+    $query .= $wpdb->prepare(" AND is_member = %s", $is_member);
   }
 
   if (isset($_POST['is_new']) &&  $_POST['is_new'] == 'true') {

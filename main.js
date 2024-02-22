@@ -89,14 +89,15 @@ jQuery(document).ready(function ($) {
 
 
   function fetchFilteredResults(page, exportCsv = false) {
-    const fellowship = $("#es_fellowship_filter").val(); // Get the selected fellowship
+    const is_member = $("#es_member_filter").val();
+    const fellowship = $("#es_fellowship_filter").val();
     const start_date_filter = $("#start_date_filter").val();
     const end_date_filter = $("#end_date_filter").val();
     const lastName = $("#last_name_filter").val();
     const firstName = $("#first_name_filter").val();
     const email = $("#email_filter").val();
-    const isNew = $("#is_new_filter").is(":checked"); // Get the checkbox state
-    const percentageFilter = $("#percentage_filter").is(":checked"); // Get the checkbox state
+    const isNew = $("#is_new_filter").is(":checked");
+    const percentageFilter = $("#percentage_filter").is(":checked");
     const tableName = "#filter-table-response";
     const data = {
       action: exportCsv ? "es_export_attendance_csv" : "es_filter_attendance",
@@ -109,6 +110,7 @@ jQuery(document).ready(function ($) {
       is_new: isNew,
       percentage_filter: percentageFilter,
       paged: page,
+      is_member: is_member,
     };
 
     if (exportCsv) {
@@ -136,7 +138,7 @@ jQuery(document).ready(function ($) {
       });
     }
 
-
+    data.action = 'es_filter_attendance';
     function bindToggleRowEvent() {
       $("tbody").on("click", ".toggle-row", function () {
         $(this).closest("tr").toggleClass("is-expanded");
