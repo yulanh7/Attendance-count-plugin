@@ -138,30 +138,7 @@ jQuery(document).ready(function ($) {
       });
     }
 
-    data.action = 'es_filter_attendance';
-    function bindToggleRowEvent() {
-      $("tbody").on("click", ".toggle-row", function () {
-        $(this).closest("tr").toggleClass("is-expanded");
-      });
-    }
-    $('#loader-box').show();
-    $.ajax({
-      url: esAjax.ajaxurl,
-      type: "POST",
-      data: data,
-      success: function (response) {
-        $(tableName).html(response.data.table_html);
-        $('#loader-box').hide();
-        bindToggleRowEvent();
-        bindPaginationEvent();
-
-      },
-      error: function () {
-        $('#loader-box').hide();
-
-        alert("An error occurred.");
-      },
-    });
+    handle_filter_data(data);
   }
 
   $(document).on("click", "#filter-button", function (e) {
@@ -194,11 +171,42 @@ jQuery(document).ready(function ($) {
           },
           success: function (response) {
             alert(response.data.message); // Alert the response
-            location.reload(); // Optionally, reload the page to reflect changes
+            const filter_params = JSON.parse(localStorage.getItem('filter_params')) || {};
+            handle_filter_data(filter_params)
           }
         });
       }
     }
   });
+
+
+  function handle_filter_data(data) {
+    const tableName = "#filter-table-response";
+    data.action = 'es_filter_attendance';
+    function bindToggleRowEvent() {
+      $("tbody").on("click", ".toggle-row", function () {
+        $(this).closest("tr").toggleClass("is-expanded");
+      });
+    }
+    $('#loader-box').show();
+    $.ajax({
+      url: esAjax.ajaxurl,
+      type: "POST",
+      data: data,
+      success: function (response) {
+        $(tableName).html(response.data.table_html);
+        $('#loader-box').hide();
+        bindToggleRowEvent();
+        bindPaginationEvent();
+        localStorage.setItem('filter_params', JSON.stringify(data));
+
+      },
+      error: function () {
+        $('#loader-box').hide();
+
+        alert("An error occurred.");
+      },
+    });
+  }
 
 });
