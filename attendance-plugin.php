@@ -427,7 +427,7 @@ function es_render_attendance_list()
       <option value="other">其他</option>
     </select>
     <select name="es_member_filter" id="es_member_filter">
-      <option value="" selected>全部成員</option>
+      <option value="" selected>全部会有友</option>
       <option value="isMember">会員</option>
       <option value="isNonMember">非会員</option>
     </select>
