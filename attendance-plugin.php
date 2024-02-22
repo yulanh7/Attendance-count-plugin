@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: A WordPress plugin to manage attendance.
- * Version: 1.5
+ * Version: 1.51
  * Author: Rachel Huang
  */
 
@@ -419,7 +419,7 @@ function es_render_attendance_list()
   <h2>Attendance</h2>
   <div class="filter-form">
     <select name="es_fellowship_filter" id="es_fellowship_filter">
-      <option value="" selected>全部</option>
+      <option value="" selected>全部团契</option>
       <option value="Daniel">但以理团契</option>
       <option value="True love">真爱团团契</option>
       <option value="Faith Hope Love">信望爱团契</option>
@@ -427,7 +427,7 @@ function es_render_attendance_list()
       <option value="other">其他</option>
     </select>
     <select name="es_member_filter" id="es_member_filter">
-      <option value="" selected>全部</option>
+      <option value="" selected>全部成員</option>
       <option value="isMember">会員</option>
       <option value="isNonMember">非会員</option>
     </select>
