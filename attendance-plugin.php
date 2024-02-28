@@ -103,7 +103,7 @@ function attendance_form()
   <input type="text" name="es_last_name" required placeholder="Last Name *">
   <input type="email" name="es_email" required placeholder="Email *">
   <input type="text" name="es_phone" placeholder="Phone">
-  <select name="es_fellowship">
+  <select name="es_fellowship" required>
     <option value="Daniel" selected>但以理团契</option>
     <option value="True love">真爱团团契</option>
     <option value="Faith Hope Love">信望爱团契</option>
@@ -203,8 +203,11 @@ function es_handle_attendance()
 }
 
 
-
+// For logged-in users
 add_action('wp_ajax_es_handle_attendance', 'es_handle_attendance');
+
+// For non-logged-in users
+add_action('wp_ajax_nopriv_es_handle_attendance', 'es_handle_attendance');
 
 
 
