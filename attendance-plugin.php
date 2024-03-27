@@ -294,8 +294,10 @@ class ES_Attendance_List extends WP_List_Table
             return '信望爱团契';
           case 'peaceJoyPrayer':
             return '平安喜乐祷告会';
-          default:
+          case 'other':
             return '其他';
+          default:
+            return '';
         }
       case 'is_member':
         return $item[$column_name] ? "Yes" : "No";
