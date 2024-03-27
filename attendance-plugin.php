@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: A WordPress plugin to manage attendance.
- * Version: 1.51
+ * Version: 1.52
  * Author: Rachel Huang
  */
 
@@ -578,9 +578,29 @@ function es_export_attendance_csv()
   $reorderedResults = [];
 
   foreach ($results as $row) {
+    $fellowshipText = '';
+    switch ($row['fellowship']) {
+      case 'daniel':
+        $fellowshipText = 'Daniel';
+        break;
+      case 'trueLove':
+        $fellowshipText = 'True Love';
+        break;
+      case 'faithHopeLove':
+        $fellowshipText = 'Faith Hope Love';
+        break;
+      case 'peaceJoyPrayer':
+        $fellowshipText = 'Peace&Joy Prayer';
+        break;
+      case 'other':
+        $fellowshipText = 'Other';
+        break;
+      default:
+        $fellowshipText = '';
+    }
     $reorderedResults[] = array(
       $row['row_num'],
-      $row['fellowship'],
+      $fellowshipText,
       $row['first_name'],
       $row['last_name'],
       $row['phone'],
@@ -652,12 +672,15 @@ function es_on_deactivation()
   // $attendance_table_name = $wpdb->prefix . 'attendance';
   // $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
+  // // Drop the tables
   // $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
   // $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
 
   // if ($result1 === false || $result2 === false) {
+  //   // Log an error if dropping tables fails
   //   error_log("Error dropping tables: " . $wpdb->last_error);
   // } else {
+  //   // Log success message if tables are dropped successfully
   //   error_log("Tables dropped successfully.");
   // }
 }
