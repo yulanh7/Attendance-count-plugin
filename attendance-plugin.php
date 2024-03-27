@@ -104,10 +104,10 @@ function attendance_form()
   <input type="email" name="es_email" required placeholder="Email *">
   <input type="text" name="es_phone" placeholder="Phone">
   <select name="es_fellowship" required>
-    <option value="Daniel" selected>但以理团契</option>
-    <option value="True love">真爱团团契</option>
-    <option value="Faith Hope Love">信望爱团契</option>
-    <option value="Peace&Joy Prayer">平安喜乐祷告会</option>
+    <option value="daniel" selected>但以理团契</option>
+    <option value="trueLove">真爱团团契</option>
+    <option value="faithHopeLove">信望爱团契</option>
+    <option value="peaceJoyPrayer">平安喜乐祷告会</option>
     <option value="other">其他</option>
   </select>
   <div class="g-recaptcha" data-sitekey="6LceSgspAAAAABEtw-MN8TlWYiKDKp7VumOYM06n"></div>
@@ -243,6 +243,7 @@ class ES_Attendance_List extends WP_List_Table
     return [
       'cb' => '<input type="checkbox" />', // Add this line
       'row_num' => 'No.',
+      // 'is_new' => 'is new',
       'fellowship' => 'Fellowships',
       'first_name' => 'First Name',
       'last_name' => 'Last Name',
@@ -275,14 +276,27 @@ class ES_Attendance_List extends WP_List_Table
   {
     switch ($column_name) {
       case 'row_num':
+        // case 'is_new':
       case 'first_name':
       case 'last_name':
       case 'email':
       case 'phone':
       case 'times':
-      case 'fellowship':
       case 'last_attended':
         return $item[$column_name];
+      case 'fellowship':
+        switch ($item[$column_name]) {
+          case 'daniel':
+            return '但以理团契';
+          case 'trueLove':
+            return '真爱团团契';
+          case 'faithHopeLove':
+            return '信望爱团契';
+          case 'peaceJoyPrayer':
+            return '平安喜乐祷告会';
+          default:
+            return '其他';
+        }
       case 'is_member':
         return $item[$column_name] ? "Yes" : "No";
       case 'first_attendance_date':
