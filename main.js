@@ -209,4 +209,33 @@ jQuery(document).ready(function ($) {
     });
   }
 
+  $(document).on("click", ".view-attendance-button", function (e) {
+
+    var attendanceId = $(this).data('attendance-id');
+    $.ajax({
+      url: ajaxurl,
+      type: 'POST',
+      data: {
+        action: 'get_attendance_info',
+        attendance_id: attendanceId
+      },
+      success: function (response) {
+
+        console.log(response);
+        $('#attendance-info-modal-content').html(response)
+        // This function will execute after html() finishes setting the content
+        document.getElementById("attendance-info-modal").style.display = "block";
+
+      },
+      error: function (xhr, status, error) {
+        console.error(error);
+      }
+    });
+  });
+
+  $(document).on("click", "#attendance-info-modal .close", function (e) {
+    document.getElementById("attendance-info-modal").style.display = "none";
+
+  })
+
 });

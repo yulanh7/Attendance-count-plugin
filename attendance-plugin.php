@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: A WordPress plugin to manage attendance.
- * Version: 1.52
+ * Version: 1.60
  * Author: Rachel Huang
  */
 
@@ -254,6 +254,8 @@ class ES_Attendance_List extends WP_List_Table
       'first_attendance_date' => 'First attended Date',
       'last_attended' => 'Last Attended Date',
       'is_member' => 'Member',
+      'view_attendance' => 'View Attendance',
+
     ];
   }
 
@@ -284,6 +286,9 @@ class ES_Attendance_List extends WP_List_Table
       case 'times':
       case 'last_attended':
         return $item[$column_name];
+      case 'view_attendance':
+        return  '<button class="view-attendance-button" data-attendance-id="' . $item['id'] . '">View</button>';
+
       case 'fellowship':
         switch ($item[$column_name]) {
           case 'daniel':
@@ -474,6 +479,17 @@ function es_render_attendance_list()
       </div>
     </div>
   </div>
+  <div id="attendance-info-modal" class="popup">
+    <div class="popup-content">
+      <span class="close">&times;</span>
+      <div id="attendance-info-modal-content">
+      </div>
+    </div>
+  </div>
+
+
+
+
   <?php
 }
 
@@ -662,6 +678,62 @@ function handle_member_status_update()
 
   wp_send_json_success(array('message' => 'Member status updated successfully.'));
 }
+
+// Add AJAX action to retrieve attendance information
+add_action('wp_ajax_get_attendance_info', 'get_attendance_info_callback');
+
+
+function get_attendance_info_callback()
+{
+  global $wpdb;
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $attendanceId = $_POST['attendance_id'];
+
+  $queryOfAttendance = $wpdb->prepare(
+    "SELECT first_name, last_name FROM $attendance_table_name WHERE id = %d",
+    $attendanceId
+  );
+  $attendance = $wpdb->get_row($queryOfAttendance);
+
+  // Query to fetch attendance information
+  $query = $wpdb->prepare(
+    "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = %d",
+    $attendanceId
+  );
+  $attendanceInfo = $wpdb->get_results($query, ARRAY_A);
+
+  // Render the attendance information
+  // You can use HTML to format the information as needed
+  ob_start();
+  ?>
+  <div>
+    <?= $attendance->first_name ?> <?= $attendance->last_name  ?>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Date Attended</th>
+        <!-- Add other columns if needed -->
+      </tr>
+    </thead>
+    <tbody>
+      <?php foreach ($attendanceInfo as $info) : ?>
+      <tr>
+        <td><?php echo $info['date_attended']; ?></td>
+        <!-- Add other columns if needed -->
+      </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+  <?php
+  $attendanceInfoHTML = ob_get_clean();
+
+  echo $attendanceInfoHTML;
+  wp_die();
+}
+add_action('wp_ajax_get_attendance_info', 'get_attendance_info_callback');
+
 
 
 function es_on_deactivation()
