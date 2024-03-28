@@ -707,9 +707,12 @@ function get_attendance_info_callback()
   // You can use HTML to format the information as needed
   ob_start();
   ?>
-  <div>
+  <p>
     <?= $attendance->first_name ?> <?= $attendance->last_name  ?>
-  </div>
+  </p>
+  <p>
+    <?= $attendance->email ?>
+  </p>
   <table>
     <thead>
       <tr>
