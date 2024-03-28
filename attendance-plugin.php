@@ -691,7 +691,7 @@ function get_attendance_info_callback()
   $attendanceId = $_POST['attendance_id'];
 
   $queryOfAttendance = $wpdb->prepare(
-    "SELECT first_name, last_name FROM $attendance_table_name WHERE id = %d",
+    "SELECT first_name, last_name, email FROM $attendance_table_name WHERE id = %d",
     $attendanceId
   );
   $attendance = $wpdb->get_row($queryOfAttendance);
