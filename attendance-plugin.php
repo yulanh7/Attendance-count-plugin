@@ -62,30 +62,7 @@ function es_enqueue_scripts()
 add_action('wp_enqueue_scripts', 'es_enqueue_scripts');
 add_action('admin_enqueue_scripts', 'es_enqueue_scripts');
 
-// Function to verify reCAPTCHA
-function verify_recaptcha($response)
-{
-  $secretKey = 'YOUR_RECAPTCHA_SECRET_KEY'; // Replace with your Secret Key
-  $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
-  $data = array(
-    'secret' => $secretKey,
-    'response' => $response,
-  );
 
-  $options = array(
-    'http' => array(
-      'header' => 'Content-type: application/x-www-form-urlencoded',
-      'method' => 'POST',
-      'content' => http_build_query($data),
-    ),
-  );
-
-  $context = stream_context_create($options);
-  $verify = file_get_contents($verifyUrl, false, $context);
-  $captchaSuccess = json_decode($verify);
-
-  return $captchaSuccess->success;
-}
 function attendance_form()
 {
   ob_start();
@@ -98,25 +75,25 @@ function attendance_form()
 
 ?>
 
-<form id="es_attendance_form" class="es-attendance-form">
-  <input type="text" name="es_first_name" required placeholder="First Name *">
-  <input type="text" name="es_last_name" required placeholder="Last Name *">
-  <input type="email" name="es_email" required placeholder="Email *">
-  <input type="text" name="es_phone" placeholder="Phone">
-  <select name="es_fellowship" required>
-    <option value="daniel" selected>但以理团契</option>
-    <option value="trueLove">真爱团团契</option>
-    <option value="faithHopeLove">信望爱团契</option>
-    <option value="peaceJoyPrayer">平安喜乐祷告会</option>
-    <option value="other">其他</option>
-  </select>
-  <div class="g-recaptcha" data-sitekey="6LceSgspAAAAABEtw-MN8TlWYiKDKp7VumOYM06n"></div>
-  <!-- For test website -->
-  <!-- <div class="g-recaptcha" data-sitekey="6Lcpl_soAAAAABWk5dR0MVbuWMaTaucZyPVA1ApX"></div> -->
-  <div id="date-message"><?php echo $dateMessage; ?></div>
-  <!-- <div id="date-message"><?php echo date('d/m/Y'); ?></div> -->
-  <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isSunday ? '' : 'disabled'; ?>>
-</form>
+  <form id="es_attendance_form" class="es-attendance-form">
+    <input type="text" name="es_first_name" required placeholder="First Name *">
+    <input type="text" name="es_last_name" required placeholder="Last Name *">
+    <input type="email" name="es_email" required placeholder="Email *">
+    <input type="text" name="es_phone" placeholder="Phone">
+    <select name="es_fellowship" required>
+      <option value="daniel" selected>但以理团契</option>
+      <option value="trueLove">真爱团团契</option>
+      <option value="faithHopeLove">信望爱团契</option>
+      <option value="peaceJoyPrayer">平安喜乐祷告会</option>
+      <option value="other">其他</option>
+    </select>
+    <div class="g-recaptcha" data-sitekey="6LceSgspAAAAABEtw-MN8TlWYiKDKp7VumOYM06n"></div>
+    <!-- For test website -->
+    <!-- <div class="g-recaptcha" data-sitekey="6Lcpl_soAAAAABWk5dR0MVbuWMaTaucZyPVA1ApX"></div> -->
+    <div id="date-message"><?php echo $dateMessage; ?></div>
+    <!-- <div id="date-message"><?php echo date('d/m/Y'); ?></div> -->
+    <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isSunday ? '' : 'disabled'; ?>>
+  </form>
 <?php
   return ob_get_clean();
 }
@@ -439,53 +416,53 @@ function es_render_attendance_list()
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
 ?>
-<div class="wrap">
-  <h2>Attendance</h2>
-  <div class="filter-form">
-    <select name="es_fellowship_filter" id="es_fellowship_filter">
-      <option value="" selected>全部团契</option>
-      <option value="Daniel">但以理团契</option>
-      <option value="True love">真爱团团契</option>
-      <option value="Faith Hope Love">信望爱团契</option>
-      <option value="Peace&Joy Prayer">平安喜乐祷告会</option>
-      <option value="other">其他</option>
-    </select>
-    <select name="es_member_filter" id="es_member_filter">
-      <option value="" selected>全部会友</option>
-      <option value="isMember">会員</option>
-      <option value="isNonMember">非会員</option>
-    </select>
-    <input type="text" id="last_name_filter" placeholder="Last Name">
-    <input type="text" id="first_name_filter" placeholder="First Name">
-    <input type="text" id="email_filter" placeholder="Email">
-    <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo current_time('Y-m-d'); ?>">
-    <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo current_time('Y-m-d'); ?>">
-    <div>
-      <span class="checkbox-container">
-        <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
-        <label for="is_new_filter">New Attendance</label>
-      </span>
-      <span class="checkbox-container">
-        <input type="checkbox" id="percentage_filter" name="percentage_filter">
-        <label for="percentage_filter">>= 50%</label>
-      </span>
-      <button id="filter-button" type="button" class="submit-btn">Filter</button>
-      <button id="export-csv-button" type="button" class="export-csv">Export to CSV</button>
-    </div>
-    <div id="filter-table-response">
-      <?php $attendanceListTable->display(); ?>
-      <div id="loader-box" style="display: none;">
-        <div id="es-loading-spinner" class="loader"></div>
+  <div class="wrap">
+    <h2>Attendance</h2>
+    <div class="filter-form">
+      <select name="es_fellowship_filter" id="es_fellowship_filter">
+        <option value="" selected>全部团契</option>
+        <option value="Daniel">但以理团契</option>
+        <option value="True love">真爱团团契</option>
+        <option value="Faith Hope Love">信望爱团契</option>
+        <option value="Peace&Joy Prayer">平安喜乐祷告会</option>
+        <option value="other">其他</option>
+      </select>
+      <select name="es_member_filter" id="es_member_filter">
+        <option value="" selected>全部会友</option>
+        <option value="isMember">会員</option>
+        <option value="isNonMember">非会員</option>
+      </select>
+      <input type="text" id="last_name_filter" placeholder="Last Name">
+      <input type="text" id="first_name_filter" placeholder="First Name">
+      <input type="text" id="email_filter" placeholder="Email">
+      <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo current_time('Y-m-d'); ?>">
+      <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo current_time('Y-m-d'); ?>">
+      <div>
+        <span class="checkbox-container">
+          <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
+          <label for="is_new_filter">New Attendance</label>
+        </span>
+        <span class="checkbox-container">
+          <input type="checkbox" id="percentage_filter" name="percentage_filter">
+          <label for="percentage_filter">>= 50%</label>
+        </span>
+        <button id="filter-button" type="button" class="submit-btn">Filter</button>
+        <button id="export-csv-button" type="button" class="export-csv">Export to CSV</button>
+      </div>
+      <div id="filter-table-response">
+        <?php $attendanceListTable->display(); ?>
+        <div id="loader-box" style="display: none;">
+          <div id="es-loading-spinner" class="loader"></div>
+        </div>
       </div>
     </div>
-  </div>
-  <div id="attendance-info-modal" class="popup">
-    <div class="popup-content">
-      <span class="close">&times;</span>
-      <div id="attendance-info-modal-content">
+    <div id="attendance-info-modal" class="popup">
+      <div class="popup-content">
+        <span class="close">&times;</span>
+        <div id="attendance-info-modal-content">
+        </div>
       </div>
     </div>
-  </div>
 
 
 
@@ -707,30 +684,30 @@ function get_attendance_info_callback()
   // You can use HTML to format the information as needed
   ob_start();
   ?>
-  <div>
-    <?= $attendance->first_name ?> <?= $attendance->last_name  ?>
-  </div>
-  <div>
-    <?= $attendance->email ?>
-  </div>
-  <p>
-  </p>
-  <table>
-    <thead>
-      <tr>
-        <th>Date Attended</th>
-        <!-- Add other columns if needed -->
-      </tr>
-    </thead>
-    <tbody>
-      <?php foreach ($attendanceInfo as $info) : ?>
-      <tr>
-        <td><?php echo $info['date_attended']; ?></td>
-        <!-- Add other columns if needed -->
-      </tr>
-      <?php endforeach; ?>
-    </tbody>
-  </table>
+    <div>
+      <?= $attendance->first_name ?> <?= $attendance->last_name  ?>
+    </div>
+    <div>
+      <?= $attendance->email ?>
+    </div>
+    <p>
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Date Attended</th>
+          <!-- Add other columns if needed -->
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($attendanceInfo as $info) : ?>
+          <tr>
+            <td><?php echo $info['date_attended']; ?></td>
+            <!-- Add other columns if needed -->
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
   <?php
   $attendanceInfoHTML = ob_get_clean();
 
