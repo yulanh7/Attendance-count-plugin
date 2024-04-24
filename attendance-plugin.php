@@ -451,9 +451,13 @@ function es_render_attendance_list()
       </select>
       <input type="text" id="last_name_filter" placeholder="Last Name">
       <input type="text" id="first_name_filter" placeholder="First Name">
+      <input type="text" id="phone_filter" placeholder="phone">
       <input type="text" id="email_filter" placeholder="Email">
-      <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo current_time('Y-m-d'); ?>">
-      <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo current_time('Y-m-d'); ?>">
+      <span style="display: inline-block;">
+        <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo current_time('Y-m-d'); ?>">
+        --
+        <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo current_time('Y-m-d'); ?>">
+      </span>
       <div>
         <span class="checkbox-container">
           <input type="checkbox" id="is_new_filter" name="is_new_filter">
@@ -496,6 +500,7 @@ function get_filtered_attendance_results($query)
   $last_name = sanitize_text_field($_POST['last_name']);
   $first_name = sanitize_text_field($_POST['first_name']);
   $email = sanitize_text_field($_POST['email']);
+  $phone = sanitize_text_field($_POST['phone']);
   $is_member = sanitize_text_field($_POST['is_member']);
   $start_date = sanitize_text_field($_POST['start_date_filter']);
   $end_date = sanitize_text_field($_POST['end_date_filter']);
@@ -513,6 +518,9 @@ function get_filtered_attendance_results($query)
 
   if (!empty($last_name)) {
     $query .= $wpdb->prepare(" AND last_name = %s", $last_name);
+  }
+  if (!empty($phone)) {
+    $query .= $wpdb->prepare(" AND phone = %s", $phone);
   }
 
   if (!empty($email)) {

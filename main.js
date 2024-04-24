@@ -109,6 +109,7 @@ jQuery(document).ready(function ($) {
     const lastName = $("#last_name_filter").val();
     const firstName = $("#first_name_filter").val();
     const email = $("#email_filter").val();
+    const phone = $("#phone_filter").val();
     const isNew = $("#is_new_filter").is(":checked");
     const percentageFilter = $("#percentage_filter").is(":checked");
     const tableName = "#filter-table-response";
@@ -119,6 +120,7 @@ jQuery(document).ready(function ($) {
       last_name: lastName,
       first_name: firstName,
       email: email,
+      phone: phone,
       fellowship: fellowship,
       is_new: isNew,
       percentage_filter: percentageFilter,
