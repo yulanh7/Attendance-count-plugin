@@ -513,18 +513,22 @@ function get_filtered_attendance_results($query)
     $query .= $wpdb->prepare(" AND fellowship = %s", $fellowship);
   }
   if (!empty($first_name)) {
-    $query .= $wpdb->prepare(" AND first_name = %s", $first_name);
+    $like_first_name = '%' . $wpdb->esc_like($first_name) . '%';
+    $query .= $wpdb->prepare(" AND first_name LIKE %s", $like_first_name);
   }
 
   if (!empty($last_name)) {
-    $query .= $wpdb->prepare(" AND last_name = %s", $last_name);
+    $like_last_name = '%' . $wpdb->esc_like($last_name) . '%';
+    $query .= $wpdb->prepare(" AND last_name LIKE %s", $like_last_name);
   }
   if (!empty($phone)) {
-    $query .= $wpdb->prepare(" AND phone = %s", $phone);
+    $like_phone = '%' . $wpdb->esc_like($phone) . '%';
+    $query .= $wpdb->prepare(" AND phone LIKE %s", $like_phone);
   }
 
   if (!empty($email)) {
-    $query .= $wpdb->prepare(" AND email = %s", $email);
+    $like_email = '%' . $wpdb->esc_like($email) . '%';
+    $query .= $wpdb->prepare(" AND email LIKE %s", $like_email);
   }
   if (!empty($is_member)) {
     $is_member = $is_member == "isMember" ? 1 : 0;
