@@ -135,22 +135,22 @@ function es_handle_attendance()
   );
 
   // Prepare your SQL query using the current date
-  // $existing_entry = $wpdb->get_results(
-  //   $wpdb->prepare(
-  //     "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = (
-  //     SELECT id FROM $attendance_table_name WHERE phone = %s ORDER BY phone DESC LIMIT 1
-  //   ) AND date_attended = %s",
-  //     $phone,
-  //     $current_date
-  //   ),
-  //   ARRAY_A
-  // );
+  $existing_entry = $wpdb->get_results(
+    $wpdb->prepare(
+      "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = (
+      SELECT id FROM $attendance_table_name WHERE phone = %s ORDER BY phone DESC LIMIT 1
+    ) AND date_attended = %s",
+      $phone,
+      $current_date
+    ),
+    ARRAY_A
+  );
 
-  // if ($existing_entry) {
-  //   // wp_send_json_error(['message' => 'You have already submitted attendance for this person on the same date.']);
-  //   wp_send_json_error(['message' => '您今天已经签到过了，请勿重复签到!']);
-  //   return;
-  // }
+  if ($existing_entry) {
+    // wp_send_json_error(['message' => 'You have already submitted attendance for this person on the same date.']);
+    wp_send_json_error(['message' => '您今天已经签到过了，请勿重复签到!']);
+    return;
+  }
 
 
   $attendance_id = '';
@@ -170,8 +170,8 @@ function es_handle_attendance()
       'phone' => $phone,
       'email' => $email,
       'is_new' => 1,
-      // 'first_attendance_date' => $current_date,
-      'first_attendance_date' => date("2024-4-14"),
+      'first_attendance_date' => $current_date,
+      // 'first_attendance_date' => date("2024-4-14"),
     );
 
     $wpdb->insert($attendance_table_name, $data);
@@ -182,7 +182,7 @@ function es_handle_attendance()
   $data = array(
     'attendance_id' => $attendance_id,
     'date_attended' => $current_date,
-    // 'date_attended' => date("2024-2-4"),
+    // 'date_attended' => date("2024-4-14"),
   );
 
   $wpdb->insert($attendance_dates_table_name, $data);
