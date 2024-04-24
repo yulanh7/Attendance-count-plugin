@@ -169,7 +169,8 @@ function es_handle_attendance()
   );
 
   if ($existing_entry) {
-    wp_send_json_error(['message' => 'You have already submitted attendance for this person on the same date.']);
+    // wp_send_json_error(['message' => 'You have already submitted attendance for this person on the same date.']);
+    wp_send_json_error(['message' => '您今天已经签到过了，请勿重复签到!']);
     return;
   }
 
@@ -208,7 +209,7 @@ function es_handle_attendance()
 
   $wpdb->insert($attendance_dates_table_name, $data);
 
-  wp_send_json_success(['message' => 'Submit successfully!']);
+  wp_send_json_success(['message' => '签到成功！']);
 }
 
 

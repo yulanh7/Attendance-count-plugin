@@ -41,7 +41,7 @@ jQuery(document).ready(function ($) {
       error: function (xhr, textStatus, errorThrown) {
         console.error('Error: ' + xhr.responseText);
         // displayMessage('An error occurred. Please try again.', 'red');
-        alert('An error occurred. Please try again.');
+        alert('网络错误，请稍后再试。');
       },
 
     });
