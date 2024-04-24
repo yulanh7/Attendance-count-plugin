@@ -23,7 +23,9 @@ jQuery(document).ready(function ($) {
       es_phone: $("input[name=es_phone]").val(),
       es_fellowship: $("select[name=es_fellowship]").val()
     };
+
     // Capture the reCAPTCHA response
+    // Check if the response is empty (indicating the user didn't complete the reCAPTCHA)
     if (!isLocalEnvironment()) {
       const recaptchaResponse = grecaptcha.getResponse();
       if (recaptchaResponse === "") {
@@ -33,11 +35,7 @@ jQuery(document).ready(function ($) {
     } else {
       console.log("Skipping reCAPTCHA in local environment");
     }
-    // Check if the response is empty (indicating the user didn't complete the reCAPTCHA)
-    if (recaptchaResponse === "") {
-      displayMessage('Please complete the reCAPTCHA.', 'red');
-      return;
-    }
+
     localStorage.setItem('es_attendance_form_data', JSON.stringify(formData));
 
     $.ajax({
@@ -47,11 +45,13 @@ jQuery(document).ready(function ($) {
       success: function (response) {
         // Handle success
         $(".es-message").remove();
-        displayMessage(response.data.message, response.success ? 'green' : 'red');
+        // displayMessage(response.data.message, response.success ? 'green' : 'red');
+        alert(response.data.message);
       },
       error: function (xhr, textStatus, errorThrown) {
         console.error('Error: ' + xhr.responseText);
-        displayMessage('An error occurred. Please try again.', 'red');
+        // displayMessage('An error occurred. Please try again.', 'red');
+        alert('An error occurred. Please try again.');
 
       },
 

@@ -40,6 +40,10 @@
   margin-bottom: 12px;
 }
 
+.es-attendance-form #date-message{
+  color: #fff;
+}
+
 @media (max-width: 768px) {
   .es-attendance-form input[type="submit"] {
     padding: 10px; /* Mobile padding */
