@@ -24,17 +24,7 @@ jQuery(document).ready(function ($) {
       es_fellowship: $("select[name=es_fellowship]").val()
     };
 
-    // Capture the reCAPTCHA response
-    // Check if the response is empty (indicating the user didn't complete the reCAPTCHA)
-    if (!isLocalEnvironment()) {
-      const recaptchaResponse = grecaptcha.getResponse();
-      if (recaptchaResponse === "") {
-        displayMessage('Please complete the reCAPTCHA.', 'red');
-        return;
-      }
-    } else {
-      console.log("Skipping reCAPTCHA in local environment");
-    }
+
 
     localStorage.setItem('es_attendance_form_data', JSON.stringify(formData));
 
@@ -52,7 +42,6 @@ jQuery(document).ready(function ($) {
         console.error('Error: ' + xhr.responseText);
         // displayMessage('An error occurred. Please try again.', 'red');
         alert('An error occurred. Please try again.');
-
       },
 
     });
@@ -62,7 +51,11 @@ jQuery(document).ready(function ($) {
         "class": "es-message",
         "text": message,
         "css": {
-          "color": color
+          "background": color,
+          "color": "#ffffff",
+          "padding": "8px",
+          "margin-top": "10px",
+          "border-radius": "5px"
         }
       }).insertAfter("form#es_attendance_form");
     }
