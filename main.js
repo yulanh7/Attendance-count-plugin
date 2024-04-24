@@ -24,7 +24,17 @@ jQuery(document).ready(function ($) {
       es_fellowship: $("select[name=es_fellowship]").val()
     };
 
-
+    // Capture the reCAPTCHA response
+    // Check if the response is empty (indicating the user didn't complete the reCAPTCHA)
+    if (!isLocalEnvironment()) {
+      const recaptchaResponse = grecaptcha.getResponse();
+      if (recaptchaResponse === "") {
+        displayMessage('Please complete the reCAPTCHA.', 'red');
+        return;
+      }
+    } else {
+      console.log("Skipping reCAPTCHA in local environment");
+    }
 
     localStorage.setItem('es_attendance_form_data', JSON.stringify(formData));
 
