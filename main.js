@@ -5,7 +5,8 @@ jQuery(document).ready(function ($) {
     $("input[name=es_first_name]").val(storedData.es_first_name || '');
     $("input[name=es_last_name]").val(storedData.es_last_name || '');
     $("input[name=es_email]").val(storedData.es_email || '');
-    $("input[name=es_phone]").val(storedData.es_phone || '');
+    $("select[name=es_phone_country_code]").val(storedData.es_phone_country_code || '+61');
+    $("input[name=es_phone_number]").val(storedData.es_phone_number || '');
     $("select[name=es_fellowship]").val(storedData.es_fellowship || '');
   }
   updateFormFields();
@@ -20,7 +21,8 @@ jQuery(document).ready(function ($) {
       es_first_name: $("input[name=es_first_name]").val(),
       es_last_name: $("input[name=es_last_name]").val(),
       es_email: $("input[name=es_email]").val(),
-      es_phone: $("input[name=es_phone]").val(),
+      es_phone_country_code: $("select[name=es_phone_country_code]").val(),
+      es_phone_number: $("input[name=es_phone_number]").val(),
       es_fellowship: $("select[name=es_fellowship]").val()
     };
 

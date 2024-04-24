@@ -44,6 +44,20 @@
   color: #fff;
 }
 
+.es-attendance-form .phone-box {
+  display: flex;
+}
+.es-attendance-form .phone-box select {
+  height: 42px;
+  
+}
+.es-attendance-form .phone-box input {
+  margin-left: 5px;
+  flex: 1
+}
+
+
+
 @media (max-width: 768px) {
   .es-attendance-form input[type="submit"] {
     padding: 10px; /* Mobile padding */

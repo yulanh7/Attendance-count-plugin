@@ -86,10 +86,16 @@ function attendance_form()
     <input type="text" name="es_first_name" required placeholder="名字（必填）">
     <input type="text" name="es_last_name" required placeholder="姓氏（必填）">
     <input type="email" name="es_email" placeholder="邮箱（选填）">
-    <input type="text" name="es_phone" required placeholder="电话（必填）">
+    <div class="phone-box">
+      <select name="es_phone_country_code" required>
+        <option value="+61" selected>+61</option>
+        <option value="+86">+86</option>
+      </select>
+      <input type="text" name="es_phone_number" required placeholder="电话号码（必填）">
+    </div>
     <select name="es_fellowship" required>
       <option value="" disabled selected>您的团契（必选）</option>
-      <option value="daniel" selected>但以理团契</option>
+      <option value="daniel">但以理团契</option>
       <option value="trueLove">真爱团团契</option>
       <option value="faithHopeLove">信望爱团契</option>
       <option value="peaceJoyPrayer">平安喜乐祷告会</option>
@@ -114,11 +120,24 @@ function es_handle_attendance()
 {
   $first_name = sanitize_text_field($_POST['es_first_name']);
   $last_name = sanitize_text_field($_POST['es_last_name']);
-  $phone = sanitize_text_field($_POST['es_phone']);
+  $country_code = sanitize_text_field($_POST['es_phone_country_code']);
+  $phone_number = sanitize_text_field($_POST['es_phone_number']);
   $fellowship = sanitize_text_field($_POST['es_fellowship']);
   $email = sanitize_email($_POST['es_email']);
   $current_date = current_time('Y-m-d');
   // $yesterday_date_only = date('Y-m-d', strtotime($current_time . ' -1 day')); // This will give you just the date part for yesterday
+
+  if ($country_code === '+61') {
+    // Strip leading zeros for Australian numbers and prepend country code
+    $phone_number = ltrim($phone_number, '0');
+    $phone = $country_code . $phone_number;
+  } elseif ($country_code === '+86') {
+    // Directly prepend country code for Chinese numbers
+    $phone = $country_code . $phone_number;
+  } else {
+    // Default case if more country codes are added later
+    $phone = $country_code . $phone_number;
+  }
 
   // Check for duplicate entries on the same date
   global $wpdb;
