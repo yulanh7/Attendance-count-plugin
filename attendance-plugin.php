@@ -414,7 +414,7 @@ function es_render_attendance_list()
   FROM $attendance_table_name AS A
   INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
   WHERE 1=1";
-  $query .= $wpdb->prepare(" AND is_new = %s", 1);
+  // $query .= $wpdb->prepare(" AND is_new = %s", 1);
   $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
   $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
   $results = $wpdb->get_results($query, ARRAY_A);
@@ -450,7 +450,7 @@ function es_render_attendance_list()
       <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo current_time('Y-m-d'); ?>">
       <div>
         <span class="checkbox-container">
-          <input type="checkbox" id="is_new_filter" name="is_new_filter" checked>
+          <input type="checkbox" id="is_new_filter" name="is_new_filter">
           <label for="is_new_filter">New Attendance</label>
         </span>
         <span class="checkbox-container">
