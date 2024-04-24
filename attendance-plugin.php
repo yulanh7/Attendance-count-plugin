@@ -83,11 +83,12 @@ function attendance_form()
 ?>
 
   <form id="es_attendance_form" class="es-attendance-form">
-    <input type="text" name="es_first_name" required placeholder="First Name *">
-    <input type="text" name="es_last_name" required placeholder="Last Name *">
-    <input type="email" name="es_email" required placeholder="Email *">
-    <input type="text" name="es_phone" placeholder="Phone">
+    <input type="text" name="es_first_name" required placeholder="名字（必填）">
+    <input type="text" name="es_last_name" required placeholder="姓氏（必填）">
+    <input type="email" name="es_email" placeholder="邮箱（选填）">
+    <input type="text" name="es_phone" required placeholder="电话（必填）">
     <select name="es_fellowship" required>
+      <option value="" disabled selected>您的团契（必选）</option>
       <option value="daniel" selected>但以理团契</option>
       <option value="trueLove">真爱团团契</option>
       <option value="faithHopeLove">信望爱团契</option>
