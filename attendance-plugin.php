@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: A WordPress plugin to manage attendance.
- * Version: 1.60
+ * Version: 1.70
  * Author: Rachel Huang
  */
 
