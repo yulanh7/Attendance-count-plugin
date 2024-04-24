@@ -157,7 +157,13 @@ function es_handle_attendance()
   if ($existing_user) {
     $wpdb->update(
       $attendance_table_name,
-      ['is_new' => 0],
+      [
+        'first_name' => $first_name,
+        'last_name' => $last_name,
+        'fellowship' => $fellowship,
+        'email' => $email,
+        'is_new' => 0
+      ],
       ['phone' => $phone]
     );
 
@@ -171,7 +177,7 @@ function es_handle_attendance()
       'email' => $email,
       'is_new' => 1,
       'first_attendance_date' => $current_date,
-      // 'first_attendance_date' => date("2024-4-14"),
+      // 'first_attendance_date' => date("2024-3-31"),
     );
 
     $wpdb->insert($attendance_table_name, $data);
@@ -182,7 +188,7 @@ function es_handle_attendance()
   $data = array(
     'attendance_id' => $attendance_id,
     'date_attended' => $current_date,
-    // 'date_attended' => date("2024-4-14"),
+    // 'date_attended' => date("2024-3-31"),
   );
 
   $wpdb->insert($attendance_dates_table_name, $data);
