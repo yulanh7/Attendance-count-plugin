@@ -23,8 +23,8 @@ function create_attendance_table()
       id INT NOT NULL AUTO_INCREMENT,
       first_name VARCHAR(255) NOT NULL,
       last_name VARCHAR(255) NOT NULL,
-      phone VARCHAR(20),
-      email VARCHAR(255) NOT NULL,
+      phone VARCHAR(20) NOT NULL,
+      email VARCHAR(255),
       fellowship VARCHAR(255) NOT NULL,
       is_new BOOLEAN DEFAULT 1,
       is_member BOOLEAN DEFAULT 0,
@@ -69,30 +69,7 @@ function es_enqueue_scripts()
 add_action('wp_enqueue_scripts', 'es_enqueue_scripts');
 add_action('admin_enqueue_scripts', 'es_enqueue_scripts');
 
-// Function to verify reCAPTCHA
-function verify_recaptcha($response)
-{
-  $secretKey = 'YOUR_RECAPTCHA_SECRET_KEY'; // Replace with your Secret Key
-  $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
-  $data = array(
-    'secret' => $secretKey,
-    'response' => $response,
-  );
 
-  $options = array(
-    'http' => array(
-      'header' => 'Content-type: application/x-www-form-urlencoded',
-      'method' => 'POST',
-      'content' => http_build_query($data),
-    ),
-  );
-
-  $context = stream_context_create($options);
-  $verify = file_get_contents($verifyUrl, false, $context);
-  $captchaSuccess = json_decode($verify);
-
-  return $captchaSuccess->success;
-}
 function attendance_form()
 {
   ob_start();
