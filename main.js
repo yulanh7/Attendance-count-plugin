@@ -10,6 +10,9 @@ jQuery(document).ready(function ($) {
   }
   updateFormFields();
 
+  function isLocalEnvironment() {
+    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  }
 
   $("form#es_attendance_form").submit(function (e) {
     e.preventDefault();
@@ -21,8 +24,15 @@ jQuery(document).ready(function ($) {
       es_fellowship: $("select[name=es_fellowship]").val()
     };
     // Capture the reCAPTCHA response
-    const recaptchaResponse = grecaptcha.getResponse();
-
+    if (!isLocalEnvironment()) {
+      const recaptchaResponse = grecaptcha.getResponse();
+      if (recaptchaResponse === "") {
+        displayMessage('Please complete the reCAPTCHA.', 'red');
+        return;
+      }
+    } else {
+      console.log("Skipping reCAPTCHA in local environment");
+    }
     // Check if the response is empty (indicating the user didn't complete the reCAPTCHA)
     if (recaptchaResponse === "") {
       displayMessage('Please complete the reCAPTCHA.', 'red');
