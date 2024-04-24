@@ -75,8 +75,8 @@ function attendance_form()
   ob_start();
   $currentDayOfWeek = current_time('w');
   // FIXME
-  $isSunday = ($currentDayOfWeek == 0);
-  // $isSunday = true;
+  // $isSunday = ($currentDayOfWeek == 0);
+  $isSunday = true;
   $todayDate = current_time('d/m/Y');
   $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: #ef2723;font-size: 18px'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
 
@@ -128,29 +128,29 @@ function es_handle_attendance()
   // Check if the user already exists in the database
   $existing_user = $wpdb->get_row(
     $wpdb->prepare(
-      "SELECT * FROM $attendance_table_name WHERE email = %s",
-      $email
+      "SELECT * FROM $attendance_table_name WHERE phone = %s",
+      $phone
     ),
     ARRAY_A
   );
 
   // Prepare your SQL query using the current date
-  $existing_entry = $wpdb->get_results(
-    $wpdb->prepare(
-      "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = (
-      SELECT id FROM $attendance_table_name WHERE email = %s ORDER BY email DESC LIMIT 1
-    ) AND date_attended = %s",
-      $email,
-      $current_date
-    ),
-    ARRAY_A
-  );
+  // $existing_entry = $wpdb->get_results(
+  //   $wpdb->prepare(
+  //     "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = (
+  //     SELECT id FROM $attendance_table_name WHERE phone = %s ORDER BY phone DESC LIMIT 1
+  //   ) AND date_attended = %s",
+  //     $phone,
+  //     $current_date
+  //   ),
+  //   ARRAY_A
+  // );
 
-  if ($existing_entry) {
-    // wp_send_json_error(['message' => 'You have already submitted attendance for this person on the same date.']);
-    wp_send_json_error(['message' => '您今天已经签到过了，请勿重复签到!']);
-    return;
-  }
+  // if ($existing_entry) {
+  //   // wp_send_json_error(['message' => 'You have already submitted attendance for this person on the same date.']);
+  //   wp_send_json_error(['message' => '您今天已经签到过了，请勿重复签到!']);
+  //   return;
+  // }
 
 
   $attendance_id = '';
@@ -158,7 +158,7 @@ function es_handle_attendance()
     $wpdb->update(
       $attendance_table_name,
       ['is_new' => 0],
-      ['email' => $email]
+      ['phone' => $phone]
     );
 
     $attendance_id = $existing_user['id'];
@@ -170,8 +170,8 @@ function es_handle_attendance()
       'phone' => $phone,
       'email' => $email,
       'is_new' => 1,
-      'first_attendance_date' => $current_date,
-      // 'first_attendance_date' => date("2024-2-4"),
+      // 'first_attendance_date' => $current_date,
+      'first_attendance_date' => date("2024-4-14"),
     );
 
     $wpdb->insert($attendance_table_name, $data);
@@ -305,7 +305,7 @@ class ES_Attendance_List extends WP_List_Table
 }
 
 
-function combine_attendace_with_same_email($data, $start_date, $end_date, $percentage_filter = false)
+function combine_attendace_with_same_phone($data, $start_date, $end_date, $percentage_filter = false)
 {
 
 
@@ -314,43 +314,43 @@ function combine_attendace_with_same_email($data, $start_date, $end_date, $perce
 
   $combinedData = [];
   foreach ($data as $entry) {
-    $email = $entry['email'];
+    $phone = $entry['phone'];
     $new_start_date = date('Y-m-d', strtotime($entry['first_attendance_date']));
     if ($start_date < $new_start_date) {
       $sunday_count = calculate_sunday_count($new_start_date, $end_date);
     }
-    if (!isset($combinedData[$email])) {
-      // If this email doesn't exist in the combined array, add it.
-      $combinedData[$email] = $entry;
-      $combinedData[$email]['times'] = 1;
+    if (!isset($combinedData[$phone])) {
+      // If this phone doesn't exist in the combined array, add it.
+      $combinedData[$phone] = $entry;
+      $combinedData[$phone]['times'] = 1;
       if ($sunday_count <= 0) {
-        $combinedData[$email]['percentage'] = 100;
+        $combinedData[$phone]['percentage'] = 100;
       } else {
-        $combinedData[$email]['percentage'] = number_format(1 / $sunday_count * 100, 2, '.', '');
+        $combinedData[$phone]['percentage'] = number_format(1 / $sunday_count * 100, 2, '.', '');
       }
-      $last_attended_date = get_last_attended_date($email);
-      $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
-      // $combinedData[$email]['last_attended'] = $last_attended_date;
+      $last_attended_date = get_last_attended_date($phone);
+      $combinedData[$phone]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
+      // $combinedData[$phone]['last_attended'] = $last_attended_date;
     } else {
-      // If this email exists, increment the times counter.
-      $combinedData[$email]['times']++;
+      // If this phone exists, increment the times counter.
+      $combinedData[$phone]['times']++;
       if ($sunday_count <= 0) {
-        $combinedData[$email]['percentage'] = 100;
+        $combinedData[$phone]['percentage'] = 100;
       } else {
-        $combinedData[$email]['percentage'] = number_format($combinedData[$email]['times'] / $sunday_count * 100, 2, '.', '');
+        $combinedData[$phone]['percentage'] = number_format($combinedData[$phone]['times'] / $sunday_count * 100, 2, '.', '');
       }
       // Update the fields if the current entry has a larger ID (is more recent).
-      if ($entry['id'] > $combinedData[$email]['id']) {
-        $combinedData[$email]['first_name'] = $entry['first_name'];
-        $combinedData[$email]['last_name'] = $entry['last_name'];
-        $combinedData[$email]['phone'] = $entry['phone'];
-        $combinedData[$email]['fellowship'] = $entry['fellowship'];
-        $combinedData[$email]['is_new'] = $entry['is_new'];
+      if ($entry['id'] > $combinedData[$phone]['id']) {
+        $combinedData[$phone]['first_name'] = $entry['first_name'];
+        $combinedData[$phone]['last_name'] = $entry['last_name'];
+        $combinedData[$phone]['phone'] = $entry['phone'];
+        $combinedData[$phone]['fellowship'] = $entry['fellowship'];
+        $combinedData[$phone]['is_new'] = $entry['is_new'];
         // Add any other fields that you want to update to the latest one.
       }
-      $last_attended_date = get_last_attended_date($email);
-      $combinedData[$email]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
-      // $combinedData[$email]['last_attended'] = $last_attended_date;
+      $last_attended_date = get_last_attended_date($phone);
+      $combinedData[$phone]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
+      // $combinedData[$phone]['last_attended'] = $last_attended_date;
     }
   }
   $combinedData = array_values($combinedData);
@@ -384,7 +384,7 @@ function calculate_sunday_count($start_date, $end_date)
 }
 
 
-function get_last_attended_date($email)
+function get_last_attended_date($phone)
 {
   global $wpdb;
   $attendance_table_name = $wpdb->prefix . 'attendance';
@@ -394,8 +394,8 @@ function get_last_attended_date($email)
     "SELECT MAX(D.date_attended)
     FROM $attendance_table_name AS A
     INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id
-    WHERE A.email = %s",
-    $email
+    WHERE A.phone = %s",
+    $phone
   );
 
   return $wpdb->get_var($query);
@@ -423,7 +423,7 @@ function es_render_attendance_list()
     $item['start_date'] = $start_date;
     $item['end_date'] = $end_date;
   }
-  $results = combine_attendace_with_same_email($results, $start_date, $end_date, false);
+  $results = combine_attendace_with_same_phone($results, $start_date, $end_date, false);
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
 ?>
@@ -531,7 +531,7 @@ function get_filtered_attendance_results($query)
   }
 
   $results = $wpdb->get_results($query, ARRAY_A);
-  $results = combine_attendace_with_same_email($results, $start_date, $end_date, $percentage_filter);
+  $results = combine_attendace_with_same_phone($results, $start_date, $end_date, $percentage_filter);
 
   return $results;
 }
@@ -679,7 +679,7 @@ function get_attendance_info_callback()
   $attendanceId = $_POST['attendance_id'];
 
   $queryOfAttendance = $wpdb->prepare(
-    "SELECT first_name, last_name, email FROM $attendance_table_name WHERE id = %d",
+    "SELECT first_name, last_name, phone FROM $attendance_table_name WHERE id = %d",
     $attendanceId
   );
   $attendance = $wpdb->get_row($queryOfAttendance);
@@ -699,7 +699,7 @@ function get_attendance_info_callback()
       <?= $attendance->first_name ?> <?= $attendance->last_name  ?>
     </div>
     <div>
-      <?= $attendance->email ?>
+      <?= $attendance->phone ?>
     </div>
     <p>
     </p>
