@@ -330,7 +330,7 @@ function combine_attendace_with_same_phone($data, $start_date, $end_date, $perce
       $combinedData[$phone] = $entry;
       $combinedData[$phone]['times'] = 1;
       if ($sunday_count <= 0) {
-        $combinedData[$phone]['percentage'] = 100;
+        $combinedData[$phone]['percentage'] =  "NaN";
       } else {
         $combinedData[$phone]['percentage'] = number_format(1 / $sunday_count * 100, 2, '.', '');
       }
@@ -341,7 +341,7 @@ function combine_attendace_with_same_phone($data, $start_date, $end_date, $perce
       // If this phone exists, increment the times counter.
       $combinedData[$phone]['times']++;
       if ($sunday_count <= 0) {
-        $combinedData[$phone]['percentage'] = 100;
+        $combinedData[$phone]['percentage'] =  "NaN";
       } else {
         $combinedData[$phone]['percentage'] = number_format($combinedData[$phone]['times'] / $sunday_count * 100, 2, '.', '');
       }
