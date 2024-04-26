@@ -90,6 +90,10 @@ function attendance_form()
       <select name="es_phone_country_code" required>
         <option value="+61" selected>+61</option>
         <option value="+86">+86</option>
+        <option value="+852">+852</option>
+        <option value="+886">+886</option>
+        <option value="+60">+60</option>
+        <option value="+65">+65</option>
       </select>
       <input type="text" name="es_phone_number" required placeholder="电话号码（必填）">
     </div>
@@ -127,17 +131,11 @@ function es_handle_attendance()
   $current_date = current_time('Y-m-d');
   // $yesterday_date_only = date('Y-m-d', strtotime($current_time . ' -1 day')); // This will give you just the date part for yesterday
 
-  if ($country_code === '+61') {
-    // Strip leading zeros for Australian numbers and prepend country code
-    $phone_number = ltrim($phone_number, '0');
-    $phone = $country_code . $phone_number;
-  } elseif ($country_code === '+86') {
-    // Directly prepend country code for Chinese numbers
-    $phone = $country_code . $phone_number;
-  } else {
-    // Default case if more country codes are added later
-    $phone = $country_code . $phone_number;
+  // If country code is +61 and phone number starts with 0, remove the leading 0
+  if ($country_code === '+61' && substr($phone_number, 0, 1) === '0') {
+    $phone_number = substr($phone_number, 1);
   }
+  $phone = $country_code . $phone_number; // Combine country code and phone number
 
   // Check for duplicate entries on the same date
   global $wpdb;
@@ -768,23 +766,23 @@ add_action('wp_ajax_get_attendance_info', 'get_attendance_info_callback');
 
 function es_on_deactivation()
 {
-  // global $wpdb;
-  // if (!current_user_can('activate_plugins')) return;
+  global $wpdb;
+  if (!current_user_can('activate_plugins')) return;
 
-  // $attendance_table_name = $wpdb->prefix . 'attendance';
-  // $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
-  // // Drop the tables
-  // $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
-  // $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
+  // Drop the tables
+  $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
+  $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
 
-  // if ($result1 === false || $result2 === false) {
-  //   // Log an error if dropping tables fails
-  //   error_log("Error dropping tables: " . $wpdb->last_error);
-  // } else {
-  //   // Log success message if tables are dropped successfully
-  //   error_log("Tables dropped successfully.");
-  // }
+  if ($result1 === false || $result2 === false) {
+    // Log an error if dropping tables fails
+    error_log("Error dropping tables: " . $wpdb->last_error);
+  } else {
+    // Log success message if tables are dropped successfully
+    error_log("Tables dropped successfully.");
+  }
 }
 
 register_deactivation_hook(__FILE__, 'es_on_deactivation');
