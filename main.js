@@ -47,12 +47,12 @@ jQuery(document).ready(function ($) {
       success: function (response) {
         // Handle success
         $(".es-message").remove();
-        // displayMessage(response.data.message, response.success ? 'green' : 'red');
+        displayMessage(response.data.message, response.success ? 'green' : 'red');
         alert(response.data.message);
       },
       error: function (xhr, textStatus, errorThrown) {
         console.error('Error: ' + xhr.responseText);
-        // displayMessage('An error occurred. Please try again.', 'red');
+        displayMessage('An error occurred. Please try again.', 'red');
         alert('网络错误，请稍后再试。');
       },
 
