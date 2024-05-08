@@ -17,62 +17,68 @@ jQuery(document).ready(function ($) {
 
   $("form#es_attendance_form").submit(function (e) {
     e.preventDefault();
-    const formData = {
-      es_first_name: $("input[name=es_first_name]").val(),
-      es_last_name: $("input[name=es_last_name]").val(),
-      es_email: $("input[name=es_email]").val(),
-      es_phone_country_code: $("select[name=es_phone_country_code]").val(),
-      es_phone_number: $("input[name=es_phone_number]").val(),
-      es_fellowship: $("select[name=es_fellowship]").val()
-    };
 
-    // Capture the reCAPTCHA response
-    // Check if the response is empty (indicating the user didn't complete the reCAPTCHA)
-    if (!isLocalEnvironment()) {
-      const recaptchaResponse = grecaptcha.getResponse();
-      if (recaptchaResponse === "") {
-        displayMessage('Please complete the reCAPTCHA.', 'red');
-        return;
-      }
-    } else {
-      console.log("Skipping reCAPTCHA in local environment");
-    }
+    // Execute reCAPTCHA and then proceed with AJAX submission
+    grecaptcha.ready(function() {
+        grecaptcha.execute('6LevTdUpAAAAAIRJFT38WHfLvkA7_3J6jGtxh0_S', {action: 'submit'}).then(function(token) {
+            // Add the reCAPTCHA token to the formData
+            const formData = {
+                es_first_name: $("input[name=es_first_name]").val(),
+                es_last_name: $("input[name=es_last_name]").val(),
+                es_email: $("input[name=es_email]").val(),
+                es_phone_country_code: $("select[name=es_phone_country_code]").val(),
+                es_phone_number: $("input[name=es_phone_number]").val(),
+                es_fellowship: $("select[name=es_fellowship]").val(),
+                g_recaptcha_response: token  // Include the reCAPTCHA response token
+            };
 
-    localStorage.setItem('es_attendance_form_data', JSON.stringify(formData));
-    document.cookie = `es_attendance_form_data=${JSON.stringify(formData)};expires=Fri, 31 Dec 9999 23:59:59 GMT`
+            // Optional: Check if running in a local environment and skip the rest
+            if (!isLocalEnvironment()) {
+                if (!token) {
+                    displayMessage('Please complete the reCAPTCHA.', 'red');
+                    return;
+                }
+            } else {
+                console.log("Skipping reCAPTCHA in local environment");
+            }
 
-    $.ajax({
-      url: esAjax.ajaxurl,
-      type: "POST",
-      data: $.extend({ action: "es_handle_attendance" }, formData),
-      success: function (response) {
-        // Handle success
-        $(".es-message").remove();
-        displayMessage(response.data.message, response.success ? 'green' : 'red');
-        alert(response.data.message);
-      },
-      error: function (xhr, textStatus, errorThrown) {
-        console.error('Error: ' + xhr.responseText);
-        displayMessage('An error occurred. Please try again.', 'red');
-        alert('网络错误，请稍后再试。');
-      },
+            localStorage.setItem('es_attendance_form_data', JSON.stringify(formData));
+            document.cookie = `es_attendance_form_data=${JSON.stringify(formData)};expires=Fri, 31 Dec 9999 23:59:59 GMT`
 
+            $.ajax({
+                url: esAjax.ajaxurl,
+                type: "POST",
+                data: $.extend({ action: "es_handle_attendance" }, formData),
+                success: function (response) {
+                    $(".es-message").remove();
+                    displayMessage(response.data.message, response.success ? 'green' : 'red');
+                    alert(response.data.message);
+                },
+                error: function (xhr, textStatus, errorThrown) {
+                    console.error('Error: ' + xhr.responseText);
+                    displayMessage('An error occurred. Please try again.', 'red');
+                    alert('网络错误，请稍后再试。');
+                }
+            });
+        });
     });
+
     function displayMessage(message, color) {
-      $(".es-message").remove();
-      $("<div>", {
-        "class": "es-message",
-        "text": message,
-        "css": {
-          "background": color,
-          "color": "#ffffff",
-          "padding": "8px",
-          "margin-top": "10px",
-          "border-radius": "5px"
-        }
-      }).insertAfter("form#es_attendance_form");
+        $(".es-message").remove();
+        $("<div>", {
+            "class": "es-message",
+            "text": message,
+            "css": {
+                "background": color,
+                "color": "#ffffff",
+                "padding": "8px",
+                "margin-top": "10px",
+                "border-radius": "5px"
+            }
+        }).insertAfter("form#es_attendance_form");
     }
-  });
+});
+
 
   $("form#es_attendance_form input").focus(function () {
     // Remove the message div when input is focused

@@ -62,7 +62,8 @@ function es_enqueue_scripts()
   wp_enqueue_script('jquery-ui-datepicker');
   wp_enqueue_style('jquery-ui-datepicker-style', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
   if (!is_local_environment()) {
-    wp_enqueue_script('google-recaptcha', 'https://www.google.com/recaptcha/api.js');
+    // wp_enqueue_script('google-recaptcha', 'https://www.google.com/recaptcha/api.js');
+    wp_enqueue_script('google-recaptcha', 'https://www.google.com/recaptcha/api.js?render=6LevTdUpAAAAAIRJFT38WHfLvkA7_3J6jGtxh0_S');
   }
 }
 
@@ -106,10 +107,10 @@ function attendance_form()
       <option value="other">其他</option>
     </select>
     <?php if (!is_local_environment()) { ?>
-      <div class="g-recaptcha" data-sitekey="6LceSgspAAAAABEtw-MN8TlWYiKDKp7VumOYM06n"></div>
+      <!-- <div class="g-recaptcha" data-sitekey="6LceSgspAAAAABEtw-MN8TlWYiKDKp7VumOYM06n"></div> -->
+      <input type="hidden" name="g_recaptcha_response" id="g_recaptcha_response">
+
     <?php } ?>
-    <!-- For test website -->
-    <!-- <div class="g-recaptcha" data-sitekey="6Lcpl_soAAAAABWk5dR0MVbuWMaTaucZyPVA1ApX"></div> -->
     <div id="date-message"><?php echo $dateMessage; ?></div>
     <!-- <div id="date-message"><?php echo date('d/m/Y'); ?></div> -->
     <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isSunday ? '' : 'disabled'; ?>>
@@ -129,6 +130,38 @@ function es_handle_attendance()
   $fellowship = sanitize_text_field($_POST['es_fellowship']);
   $email = sanitize_email($_POST['es_email']);
   $current_date = current_time('Y-m-d');
+
+  // Check for reCAPTCHA response token in the POST data
+  if (isset($_POST['g_recaptcha_response'])) {
+    $recaptcha_response = $_POST['g_recaptcha_response'];
+    $secret_key = "6LevTdUpAAAAAGyzL22zu7bxYNzCnakwoBEE4U0F"; // Replace with your secret key from Google reCAPTCHA
+
+    // Prepare POST request for reCAPTCHA verification
+    $verify_url = 'https://www.google.com/recaptcha/api/siteverify';
+    $response = wp_remote_post($verify_url, [
+      'body' => [
+        'secret' => $secret_key,
+        'response' => $recaptcha_response,
+        'remoteip' => $_SERVER['REMOTE_ADDR']
+      ]
+    ]);
+
+    // Decode the response from Google
+    $response_body = wp_remote_retrieve_body($response);
+    $result = json_decode($response_body, true);
+
+    // Check if reCAPTCHA verification was successful
+    if ($result['success'] == false || $result['score'] < 0.5) {
+      // If reCAPTCHA fails or score is too low, return an error
+      wp_send_json_error(['message' => 'Invalid reCAPTCHA. Please try again.']);
+      return;
+    }
+  } else {
+    // No reCAPTCHA response token, return an error
+    wp_send_json_error(['message' => 'reCAPTCHA verification failed. Please ensure you complete the reCAPTCHA.']);
+    return;
+  }
+
   // $yesterday_date_only = date('Y-m-d', strtotime($current_time . ' -1 day')); // This will give you just the date part for yesterday
 
   // If country code is +61 and phone number starts with 0, remove the leading 0
