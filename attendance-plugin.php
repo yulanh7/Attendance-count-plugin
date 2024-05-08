@@ -802,20 +802,20 @@ function es_on_deactivation()
   global $wpdb;
   if (!current_user_can('activate_plugins')) return;
 
-  $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  // $attendance_table_name = $wpdb->prefix . 'attendance';
+  // $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
-  // Drop the tables
-  $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
-  $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
+  // // Drop the tables
+  // $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
+  // $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
 
-  if ($result1 === false || $result2 === false) {
-    // Log an error if dropping tables fails
-    error_log("Error dropping tables: " . $wpdb->last_error);
-  } else {
-    // Log success message if tables are dropped successfully
-    error_log("Tables dropped successfully.");
-  }
+  // if ($result1 === false || $result2 === false) {
+  //   // Log an error if dropping tables fails
+  //   error_log("Error dropping tables: " . $wpdb->last_error);
+  // } else {
+  //   // Log success message if tables are dropped successfully
+  //   error_log("Tables dropped successfully.");
+  // }
 }
 
 register_deactivation_hook(__FILE__, 'es_on_deactivation');
