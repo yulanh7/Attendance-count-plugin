@@ -1,7 +1,7 @@
 jQuery(document).ready(function ($) {
 
   function updateFormFields() {
-    const storedData = JSON.parse(localStorage.getItem('es_attendance_form_data')) || {};
+    const storedData = JSON.parse(localStorage.getItem('es_attendance_form_data')) || JSON.parse(getCookie('es_attendance_form_data')) || {};
     $("input[name=es_first_name]").val(storedData.es_first_name || '');
     $("input[name=es_last_name]").val(storedData.es_last_name || '');
     $("input[name=es_email]").val(storedData.es_email || '');
@@ -39,6 +39,7 @@ jQuery(document).ready(function ($) {
     }
 
     localStorage.setItem('es_attendance_form_data', JSON.stringify(formData));
+    document.cookie = `es_attendance_form_data=${JSON.stringify(formData)};expires=Fri, 31 Dec 9999 23:59:59 GMT`
 
     $.ajax({
       url: esAjax.ajaxurl,
