@@ -4,9 +4,8 @@ jQuery(document).ready(function ($) {
     let storedData = {};
     if (supportsLocalStorage()) {
       storedData = JSON.parse(localStorage.getItem('es_attendance_form_data')) || {};
-    } else {
-      storedData = JSON.parse(getCookie('es_attendance_form_data')) || {};
     }
+
     $("input[name=es_first_name]").val(storedData.es_first_name || '');
     $("input[name=es_last_name]").val(storedData.es_last_name || '');
     $("input[name=es_email]").val(storedData.es_email || '');
@@ -66,8 +65,6 @@ jQuery(document).ready(function ($) {
           localStorage.setItem('es_attendance_form_data', JSON.stringify(formData));
         }
 
-        document.cookie = `es_attendance_form_data=${JSON.stringify(formData)};expires=Fri, 31 Dec 9999 23:59:59 GMT`;
-
         $.ajax({
           url: esAjax.ajaxurl,
           type: "POST",
@@ -102,14 +99,6 @@ jQuery(document).ready(function ($) {
     }
   });
   
-  // Helper function to get cookie value
-  function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
-  }
-  
-
 
   $("form#es_attendance_form input").focus(function () {
     // Remove the message div when input is focused
