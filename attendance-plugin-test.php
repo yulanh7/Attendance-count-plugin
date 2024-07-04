@@ -71,13 +71,13 @@ add_action('wp_enqueue_scripts', 'es_enqueue_scripts');
 add_action('admin_enqueue_scripts', 'es_enqueue_scripts');
 
 
-function attendance_form()
+function attendance_form_test()
 {
   ob_start();
   $currentDayOfWeek = current_time('w');
   // FIXME
-  $isSunday = ($currentDayOfWeek == 0);
-  // $isSunday = true;
+  // $isSunday = ($currentDayOfWeek == 0);
+  $isSunday = true;
   $todayDate = current_time('d/m/Y');
   $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: #ef2723;font-size: 18px'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
 
@@ -118,7 +118,7 @@ function attendance_form()
 <?php
   return ob_get_clean();
 }
-add_shortcode('attendance_form', 'attendance_form');
+add_shortcode('attendance_form_test', 'attendance_form_test');
 
 
 function es_handle_attendance()
