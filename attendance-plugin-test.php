@@ -56,8 +56,8 @@ function is_local_environment()
 function es_enqueue_scripts()
 {
   wp_enqueue_script('jquery');
-  wp_enqueue_script('es-attendance', plugin_dir_url(__FILE__) . 'main.js', ['jquery'], '1.0', true);
-  wp_localize_script('es-attendance', 'esAjax', ['ajaxurl' => admin_url('admin-ajax.php')]);
+  wp_enqueue_script('_test', plugin_dir_url(__FILE__) . 'main.js', ['jquery'], '1.0', true);
+  wp_localize_script('_test', 'esAjax', ['ajaxurl' => admin_url('admin-ajax.php')]);
   wp_enqueue_style('custom-style', plugin_dir_url(__FILE__) . 'style.css');
   wp_enqueue_script('jquery-ui-datepicker');
   wp_enqueue_style('jquery-ui-datepicker-style', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
@@ -83,7 +83,7 @@ function attendance_form_test()
 
 ?>
 
-  <form id="es_attendance_form" class="es-attendance-form">
+  <form id="es_attendance_form" class="_test-form">
     <input type="text" name="es_first_name" required placeholder="名字（必填）">
     <input type="text" name="es_last_name" required placeholder="姓氏（必填）">
     <input type="email" name="es_email" placeholder="邮箱（选填）">
@@ -458,7 +458,7 @@ function get_last_attended_date($phone)
 }
 
 
-function es_render_attendance_list()
+function es_render_attendance_list_test()
 {
   global $wpdb;
   $attendance_table_name = $wpdb->prefix . 'attendance_test';
@@ -634,7 +634,7 @@ function es_filter_attendance_callback()
 add_action('admin_menu', function () {
   // 'read' capability allows access to all logged-in users (including subscribers)
   // Note: You may need additional code or a plugin to allow subscribers to access the admin dashboard.
-  add_menu_page('Attendance', 'Attendance', 'read', 'es-attendance', 'es_render_attendance_list', 'dashicons-calendar', 1);
+  add_menu_page('Attendance_test', 'Attendance_test', 'read', 'es-attendance_test', 'es_render_attendance_list_test', 'dashicons-calendar', 1);
 });
 
 function es_export_attendance_csv()
