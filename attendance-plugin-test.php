@@ -56,8 +56,8 @@ function is_local_environment()
 function es_enqueue_scripts()
 {
   wp_enqueue_script('jquery');
-  wp_enqueue_script('_test', plugin_dir_url(__FILE__) . 'main.js', ['jquery'], '1.0', true);
-  wp_localize_script('_test', 'esAjax', ['ajaxurl' => admin_url('admin-ajax.php')]);
+  wp_enqueue_script('es-attendance-form', plugin_dir_url(__FILE__) . 'main.js', ['jquery'], '1.0', true);
+  wp_localize_script('es-attendance-form', 'esAjax', ['ajaxurl' => admin_url('admin-ajax.php')]);
   wp_enqueue_style('custom-style', plugin_dir_url(__FILE__) . 'style.css');
   wp_enqueue_script('jquery-ui-datepicker');
   wp_enqueue_style('jquery-ui-datepicker-style', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
@@ -83,7 +83,7 @@ function attendance_form_test()
 
 ?>
 
-  <form id="es_attendance_form" class="_test-form">
+  <form id="es_attendance_form" class="es-attendance-form">
     <input type="text" name="es_first_name" required placeholder="名字（必填）">
     <input type="text" name="es_last_name" required placeholder="姓氏（必填）">
     <input type="email" name="es_email" placeholder="邮箱（选填）">
