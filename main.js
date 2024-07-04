@@ -33,55 +33,36 @@ jQuery(document).ready(function ($) {
 
   $("form#es_attendance_form").submit(function (e) {
     e.preventDefault();
+    const formData = {
+      es_first_name: $("input[name=es_first_name]").val(),
+      es_last_name: $("input[name=es_last_name]").val(),
+      es_email: $("input[name=es_email]").val(),
+      es_phone_country_code: $("select[name=es_phone_country_code]").val(),
+      es_phone_number: $("input[name=es_phone_number]").val(),
+      es_fellowship: $("select[name=es_fellowship]").val(),
+    };
+   
+    if (supportsLocalStorage()) {
+      localStorage.setItem('es_attendance_form_data_test', JSON.stringify(formData));
+    }
 
-    // Execute reCAPTCHA and then proceed with AJAX submission
-    grecaptcha.ready(function () {
-      grecaptcha.execute('6LevTdUpAAAAAIRJFT38WHfLvkA7_3J6jGtxh0_S', { action: 'submit' }).then(function (token) {
-        // Add the reCAPTCHA token to the formData
-        const formData = {
-          es_first_name: $("input[name=es_first_name]").val(),
-          es_last_name: $("input[name=es_last_name]").val(),
-          es_email: $("input[name=es_email]").val(),
-          es_phone_country_code: $("select[name=es_phone_country_code]").val(),
-          es_phone_number: $("input[name=es_phone_number]").val(),
-          es_fellowship: $("select[name=es_fellowship]").val(),
-        };
-
-        // Optional: Check if running in a local environment and skip the rest
-        if (!isLocalEnvironment()) {
-          if (!token) {
-            displayMessage('请稍后再试.', 'red');
-            return;
-          }
-        } else {
-          console.log("Skipping reCAPTCHA in local environment");
-        }
-
-        const dataForServer = {
-          ...formData,
-          g_recaptcha_response: token
-        };
-        if (supportsLocalStorage()) {
-          localStorage.setItem('es_attendance_form_data_test', JSON.stringify(formData));
-        }
-
-        $.ajax({
-          url: esAjax.ajaxurl,
-          type: "POST",
-          data: $.extend({ action: "es_handle_attendance" }, dataForServer),
-          success: function (response) {
-            $(".es-message").remove();
-            displayMessage(response.data.message, response.success ? 'green' : 'red');
-            alert(response.data.message);
-          },
-          error: function (xhr, textStatus, errorThrown) {
-            console.error('Error: ' + xhr.responseText);
-            displayMessage('An error occurred. Please try again.', 'red');
-            alert('网络错误，请稍后再试。');
-          }
-        });
-      });
+    $.ajax({
+      url: esAjax.ajaxurl,
+      type: "POST",
+      data: $.extend({ action: "es_handle_attendance" }, formData),
+      success: function (response) {
+        $(".es-message").remove();
+        displayMessage(response.data.message, response.success ? 'green' : 'red');
+        alert(response.data.message);
+      },
+      error: function (xhr, textStatus, errorThrown) {
+        console.error('Error: ' + xhr.responseText);
+        displayMessage('An error occurred. Please try again.', 'red');
+        alert('网络错误，请稍后再试。');
+      }
     });
+
+
 
     function displayMessage(message, color) {
       $(".es-message").remove();
@@ -98,7 +79,7 @@ jQuery(document).ready(function ($) {
       }).insertAfter("form#es_attendance_form");
     }
   });
-  
+
 
   $("form#es_attendance_form input").focus(function () {
     // Remove the message div when input is focused
