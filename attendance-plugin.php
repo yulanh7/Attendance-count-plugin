@@ -15,8 +15,8 @@ defined('ABSPATH') or die('No script kiddies please!');
 function create_attendance_table()
 {
   global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates'; // New table for attendance dates
+  $attendance_table_name = $wpdb->prefix . 'attendance_test';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates_test'; // New table for attendance dates
   $charset_collate = $wpdb->get_charset_collate();
 
   $sql = "CREATE TABLE $attendance_table_name (
@@ -172,8 +172,8 @@ function es_handle_attendance()
 
   // Check for duplicate entries on the same date
   global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $attendance_table_name = $wpdb->prefix . 'attendance_test';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates_test';
 
   // Check if the user already exists in the database
   $existing_user = $wpdb->get_row(
@@ -443,8 +443,8 @@ function calculate_sunday_count($start_date, $end_date)
 function get_last_attended_date($phone)
 {
   global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $attendance_table_name = $wpdb->prefix . 'attendance_test';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates_test';
 
   $query = $wpdb->prepare(
     "SELECT MAX(D.date_attended)
@@ -461,8 +461,8 @@ function get_last_attended_date($phone)
 function es_render_attendance_list()
 {
   global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $attendance_table_name = $wpdb->prefix . 'attendance_test';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates_test';
   $start_date = current_time('Y-m-d');
   $end_date = current_time('Y-m-d');
   // Query to select attendance data based on filters
@@ -608,8 +608,8 @@ function get_filtered_attendance_results($query)
 function es_filter_attendance_callback()
 {
   global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $attendance_table_name = $wpdb->prefix . 'attendance_test';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates_test';
   $query = "SELECT A.*
             FROM $attendance_table_name AS A
             INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
@@ -640,8 +640,8 @@ add_action('admin_menu', function () {
 function es_export_attendance_csv()
 {
   global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $attendance_table_name = $wpdb->prefix . 'attendance_test';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates_test';
   $query = "SELECT A.fellowship, A.first_name,A.last_name,A.phone,A.email, A.is_member,A.first_attendance_date
     FROM $attendance_table_name AS A
     INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
@@ -726,7 +726,7 @@ function handle_member_status_update()
 
   foreach ($ids as $id) {
     $wpdb->update(
-      $wpdb->prefix . 'attendance',
+      $wpdb->prefix . 'attendance_test',
       array('is_member' => $is_member),
       array('id' => intval($id))
     );
@@ -742,8 +742,8 @@ add_action('wp_ajax_get_attendance_info', 'get_attendance_info_callback');
 function get_attendance_info_callback()
 {
   global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $attendance_table_name = $wpdb->prefix . 'attendance_test';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates_test';
   $attendanceId = $_POST['attendance_id'];
 
   $queryOfAttendance = $wpdb->prepare(
@@ -802,8 +802,8 @@ function es_on_deactivation()
   global $wpdb;
   if (!current_user_can('activate_plugins')) return;
 
-  // $attendance_table_name = $wpdb->prefix . 'attendance';
-  // $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  // $attendance_table_name = $wpdb->prefix . 'attendance_test';
+  // $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates_test';
 
   // // Drop the tables
   // $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
