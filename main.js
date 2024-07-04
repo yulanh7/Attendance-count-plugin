@@ -3,7 +3,7 @@ jQuery(document).ready(function ($) {
   function updateFormFields() {
     let storedData = {};
     if (supportsLocalStorage()) {
-      storedData = JSON.parse(localStorage.getItem('es_attendance_form_data')) || {};
+      storedData = JSON.parse(localStorage.getItem('es_attendance_form_data_test')) || {};
     }
 
     $("input[name=es_first_name]").val(storedData.es_first_name || '');
@@ -62,7 +62,7 @@ jQuery(document).ready(function ($) {
           g_recaptcha_response: token
         };
         if (supportsLocalStorage()) {
-          localStorage.setItem('es_attendance_form_data', JSON.stringify(formData));
+          localStorage.setItem('es_attendance_form_data_test', JSON.stringify(formData));
         }
 
         $.ajax({
