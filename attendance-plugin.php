@@ -37,6 +37,7 @@ function create_attendance_table()
       attendance_id INT NOT NULL,
       date_attended DATE NOT NULL,
       PRIMARY KEY (id),
+      UNIQUE KEY unique_attendance_date (attendance_id, date_attended),
       FOREIGN KEY (attendance_id) REFERENCES $attendance_table_name(id)
   ) $charset_collate;";
 
