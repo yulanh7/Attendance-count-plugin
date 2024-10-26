@@ -145,25 +145,21 @@ function es_handle_attendance()
   );
 
   // Prepare your SQL query using the current date
-  $existing_entry = $wpdb->get_results(
+  $existing_entry = $wpdb->get_var(
     $wpdb->prepare(
-      "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = (
-      SELECT id FROM $attendance_table_name WHERE phone = %s ORDER BY phone DESC LIMIT 1
-    ) AND date_attended = %s",
-      $phone,
+      "SELECT COUNT(*) FROM $attendance_dates_table_name 
+       WHERE attendance_id = %d AND date_attended = %s",
+      $existing_user ? $existing_user['id'] : 0,
       $current_date
-    ),
-    ARRAY_A
+    )
   );
 
-  if ($existing_entry) {
+  if ($existing_entry > 0) {
     // wp_send_json_error(['message' => 'You have already submitted attendance for this person on the same date.']);
     wp_send_json_error(['message' => '您今天已经签到过了，请勿重复签到!']);
     return;
   }
 
-
-  $attendance_id = '';
   if ($existing_user) {
     $wpdb->update(
       $attendance_table_name,
@@ -189,20 +185,14 @@ function es_handle_attendance()
       'first_attendance_date' => $current_date,
       // 'first_attendance_date' => date("2024-3-31"),
     );
-
-    $wpdb->insert($attendance_table_name, $data);
     $attendance_id = $wpdb->insert_id;
   }
 
   // Insert into the attendance_dates table
-  $data = array(
+  $wpdb->insert($attendance_dates_table_name, [
     'attendance_id' => $attendance_id,
     'date_attended' => $current_date,
-    // 'date_attended' => date("2024-3-31"),
-  );
-
-  $wpdb->insert($attendance_dates_table_name, $data);
-
+  ]);
   wp_send_json_success(['message' => '签到成功！']);
 }
 
@@ -737,9 +727,11 @@ function get_attendance_info_callback()
       <?= $attendance->phone ?>
     </div>
     <p>
-      From <?= $start_date ?> to <?= $start_date ?>
+      <?= $start_date ?>
     </p>
-
+    <p>
+      <?= $end_date ?>
+    </p>
     <table>
       <thead>
         <tr>
