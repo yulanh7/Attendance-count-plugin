@@ -327,12 +327,13 @@ function combine_attendace_with_same_phone($data, $start_date, $end_date, $perce
 
   $sunday_count = calculate_sunday_count($start_date, $end_date);
   // $sunday_count = 3;
-
   $combinedData = [];
   foreach ($data as $entry) {
     $phone = $entry['phone'];
-    $new_start_date = date('Y-m-d', strtotime($entry['first_attendance_date']));
-    if ($start_date < $new_start_date) {
+    // $new_start_date = date('Y-m-d', strtotime($entry['first_attendance_date']));
+    $new_start_date = new DateTime($entry['first_attendance_date']);
+    $format_start_date = new DateTime($entry['first_attendance_date']);
+    if ($format_start_date < $new_start_date) {
       $sunday_count = calculate_sunday_count($new_start_date, $end_date);
     }
     if (!isset($combinedData[$phone])) {
