@@ -706,6 +706,8 @@ function get_attendance_info_callback()
   $attendance_table_name = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
   $attendanceId = $_POST['attendance_id'];
+  $start_date = sanitize_text_field($_POST['start_date_filter']);
+  $end_date = sanitize_text_field($_POST['end_date_filter']);
 
   $queryOfAttendance = $wpdb->prepare(
     "SELECT first_name, last_name, phone FROM $attendance_table_name WHERE id = %d",
@@ -715,8 +717,12 @@ function get_attendance_info_callback()
 
   // Query to fetch attendance information
   $query = $wpdb->prepare(
-    "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = %d",
-    $attendanceId
+    "SELECT * FROM $attendance_dates_table_name 
+     WHERE attendance_id = %d 
+     AND date_attended BETWEEN %s AND %s",
+    $attendanceId,
+    $start_date,
+    $end_date
   );
   $attendanceInfo = $wpdb->get_results($query, ARRAY_A);
 
@@ -731,7 +737,9 @@ function get_attendance_info_callback()
       <?= $attendance->phone ?>
     </div>
     <p>
+      From <?= $start_date ?> to <?= $start_date ?>
     </p>
+
     <table>
       <thead>
         <tr>

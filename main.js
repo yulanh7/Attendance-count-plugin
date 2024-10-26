@@ -79,8 +79,6 @@ jQuery(document).ready(function ($) {
       }).insertAfter("form#es_attendance_form");
     }
   });
-  
-
   $("form#es_attendance_form input").focus(function () {
     // Remove the message div when input is focused
     $(".es-message").remove();
@@ -235,18 +233,19 @@ jQuery(document).ready(function ($) {
   }
 
   $(document).on("click", ".view-attendance-button", function (e) {
-
+    const filter_params = JSON.parse(localStorage.getItem('filter_params'));
     var attendanceId = $(this).data('attendance-id');
     $.ajax({
       url: ajaxurl,
       type: 'POST',
       data: {
         action: 'get_attendance_info',
-        attendance_id: attendanceId
+        attendance_id: attendanceId,
+        start_date_filter: filter_params.start_date_filter,
+        end_date_filter: filter_params.end_date_filter
       },
       success: function (response) {
 
-        console.log(response);
         $('#attendance-info-modal-content').html(response)
         // This function will execute after html() finishes setting the content
         document.getElementById("attendance-info-modal").style.display = "block";
