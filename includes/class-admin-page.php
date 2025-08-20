@@ -12,6 +12,24 @@ class Admin_List_Table extends \WP_List_Table
 {
   public $per_page = 40;
   public $items = [];
+  // ✅ 可选：设定 singular/plural（更规范）
+  public function __construct()
+  {
+    parent::__construct([
+      'singular' => 'attendance',
+      'plural'   => 'attendances',
+      'ajax'     => false,
+    ]);
+  }
+
+  // ✅ 就放在这个类里
+  public function get_bulk_actions()
+  {
+    return [
+      'make_member'     => 'Make Member',
+      'make_non_member' => 'Make Non-Member',
+    ];
+  }
 
   public function prepare_items($data = [])
   {
@@ -136,7 +154,9 @@ class Admin_Page
           <button id="export-csv-button" type="button" class="export-csv">Export to CSV</button>
         </div>
         <div id="filter-table-response">
-          <?php $table->display(); ?>
+          <form method="post" id="attendance-bulk-form">
+            <?php $table->display(); ?>
+          </form>
           <div id="loader-box" style="display:none;">
             <div id="es-loading-spinner" class="loader"></div>
           </div>
@@ -158,6 +178,8 @@ class Admin_Page
   {
     $t = new Admin_List_Table();
     $t->prepare_items($rows);
+    echo '<form method="post" id="attendance-bulk-form">';
     $t->display();
+    echo '</form>';
   }
 }
