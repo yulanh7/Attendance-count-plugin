@@ -14,9 +14,12 @@
 }
 
 .es-attendance-form input[type="submit"] {
-  padding: 10px 20px; /* Desktop padding */
-  background-color: #00a6bf; /* Dynamic background color */
-  color: #ffffff; /* Dynamic text color */
+  padding: 10px 20px;
+  /* Desktop padding */
+  background-color: #00a6bf;
+  /* Dynamic background color */
+  color: #ffffff;
+  /* Dynamic text color */
   border: none;
   border-radius: 5px;
   cursor: pointer;
@@ -29,6 +32,7 @@
   border-radius: 5px;
   cursor: default;
 }
+
 .es-attendance-form input[disabled]:hover {
   background-color: gray !important;
   border-radius: 5px;
@@ -36,21 +40,24 @@
 }
 
 .es-attendance-form .es-form-group {
-  color: #ffffff; /* Dynamic text color */
+  color: #ffffff;
+  /* Dynamic text color */
   margin-bottom: 12px;
 }
 
-.es-attendance-form #date-message{
+.es-attendance-form #date-message {
   color: #fff;
 }
 
 .es-attendance-form .phone-box {
   display: flex;
 }
+
 .es-attendance-form .phone-box select {
   height: 42px;
-  
+
 }
+
 .es-attendance-form .phone-box input {
   margin-left: 5px;
   flex: 1
@@ -60,7 +67,8 @@
 
 @media (max-width: 768px) {
   .es-attendance-form input[type="submit"] {
-    padding: 10px; /* Mobile padding */
+    padding: 10px;
+    /* Mobile padding */
   }
 }
 
@@ -71,10 +79,12 @@
   padding: 5px 10px;
   border-radius: 5px;
 }
+
 .filter-form select {
   margin-bottom: 4px;
   width: 200px;
 }
+
 .filter-form .checkbox-container {
   width: 130px;
   display: inline-block;
@@ -90,6 +100,7 @@
   font-size: 18px;
   font-weight: 500;
 }
+
 .filter-form .submit-btn:hover {
   border-radius: 5px;
   background: #d6b40c;
@@ -118,6 +129,7 @@
     border-radius: 5px;
     width: 100%;
   }
+
   .filter-form .checkbox-container {
     width: 130px;
     display: block;
@@ -125,39 +137,36 @@
   }
 }
 
+
 #filter-table-response {
   position: relative;
 }
 
 #loader-box {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #00000054;
-  width: 100%;
-  height: 100%;
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.6);
+  z-index: 10;
 }
 
-.loader {
-  border: 5px solid #f3f3f3; /* Light grey */
-  border-top: 5px solid #ffd400; /* Blue */
+#es-loading-spinner.loader {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #ddd;
+  border-top-color: #666;
   border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  animation: spin 2s linear infinite;
+  animation: apSpin .8s linear infinite;
 }
 
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
+@keyframes apSpin {
+  to {
+    transform: rotate(360deg)
   }
 }
+
 
 .g-recaptcha {
   padding: 10px 0;
@@ -181,6 +190,7 @@
 }
 
 #attendance-info-modal .popup-content {
+  position: relative;
   background-color: #fefefe;
   margin: 15% auto;
   padding: 20px;
@@ -192,11 +202,16 @@
 }
 
 #attendance-info-modal .close {
-  color: #aaa;
-  float: right;
+  background: none;
+  color: black;
   font-size: 28px;
   font-weight: bold;
   cursor: pointer;
+}
+
+#attendance-info-modal .close::before,
+#attendance-info-modal .close::after {
+  display: none;
 }
 
 #attendance-info-modal .close:hover,
@@ -204,4 +219,262 @@
   color: black;
   text-decoration: none;
   cursor: pointer;
+}
+
+
+/* 作用域限定：只影响前台仪表板 */
+.wrap.ap-frontend-dashboard {
+  font-size: 14px;
+}
+
+.ap-frontend-dashboard .filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  margin: 10px 0 16px;
+}
+
+.ap-frontend-dashboard .filter-form input[type="text"],
+.ap-frontend-dashboard .filter-form input[type="date"],
+.ap-frontend-dashboard .filter-form select {
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #d7d7d7;
+  background: #fff;
+  min-height: 36px;
+  color: #111;
+}
+
+.ap-frontend-dashboard .filter-form select {
+  width: auto;
+}
+
+.ap-frontend-dashboard .filter-form .checkbox-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  min-height: 36px;
+  border-radius: 6px;
+}
+
+.ap-frontend-dashboard .filter-form .submit-btn {
+  width: auto;
+  min-width: 110px;
+  height: 40px;
+  border-radius: 6px;
+  background: #ffd400;
+  border: 1px solid #ffd400;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.ap-frontend-dashboard .filter-form .submit-btn:hover {
+  background: #d6b40c;
+}
+
+.ap-frontend-dashboard .filter-form .export-csv {
+  width: auto;
+  min-width: 140px;
+  height: 40px;
+  border-radius: 6px;
+  background: #0073aa;
+  border: 1px solid #0073aa;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.ap-frontend-dashboard .filter-form .export-csv:hover {
+  background: #06567b;
+}
+
+.ap-frontend-dashboard .bulk-action-bar {
+  margin-bottom: 15px;
+}
+
+/* 表格容器允许横向滚动（移动端更友好） */
+.ap-frontend-dashboard #filter-table-response {
+  position: relative;
+  /* 已有 loader 需要 */
+  overflow-x: auto;
+  /* 新增 */
+}
+
+/* 简单前台表格样式 */
+.ap-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 表头 */
+.ap-table thead th {
+  background: #f6f7f7;
+  text-align: left;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e6e6e6;
+  white-space: nowrap;
+  /* 表头保持不换行 */
+}
+
+/* 表格内容 */
+.ap-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+/* 限制特定列（Phone 和 Email）的宽度并允许换行 */
+.ap-table td:nth-child(6),
+/* Phone */
+.ap-table td:nth-child(7)
+
+/* Email */
+  {
+  min-width: 120px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* 限制 First attended Date 和 Last Attended Date 列 */
+.ap-table th:nth-child(10),
+.ap-table th:nth-child(11),
+.ap-table td:nth-child(10),
+.ap-table td:nth-child(11) {
+  min-width: 120px;
+
+  white-space: normal;
+  word-break: break-word;
+  text-align: center;
+}
+
+.ap-table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+/* hover 高亮 */
+.ap-table tbody tr:hover {
+  background: #f5fbff;
+}
+
+
+/* 查看按钮 */
+.ap-table .view-attendance-button {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #00a6bf;
+  color: #fff;
+  border: 0;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.ap-table .view-attendance-button:hover {
+  background: #008fa5;
+}
+
+/* Loader 遮罩：已在你原样式中定义，这里保持兼容
+#loader-box { ... }
+.loader { ... }
+*/
+
+/* ============== Mobile 优化 ============== */
+@media (max-width: 768px) {
+  .ap-frontend-dashboard .filter-form {
+    gap: 10px;
+  }
+
+  .ap-frontend-dashboard .filter-form input[type="text"],
+  .ap-frontend-dashboard .filter-form input[type="date"],
+  .ap-frontend-dashboard .filter-form select {
+    width: 100%;
+  }
+
+  .ap-frontend-dashboard .filter-form .checkbox-container {
+    width: 100%;
+    padding: 4px 0 8px;
+  }
+
+  .ap-frontend-dashboard .filter-form .submit-btn,
+  .ap-frontend-dashboard .filter-form .export-csv {
+    width: 100%;
+  }
+
+  /* 表格在小屏保留横向滚动，不做卡片堆叠，信息密度更好 */
+  .ap-table thead th,
+  .ap-table tbody td {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+}
+
+
+.ap-pager a {
+  display: inline-block;
+  margin: 0 3px;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-decoration: none;
+  color: #333;
+}
+
+.ap-pager a.active {
+  background: #ccc;
+  /* 当前页背景灰 */
+  color: #fff;
+  pointer-events: none;
+  /* 禁止点击 */
+  cursor: default;
+}
+
+.ap-pager a.disabled {
+  background: #eee;
+  color: #aaa;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* 弹窗内加载中的小圆圈 */
+
+
+.ap-modal-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+
+.ap-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #ddd;
+  border-top-color: #666;
+  border-radius: 50%;
+  animation: apSpin .8s linear infinite;
+}
+
+@keyframes apSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 可选：错误提示 */
+.ap-modal-error {
+  padding: 12px;
+  color: #b00020;
 }

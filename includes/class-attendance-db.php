@@ -217,25 +217,8 @@ class Attendance_DB
     ]))];
 
     foreach ($rows as $r) {
-      switch ($r['fellowship']) {
-        case 'daniel':
-          $f = 'Daniel';
-          break;
-        case 'trueLove':
-          $f = 'True Love';
-          break;
-        case 'faithHopeLove':
-          $f = 'Faith Hope Love';
-          break;
-        case 'peaceJoyPrayer':
-          $f = 'Peace&Joy Prayer';
-          break;
-        case 'other':
-          $f = 'Other';
-          break;
-        default:
-          $f = '';
-      }
+      $f = \AP\ap_translate_fellowship($r['fellowship']);
+
       $first = \AP\format_date_dmy($r['first_attendance_date'] ?? '');
       $last  = \AP\format_date_dmy($r['last_attended'] ?? '');
 

@@ -1,17 +1,8 @@
 /* =========================================================
- * Attendance Plugin - main.js (single-file, structured)
- * - 统一 AJAX（自动带 nonce）
- * - 前台表单：本地存储回填 + 提交
- * - 后台：筛选/分页/导出/批量更新
- * - 详情弹窗：View Attendance
- * - Loading/消息提示/日期控件
+ * Attendance Plugin - main.js
  * =======================================================*/
 jQuery(function ($) {
-  /* ============================
-   * 0) 命名空间 & 常量 / 小工具
-   * ============================ */
   const AP = (window.AP = window.AP || {});
-
   const S = {
     tableBox: "#filter-table-response",
     loaderBox: "#loader-box",
@@ -21,55 +12,26 @@ jQuery(function ($) {
   };
 
   const storage = {
-    get(k, d = null) {
-      try {
-        const raw = localStorage.getItem(k);
-        return raw ? JSON.parse(raw) : d;
-      } catch (e) {
-        return d;
-      }
-    },
-    set(k, v) {
-      try {
-        localStorage.setItem(k, JSON.stringify(v));
-      } catch (e) { }
-    },
-    del(k) {
-      try {
-        localStorage.removeItem(k);
-      } catch (e) { }
-    },
+    get(k, d = null) { try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) : d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { } },
+    del(k) { try { localStorage.removeItem(k); } catch { } },
   };
 
   const api = {
     post(action, payload = {}) {
-      // JSON 响应型（wp_send_json_*）
-      return $.ajax({
-        url: esAjax.ajaxurl,
-        type: "POST",
-        dataType: "json",
-        data: { action, nonce: esAjax.nonce, ...payload },
-      }).fail((xhr) => {
-        const msg =
-          (xhr.responseJSON &&
-            xhr.responseJSON.data &&
-            xhr.responseJSON.data.message) ||
-          xhr.responseText ||
-          "Network error";
-        console.error("AJAX error:", msg);
-      });
+      return $.ajax({ url: esAjax.ajaxurl, type: "POST", dataType: "json", data: { action, nonce: esAjax.nonce, ...payload } })
+        .fail((xhr) => { const msg = (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) || xhr.responseText || "Network error"; console.error("AJAX error:", msg); });
     },
     postRaw(action, payload = {}) {
-      // 非 JSON 响应（CSV / HTML 片段）
-      return $.ajax({
-        url: esAjax.ajaxurl,
-        type: "POST",
-        data: { action, nonce: esAjax.nonce, ...payload },
-      }).fail((xhr) => {
-        console.error("AJAX raw error:", xhr && xhr.responseText);
-      });
+      return $.ajax({ url: esAjax.ajaxurl, type: "POST", data: { action, nonce: esAjax.nonce, ...payload } })
+        .fail((xhr) => { console.error("AJAX raw error:", xhr && xhr.responseText); });
     },
   };
+
+  function feScrollToContainerTop($c, offset = 10) {
+    const top = $c.offset() ? $c.offset().top : 0;
+    $("html, body").stop(true).animate({ scrollTop: Math.max(top - offset, 0) }, 300);
+  }
 
   function showLoader(show) {
     const $b = $(S.loaderBox);
@@ -79,82 +41,48 @@ jQuery(function ($) {
 
   function displayMessage($after, message, color) {
     $(".es-message").remove();
-    $("<div>", {
-      class: "es-message",
-      text: message,
-      css: {
-        background: color,
-        color: "#ffffff",
-        padding: "8px",
-        "margin-top": "10px",
-        "border-radius": "5px",
-      },
-    }).insertAfter($after);
+    $("<div>", { class: "es-message", text: message, css: { background: color, color: "#fff", padding: "8px", "margin-top": "10px", "border-radius": "5px" } }).insertAfter($after);
   }
 
-  /* ============================
-   * 1) 前台表单（本地存储 + 提交）
-   * ============================ */
+  /* ========== 前台表单 ========== */
   function initForm() {
     const $form = $(S.form);
     if (!$form.length) return;
 
-    // 回填
     const saved = storage.get("es_attendance_form_data", {});
     $form.find("input[name=es_first_name]").val(saved.es_first_name || "");
     $form.find("input[name=es_last_name]").val(saved.es_last_name || "");
     $form.find("input[name=es_email]").val(saved.es_email || "");
-    $form
-      .find("select[name=es_phone_country_code]")
-      .val(saved.es_phone_country_code || "+61");
+    $form.find("select[name=es_phone_country_code]").val(saved.es_phone_country_code || "+61");
     $form.find("input[name=es_phone_number]").val(saved.es_phone_number || "");
     $form.find("select[name=es_fellowship]").val(saved.es_fellowship || "");
 
-    // 提交
     $form.on("submit", function (e) {
       e.preventDefault();
       const formData = {
         es_first_name: $form.find("input[name=es_first_name]").val(),
         es_last_name: $form.find("input[name=es_last_name]").val(),
         es_email: $form.find("input[name=es_email]").val(),
-        es_phone_country_code: $form
-          .find("select[name=es_phone_country_code]")
-          .val(),
+        es_phone_country_code: $form.find("select[name=es_phone_country_code]").val(),
         es_phone_number: $form.find("input[name=es_phone_number]").val(),
         es_fellowship: $form.find("select[name=es_fellowship]").val(),
       };
-
       storage.set("es_attendance_form_data", formData);
-
       api.post("es_handle_attendance", formData).done((resp) => {
         $(".es-message").remove();
         const ok = !!(resp && resp.success);
-        const msg =
-          (resp && resp.data && resp.data.message) ||
-          (ok ? "Success" : "Error");
+        const msg = (resp && resp.data && resp.data.message) || (ok ? "Success" : "Error");
         displayMessage($form, msg, ok ? "green" : "red");
         alert(msg);
       });
     });
 
-    // 输入时清提示
-    $form.on("focus", "input,select", function () {
-      $(".es-message").remove();
-    });
+    $form.on("focus", "input,select", function () { $(".es-message").remove(); });
 
-    // 日期控件（如果页面上有）
-    $("#last_date_filter").datepicker({
-      dateFormat: "dd/mm/yy",
-      changeYear: true,
-      changeMonth: true,
-      showButtonPanel: true,
-      yearRange: "c-100:c+0",
-    });
+    $("#last_date_filter").datepicker({ dateFormat: "dd/mm/yy", changeYear: true, changeMonth: true, showButtonPanel: true, yearRange: "c-100:c+0" });
   }
 
-  /* ============================
-   * 2) 后台筛选/分页/导出/批量
-   * ============================ */
+  /* ========== 后台列表 ========== */
   function getFilters() {
     return {
       is_member: $("#es_member_filter").val(),
@@ -171,22 +99,19 @@ jQuery(function ($) {
   }
 
   function bindToggleRowEvent() {
-    // WP_List_Table 响应式内的小箭头展开
     $("tbody").off("click", ".toggle-row").on("click", ".toggle-row", function () {
       $(this).closest("tr").toggleClass("is-expanded");
     });
   }
 
   function bindPaginationEvent() {
-    $(document)
-      .off("click", ".pagination-links a")
-      .on("click", ".pagination-links a", function (e) {
-        e.preventDefault();
-        const href = $(this).attr("href") || "";
-        const match = href.match(/paged=(\d+)/);
-        const page = match ? parseInt(match[1], 10) : 1;
-        fetchFilteredResults(page);
-      });
+    $(document).off("click", ".pagination-links a").on("click", ".pagination-links a", function (e) {
+      e.preventDefault();
+      const href = $(this).attr("href") || "";
+      const match = href.match(/paged=(\d+)/);
+      const page = match ? parseInt(match[1], 10) : 1;
+      fetchFilteredResults(page);
+    });
   }
 
   function renderTableHTML(html) {
@@ -214,103 +139,274 @@ jQuery(function ($) {
       const blob = new Blob([response], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      const d = new Date();
-      const dd = String(d.getDate()).padStart(2, "0");
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const yy = d.getFullYear();
-      a.href = url;
-      a.download = `Attendance_Report_${dd}-${mm}-${yy}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const d = new Date(); const dd = String(d.getDate()).padStart(2, "0"); const mm = String(d.getMonth() + 1).padStart(2, "0"); const yy = d.getFullYear();
+      a.href = url; a.download = `Attendance_Report_${dd}-${mm}-${yy}.csv`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     });
   }
 
   function bulkMemberUpdate(action) {
     if (!/make_member|make_non_member/.test(action)) return;
-    const ids = $('input[name="bulk-select[]"]:checked')
-      .map(function () {
-        return this.value;
-      })
-      .get();
+    const ids = $('input[name="bulk-select[]"]:checked').map(function () { return this.value; }).get();
     if (!ids.length) return;
-    api
-      .post("handle_member_status_update", { ids, member_action: action })
+    showLoader(true);
+    api.post("handle_member_status_update", { ids, member_action: action })
       .done((resp) => {
-        const msg =
-          (resp && resp.data && resp.data.message) ||
-          "Member status updated.";
+        const msg = (resp && resp.data && resp.data.message) || "Member status updated.";
         alert(msg);
         const params = storage.get("filter_params") || getFilters();
         fetchFilteredResults(params.paged || 1);
-      });
+      })
+      .fail(() => { alert('更新失败，请稍后再试。'); })
+      .always(() => { showLoader(false); });
   }
 
   function initAdmin() {
     if (!$(S.tableBox).length) return;
-
-    // 绑定筛选按钮
-    $(document).on("click", "#filter-button", function (e) {
-      e.preventDefault();
-      fetchFilteredResults(1);
-    });
-
-    // 绑定导出
-    $(document).on("click", "#export-csv-button", function (e) {
-      e.preventDefault();
-      exportCSV();
-    });
-
-    // 绑定批量按钮（WP_List_Table 顶/底部）
-    $(document).on("click", "#doaction, #doaction2", function (e) {
-      e.preventDefault();
-      const action = $(this).prev("select").val();
-      bulkMemberUpdate(action);
-    });
-
-    // 首次：不自动拉取（你后台页面已初次渲染），如需自动更新可打开：
-    // fetchFilteredResults(1);
-
+    $(document).on("click", "#filter-button", function (e) { e.preventDefault(); fetchFilteredResults(1); });
+    $(document).on("click", "#export-csv-button", function (e) { e.preventDefault(); exportCSV(); });
+    $(document).on("click", "#doaction, #doaction2", function (e) { e.preventDefault(); const action = $(this).prev("select").val(); bulkMemberUpdate(action); });
     bindToggleRowEvent();
     bindPaginationEvent();
   }
 
-  /* ============================
-   * 3) 详情弹窗（View Attendance）
-   * ============================ */
+  /* ========== 详情弹窗 ========== */
+
   function initModal() {
     const $modal = $(S.modal);
     if (!$modal.length) return;
 
-    // 打开
-    $(document).on("click", ".view-attendance-button", function () {
+    // 简单 spinner
+    const spinnerHTML = '<div class="ap-modal-loading"><div class="ap-spinner"></div></div>';
+
+    // 计算日期：在前台用 fe_*，后台用 admin 的；缺省用今天
+    function ymd(d) {
+      const x = (d instanceof Date) ? d : new Date(d);
+      const yyyy = x.getFullYear();
+      const mm = String(x.getMonth() + 1).padStart(2, "0");
+      const dd = String(x.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    function getDateRangeForModal() {
+      const $fe = $(".ap-frontend-dashboard");
+      if ($fe.length) {
+        const s = $fe.find("#fe_start_date_filter").val();
+        const e = $fe.find("#fe_end_date_filter").val();
+        return { start: s || ymd(new Date()), end: e || ymd(new Date()) };
+      }
+      const s = $("#start_date_filter").val();
+      const e = $("#end_date_filter").val();
+      return { start: s || ymd(new Date()), end: e || ymd(new Date()) };
+    }
+
+    // 跟踪当前请求，避免竞态
+    let currentXhr = null;
+    let lastReqId = 0;
+
+    $(document).on("click", ".view-attendance-button", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
       const id = $(this).data("attendance-id");
-      const params = storage.get("filter_params") || getFilters();
-      api
-        .postRaw("get_attendance_info", {
+      const dr = getDateRangeForModal();
+
+      // 中止上一个仍在进行的请求
+      if (currentXhr && currentXhr.readyState !== 4) {
+        try { currentXhr.abort(); } catch (_) { }
+      }
+
+      // 打开弹窗并显示 loading
+      $(S.modalContent).html(spinnerHTML);
+      $modal.show();
+
+      // 记录本次请求 id
+      const reqId = ++lastReqId;
+
+      // 发请求
+      currentXhr = $.ajax({
+        url: esAjax.ajaxurl,
+        type: "POST",
+        data: {
+          action: "get_attendance_info",
+          nonce: esAjax.nonce,
           attendance_id: id,
-          start_date_filter: params.start_date_filter,
-          end_date_filter: params.end_date_filter,
+          start_date_filter: dr.start,
+          end_date_filter: dr.end
+        }
+      })
+        .done(function (html) {
+          // 只渲染“最后一次点击”的结果
+          if (reqId === lastReqId) {
+            $(S.modalContent).html(html);
+          }
         })
-        .done((html) => {
-          $(S.modalContent).html(html);
-          $modal.show();
+        .fail(function (xhr, status) {
+          if (status === "abort") return; // 被后续点击打断，忽略
+          $(S.modalContent).html('<div class="ap-modal-error">加载失败，请稍后再试。</div>');
         });
     });
 
-    // 关闭
     $(document).on("click", "#attendance-info-modal .close", function () {
+      // 关闭时也中止当前请求，避免回来后把内容写进来
+      if (currentXhr && currentXhr.readyState !== 4) {
+        try { currentXhr.abort(); } catch (_) { }
+      }
       $modal.hide();
     });
   }
 
-  /* ============================
-   * 4) 启动
-   * ============================ */
-  (function boot() {
-    initForm();
-    initAdmin();
-    initModal();
-  })();
+
+
+  (function boot() { initForm(); initAdmin(); initModal(); })();
+
+  /* ========== 前台 dashboard（短代码） ========== */
+  (function ($) {
+    // 全选/反选（用事件委托以适配 AJAX 重渲染）
+    $(document).on('change', '.ap-frontend-dashboard #fe-check-all', function () {
+      const $wrap = $(this).closest('.ap-frontend-dashboard');
+      $wrap.find('input.fe-check-item').prop('checked', this.checked);
+    });
+    $(document).on('change', '.ap-frontend-dashboard input.fe-check-item', function () {
+      const $wrap = $(this).closest('.ap-frontend-dashboard');
+      const all = $wrap.find('input.fe-check-item').length;
+      const selected = $wrap.find('input.fe-check-item:checked').length;
+      $wrap.find('#fe-check-all').prop('checked', all > 0 && selected === all);
+    });
+
+    function feContainer() {
+      const $c = $(".ap-frontend-dashboard");
+      return $c.length ? $c : null;
+    }
+    function feGetFilters($c) {
+      return {
+        fellowship: $c.find("#fe_fellowship_filter").val(),
+        is_member: $c.find("#fe_member_filter").val(),
+        last_name: $c.find("#fe_last_name_filter").val(),
+        first_name: $c.find("#fe_first_name_filter").val(),
+        phone: $c.find("#fe_phone_filter").val(),
+        email: $c.find("#fe_email_filter").val(),
+        start_date_filter: $c.find("#fe_start_date_filter").val(),
+        end_date_filter: $c.find("#fe_end_date_filter").val(),
+        is_new: $c.find("#fe_is_new_filter").is(":checked"),
+        percentage_filter: $c.find("#fe_percentage_filter").is(":checked"),
+      };
+    }
+    function feCurrentPage($c) {
+      const $nav = $c.find(".ap-pager");
+      const p = parseInt($nav.attr("data-page"), 10);
+      return Number.isFinite(p) && p > 0 ? p : 1;
+    }
+    function feShowLoader($c, show) {
+      const $box = $c.find("#loader-box");
+      if (!$box.length) return;
+      show ? $box.show() : $box.hide();
+    }
+
+    // 统一由 feRenderTable 开关 loader；只替换 #table-wrap
+    function feRenderTable($c, params) {
+      feShowLoader($c, true);
+      return $.ajax({
+        url: esAjax.ajaxurl,
+        type: "POST",
+        dataType: "json",
+        data: { action: "es_filter_attendance", nonce: esAjax.nonce, fe: 1, ...params },
+      })
+        .done(function (resp) {
+          if (resp && resp.success) {
+            $c.find("#table-wrap").html(resp.data.table_html);
+            $c.find('#fe-check-all').prop('checked', false);
+            $c.off("click.fePage", ".ap-pager a").on("click.fePage", ".ap-pager a", function (e) {
+              e.preventDefault();
+              const $a = $(this);
+              if ($a.attr("aria-disabled") === "true" || $a.hasClass("disabled")) return;
+              const nextPage = parseInt($a.data("page"), 10) || 1;
+              const paramsNext = { ...feGetFilters($c), paged: nextPage };
+              feRenderTable($c, paramsNext);
+            });
+            requestAnimationFrame(function () { feScrollToContainerTop($c, 10); });
+          } else {
+            alert("加载失败，请稍后再试。");
+          }
+        })
+        .fail(function () { alert("加载失败，请稍后再试。"); })
+        .always(function () { feShowLoader($c, false); });
+    }
+
+    function feExportCSV($c) {
+      const params = feGetFilters($c);
+      $.ajax({ url: esAjax.ajaxurl, type: "POST", data: { action: "es_export_attendance_csv", nonce: esAjax.nonce, ...params } })
+        .done(function (csv) {
+          const blob = new Blob([csv], { type: "text/csv" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          const d = new Date(), dd = String(d.getDate()).padStart(2, "0"), mm = String(d.getMonth() + 1).padStart(2, "0"), yy = d.getFullYear();
+          a.href = url; a.download = `Attendance_Report_${dd}-${mm}-${yy}.csv`;
+          document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        });
+    }
+
+    // 批量：按钮 Loading 文案直到表格刷新完成
+    function feBulkAction($c) {
+      const action = $c.find("#fe-bulk-action-selector").val();
+      if (!/make_member|make_non_member/.test(action)) return;
+      const ids = $c.find('input[name="bulk-select[]"]:checked').map(function () { return this.value; }).get();
+      if (!ids.length) return;
+
+      const $btn = $c.find("#fe-doaction");
+      const oldText = $btn.text();
+      $btn.prop("disabled", true).attr("aria-busy", "true").text("Loading…");
+      feShowLoader($c, true);
+
+      $.ajax({
+        url: esAjax.ajaxurl,
+        type: "POST",
+        dataType: "json",
+        data: { action: "handle_member_status_update", nonce: esAjax.nonce, ids, member_action: action },
+      })
+        .done(function (resp) {
+          alert((resp && resp.data && resp.data.message) || "Member status updated.");
+          const params = { ...feGetFilters($c), paged: feCurrentPage($c) };
+          feRenderTable($c, params).always(function () {
+            $btn.prop("disabled", false).removeAttr("aria-busy").text(oldText);
+            feShowLoader($c, false);
+          });
+        })
+        .fail(function () {
+          feShowLoader($c, false);
+          $btn.prop("disabled", false).removeAttr("aria-busy").text(oldText);
+          alert("更新失败，请稍后再试。");
+        });
+    }
+
+    $(function () {
+      const $c = feContainer();
+      if (!$c) return;
+
+      $c.on("click", "#fe-filter-button", function (e) {
+        e.preventDefault();
+        const params = { ...feGetFilters($c), paged: 1 };
+        feRenderTable($c, params);
+      });
+
+      $c.on("click", "#fe-doaction", function (e) {
+        e.preventDefault();
+        feBulkAction($c);
+      });
+
+      $c.on("click", "#fe-export-csv-button", function (e) {
+        e.preventDefault();
+        feExportCSV($c);
+      });
+
+      $c.off("click.fePage", ".ap-pager a").on("click.fePage", ".ap-pager a", function (e) {
+        e.preventDefault();
+        const $a = $(this);
+        if ($a.attr("aria-disabled") === "true" || $a.hasClass("disabled")) return;
+        const nextPage = parseInt($a.data("page"), 10) || 1;
+        const paramsNext = { ...feGetFilters($c), paged: nextPage };
+        feRenderTable($c, paramsNext);
+      });
+      // 首屏/刷新：不自动 AJAX，使用服务器渲染的第 1 页
+    });
+  })(jQuery);
 });

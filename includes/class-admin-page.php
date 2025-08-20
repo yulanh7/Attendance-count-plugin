@@ -10,7 +10,7 @@ if (!class_exists('WP_List_Table')) {
 
 class Admin_List_Table extends \WP_List_Table
 {
-  public $per_page = 40;
+  public $per_page = 20;
   public $items = [];
   // ✅ 可选：设定 singular/plural（更规范）
   public function __construct()
@@ -75,7 +75,7 @@ class Admin_List_Table extends \WP_List_Table
   {
     switch ($col) {
       case 'view_attendance':
-        return '<button class="view-attendance-button" data-attendance-id="' . esc_attr($item['id']) . '">View</button>';
+        return '<button  type="button" class="view-attendance-button" data-attendance-id="' . esc_attr($item['id']) . '">View</button>';
       case 'fellowship':
         return [
           'daniel' => '但以理团契',
@@ -104,6 +104,58 @@ class Admin_Page
   {
     add_menu_page('Attendance', 'Attendance', 'read', 'es-attendance', [__CLASS__, 'render'], 'dashicons-calendar', 1);
   }
+
+  public static function paginate_array(array $rows, int $page = 1, int $per_page = 10): array
+  {
+    $total = count($rows);
+    $pages = max(1, (int) ceil($total / $per_page));
+    $page  = max(1, min($pages, $page));
+    $offset = ($page - 1) * $per_page;
+    $rows_page = array_slice($rows, $offset, $per_page);
+    return [$rows_page, $page, $pages];
+  }
+
+  public static function render_pagination_simple(int $page, int $pages): void
+  {
+    if ($pages <= 1) return;
+
+    $first = 1;
+    $prev  = max(1, $page - 1);
+    $next  = min($pages, $page + 1);
+    $last  = $pages;
+
+    echo '<nav class="ap-pager" aria-label="Pagination" data-page="' . esc_attr($page) . '" data-pages="' . esc_attr($pages) . '">';
+
+    // First / Prev
+    $disabled_prev = $page <= 1 ? ' disabled' : '';
+    echo '<a href="#" class="ap-page-first' . $disabled_prev . '" data-page="' . esc_attr($first) . '" aria-disabled="' . ($page <= 1 ? 'true' : 'false') . '">«</a>';
+    echo '<a href="#" class="ap-page-prev'  . $disabled_prev . '" data-page="' . esc_attr($prev)  . '" aria-disabled="' . ($page <= 1 ? 'true' : 'false') . '">‹</a>';
+
+    // 数字页码（最多显示 7 个，当前页居中）
+    $window = 7;
+    $half   = (int) floor($window / 2);
+    $start  = max(1, $page - $half);
+    $end    = min($pages, max($start + $window - 1, $page + $half));
+    $start  = max(1, min($start, $end - $window + 1));
+
+    for ($i = $start; $i <= $end; $i++) {
+      $is_current = $i === $page;
+      $class = 'ap-page-num';
+      if ($is_current) $class .= ' active disabled'; // 当前页
+      echo '<a href="#" class="' . esc_attr($class) . '" data-page="' . esc_attr($i) . '" aria-disabled="' . ($is_current ? 'true' : 'false') . '">' . esc_html($i) . '</a>';
+    }
+
+
+
+    // Next / Last
+    $disabled_next = $page >= $pages ? ' disabled' : '';
+    echo '<a href="#" class="ap-page-next' . $disabled_next . '" data-page="' . esc_attr($next) . '" aria-disabled="' . ($page >= $pages ? 'true' : 'false') . '">›</a>';
+    echo '<a href="#" class="ap-page-last' . $disabled_next . '" data-page="' . esc_attr($last) . '" aria-disabled="' . ($page >= $pages ? 'true' : 'false') . '">»</a>';
+
+    echo '</nav>';
+  }
+
+
 
   public static function render()
   {
@@ -170,7 +222,7 @@ class Admin_Page
         </div>
       </div>
     </div>
-<?php
+  <?php
   }
 
   // AJAX 渲染表格
@@ -181,5 +233,65 @@ class Admin_Page
     echo '<form method="post" id="attendance-bulk-form">';
     $t->display();
     echo '</form>';
+  }
+
+
+  public static function render_table_simple(array $rows)
+  {
+    $is_admin = current_user_can('manage_options');
+  ?>
+    <?php if ($is_admin): ?>
+      <form method="post" id="attendance-bulk-form">
+      <?php endif; ?>
+
+      <table class="ap-table">
+        <thead>
+          <tr>
+            <?php if ($is_admin): ?>
+              <th><input type="checkbox" id="fe-check-all"></th>
+            <?php endif; ?>
+            <th>No.</th>
+            <th>Fellowships</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Times</th>
+            <th>Percentage</th>
+            <th>First attended Date</th>
+            <th>Last Attended Date</th>
+            <th>Member</th>
+            <th>View</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (empty($rows)): ?>
+            <tr>
+              <td colspan="<?php echo $is_admin ? 13 : 12; ?>">No data</td>
+            </tr>
+            <?php else: foreach ($rows as $item): ?>
+              <tr>
+                <?php if ($is_admin): ?>
+                  <td><input type="checkbox" class="fe-check-item" name="bulk-select[]" value="<?php echo esc_attr($item['id']); ?>"></td>
+                <?php endif; ?>
+                <td><?php echo esc_html($item['row_num']); ?></td>
+                <td><?php echo esc_html(ap_translate_fellowship($item['fellowship'])); ?></td>
+                <td><?php echo esc_html($item['first_name']); ?></td>
+                <td><?php echo esc_html($item['last_name']); ?></td>
+                <td><?php echo esc_html($item['phone']); ?></td>
+                <td><?php echo esc_html($item['email']); ?></td>
+                <td><?php echo esc_html($item['times']); ?></td>
+                <td><?php echo esc_html($item['percentage']) . '%'; ?></td>
+                <td><?php echo esc_html(\AP\format_date_dmy($item['first_attendance_date'] ?? '')); ?></td>
+                <td><?php echo esc_html(\AP\format_date_dmy($item['last_attended'] ?? '')); ?></td>
+                <td><?php echo !empty($item['is_member']) ? 'Yes' : 'No'; ?></td>
+                <td><button type="button" class="view-attendance-button" data-attendance-id="<?php echo esc_attr($item['id']); ?>">View</button></td>
+              </tr>
+          <?php endforeach;
+          endif; ?>
+        </tbody>
+      </table>
+
+  <?php
   }
 }

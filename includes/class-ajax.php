@@ -32,13 +32,31 @@ class Ajax
   public static function filter_attendance()
   {
     self::verify_nonce();
-    $rows = Attendance_DB::query_filtered($_POST);
+    $rows = \AP\Attendance_DB::query_filtered($_POST);
+
+    $is_frontend = !empty($_POST['fe']) && $_POST['fe'] == '1';
+
     ob_start();
-    Admin_Page::render_table($rows);
+    if ($is_frontend) {
+      list($rows_page, $page, $pages) = \AP\Admin_Page::paginate_array($rows, (int)$_POST['paged'] ?: 1, AP_FRONT_PER_PAGE);
+      ob_start();
+      \AP\Admin_Page::render_table_simple($rows_page);
+      \AP\Admin_Page::render_pagination_simple($page, $pages);
+      $html = ob_get_clean();
+
+      wp_send_json_success([
+        'table_html' => $html, // 包含表格 + 分页
+      ]);
+    } else {
+      \AP\Admin_Page::render_table($rows);
+    }
+
     echo '<div id="loader-box" style="display:none;"><div id="es-loading-spinner" class="loader"></div></div>';
     $html = ob_get_clean();
     wp_send_json_success(['table_html' => $html]);
   }
+
+
 
   public static function export_csv()
   {
@@ -66,23 +84,30 @@ class Ajax
     $data = Attendance_DB::get_detail($id, $start, $end);
 
     ob_start(); ?>
+    <div class="ap-modal-header">
+      <button type="button" class="close" aria-label="Close"></button>
+    </div>
     <div><?php echo esc_html(($data['user']->first_name ?? '') . ' ' . ($data['user']->last_name ?? '')); ?></div>
-    <div><?php echo esc_html($data['user']->phone ?? ''); ?></div>
+    <p><?php echo esc_html($data['user']->phone ?? ''); ?></p>
     <p><?php echo esc_html(\AP\format_date_dmy($start)); ?> to <?php echo esc_html(\AP\format_date_dmy($end)); ?></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Date Attended</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($data['list'] as $row): ?>
+    <div style="max-height:300px; overflow-y:auto; margin-top:10px;">
+      <table style="width:100%; border-collapse:collapse;">
+        <thead style="position:sticky; top:0; background:#f9f9f9;">
           <tr>
-            <td><?php echo esc_html(\AP\format_date_dmy($row['date_attended'])); ?></td>
+            <th style="border:1px solid #ccc; padding:6px;">Date Attended</th>
           </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          <?php foreach ($data['list'] as $row): ?>
+            <tr>
+              <td style="border:1px solid #ccc; padding:6px;">
+                <?php echo esc_html(\AP\format_date_dmy($row['date_attended'])); ?>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
 <?php
     echo ob_get_clean();
     wp_die();

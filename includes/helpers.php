@@ -63,3 +63,15 @@ function format_date_dmy(?string $s): string
   }
   return '';
 }
+
+function ap_translate_fellowship($key)
+{
+  $map = [
+    'daniel'        => '但以理团契',
+    'trueLove'      => '真爱团团契',
+    'faithHopeLove' => '信望爱团契',
+    'peaceJoyPrayer' => '平安喜乐祷告会',
+    'other'         => '其他'
+  ];
+  return $map[$key] ?? $key;
+}
