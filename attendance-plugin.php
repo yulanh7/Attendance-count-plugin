@@ -19,7 +19,7 @@ if (!defined('ES_ATTENDANCE_DOW')) {
 }
 
 if (!defined('AP_FRONT_PER_PAGE')) {
-  define('AP_FRONT_PER_PAGE', 10); // 前台每页 10 条，自己调
+  define('AP_FRONT_PER_PAGE', 30); // 前台每页 10 条，自己调
 }
 
 

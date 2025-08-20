@@ -41,7 +41,7 @@ class Frontend_Page
 
     ob_start(); ?>
     <div class="wrap ap-frontend-dashboard">
-      <h2><?php echo esc_html__('Attendance', 'attendance-plugin'); ?></h2>
+      <!-- <h2><?php echo esc_html__('Attendance', 'attendance-plugin'); ?></h2> -->
 
       <div class="filter-form">
         <select id="fe_fellowship_filter">

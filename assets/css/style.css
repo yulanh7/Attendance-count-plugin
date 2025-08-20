@@ -207,6 +207,7 @@
   font-size: 28px;
   font-weight: bold;
   cursor: pointer;
+  border: none;
 }
 
 #attendance-info-modal .close::before,
