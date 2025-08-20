@@ -1,0 +1,163 @@
+<?php
+
+namespace AP;
+
+defined('ABSPATH') || exit;
+
+if (!class_exists('WP_List_Table')) {
+  require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
+}
+
+class Admin_List_Table extends \WP_List_Table
+{
+  public $per_page = 40;
+  public $items = [];
+
+  public function prepare_items($data = [])
+  {
+    $columns = $this->get_columns();
+    $hidden = [];
+    $sortable = [];
+    $this->_column_headers = [$columns, $hidden, $sortable];
+    $current_page = $this->get_pagenum();
+    $total_items = count($data);
+    $this->set_pagination_args([
+      'total_items' => $total_items,
+      'per_page' => $this->per_page,
+      'total_pages' => ceil($total_items / $this->per_page)
+    ]);
+    $this->items = array_slice($data, (($current_page - 1) * $this->per_page), $this->per_page);
+  }
+
+  public function get_columns()
+  {
+    return [
+      'cb' => '<input type="checkbox" />',
+      'row_num' => 'No.',
+      'fellowship' => 'Fellowships',
+      'first_name' => 'First Name',
+      'last_name' => 'Last Name',
+      'phone' => 'Phone',
+      'email' => 'Email',
+      'times' => 'Times',
+      'percentage' => 'Percentage',
+      'first_attendance_date' => 'First attended Date',
+      'last_attended' => 'Last Attended Date',
+      'is_member' => 'Member',
+      'view_attendance' => 'View Attendance',
+    ];
+  }
+
+  public function column_cb($item)
+  {
+    return sprintf('<input type="checkbox" name="bulk-select[]" value="%s" />', esc_attr($item['id']));
+  }
+
+  public function column_default($item, $col)
+  {
+    switch ($col) {
+      case 'view_attendance':
+        return '<button class="view-attendance-button" data-attendance-id="' . esc_attr($item['id']) . '">View</button>';
+      case 'fellowship':
+        return [
+          'daniel' => '但以理团契',
+          'trueLove' => '真爱团团契',
+          'faithHopeLove' => '信望爱团契',
+          'peaceJoyPrayer' => '平安喜乐祷告会',
+          'other' => '其他'
+        ][$item[$col]] ?? '';
+      case 'is_member':
+        return !empty($item[$col]) ? 'Yes' : 'No';
+      case 'first_attendance_date':
+        return esc_html(\AP\format_date_dmy($item[$col]));
+      case 'last_attended':
+        return esc_html(\AP\format_date_dmy($item[$col]));
+      case 'percentage':
+        return esc_html($item[$col] . '%');
+      default:
+        return esc_html($item[$col] ?? '');
+    }
+  }
+}
+
+class Admin_Page
+{
+  public static function register()
+  {
+    add_menu_page('Attendance', 'Attendance', 'read', 'es-attendance', [__CLASS__, 'render'], 'dashicons-calendar', 1);
+  }
+
+  public static function render()
+  {
+    // 默认当天到当天
+    $start = current_time('Y-m-d');
+    $end   = current_time('Y-m-d');
+    $rows = Attendance_DB::query_filtered([
+      'start_date_filter' => $start,
+      'end_date_filter' => $end
+    ]);
+
+    $table = new Admin_List_Table();
+    $table->prepare_items($rows);
+
+?>
+    <div class="wrap">
+      <h2>Attendance</h2>
+      <div class="filter-form">
+        <select id="es_fellowship_filter">
+          <option value="" selected>全部团契</option>
+          <option value="Daniel">但以理团契</option>
+          <option value="True love">真爱团团契</option>
+          <option value="Faith Hope Love">信望爱团契</option>
+          <option value="Peace&Joy Prayer">平安喜乐祷告会</option>
+          <option value="other">其他</option>
+        </select>
+        <select id="es_member_filter">
+          <option value="" selected>全部会友</option>
+          <option value="isMember">会員</option>
+          <option value="isNonMember">非会員</option>
+        </select>
+        <input type="text" id="last_name_filter" placeholder="Last Name">
+        <input type="text" id="first_name_filter" placeholder="First Name">
+        <input type="text" id="phone_filter" placeholder="phone">
+        <input type="text" id="email_filter" placeholder="Email">
+        <span>
+          <input type="date" id="start_date_filter" value="<?php echo esc_attr($start); ?>"> --
+          <input type="date" id="end_date_filter" value="<?php echo esc_attr($end); ?>">
+        </span>
+        <div>
+          <span class="checkbox-container">
+            <input type="checkbox" id="is_new_filter"><label for="is_new_filter">New Attendance</label>
+          </span>
+          <span class="checkbox-container">
+            <input type="checkbox" id="percentage_filter"><label for="percentage_filter">&gt;= 50%</label>
+          </span>
+          <button id="filter-button" type="button" class="submit-btn">Filter</button>
+          <button id="export-csv-button" type="button" class="export-csv">Export to CSV</button>
+        </div>
+        <div id="filter-table-response">
+          <?php $table->display(); ?>
+          <div id="loader-box" style="display:none;">
+            <div id="es-loading-spinner" class="loader"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="attendance-info-modal" class="popup">
+        <div class="popup-content">
+          <span class="close">&times;</span>
+          <div id="attendance-info-modal-content"></div>
+        </div>
+      </div>
+    </div>
+<?php
+  }
+
+  // AJAX 渲染表格
+  public static function render_table(array $rows)
+  {
+    $t = new Admin_List_Table();
+    $t->prepare_items($rows);
+    $t->display();
+  }
+}
