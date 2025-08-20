@@ -46,7 +46,7 @@ add_action('plugins_loaded', function () {
   add_shortcode('attendance_form', 'AP\\ap_render_form_shortcode');
   add_shortcode('attendance_dashboard', ['AP\\Frontend_Page', 'render_shortcode']);
   // 菜单
-  add_action('admin_menu', ['AP\\Admin_Page', 'register']);
+  // add_action('admin_menu', ['AP\\Admin_Page', 'register']);
   // AJAX
   AP\Ajax::register();
 });
