@@ -3,20 +3,40 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: A WordPress plugin to manage attendance.
- * Version: 1.90
+ * Version: 1.92
  * Author: Rachel Huang
  */
 
 
-// require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-
 defined('ABSPATH') or die('No script kiddies please!');
 
+if (!defined('ES_ATTENDANCE_DOW')) {
+  define('ES_ATTENDANCE_DOW', 3);
+}
+/**
+ * ====== 统一签到星期配置 ======
+ * 0=周日, 1=周一, ... 6=周六
+ * 测试时可在 wp-config.php 定义：define('ES_ATTENDANCE_DOW', 3); // 周三
+ */
+if (!function_exists('es_get_target_dow')) {
+  function es_get_target_dow()
+  {
+    if (defined('ES_ATTENDANCE_DOW')) {
+      return ((int) ES_ATTENDANCE_DOW) % 7;
+    }
+    $opt = get_option('es_attendance_dow', 0); // 默认周日
+    return is_numeric($opt) ? ((int) $opt % 7) : 0;
+  }
+}
+
+/**
+ * Activation: create tables
+ */
 function create_attendance_table()
 {
   global $wpdb;
   $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates'; // New table for attendance dates
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
   $charset_collate = $wpdb->get_charset_collate();
 
   $sql = "CREATE TABLE $attendance_table_name (
@@ -44,42 +64,48 @@ function create_attendance_table()
   require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
   dbDelta($sql);
 }
-
-
 register_activation_hook(__FILE__, 'create_attendance_table');
 
-function is_local_environment()
-{
-  $whitelist = ['127.0.0.1', '::1'];
-  return in_array($_SERVER['REMOTE_ADDR'], $whitelist) || strpos($_SERVER['HTTP_HOST'], 'localhost') !== false;
-}
-
+/**
+ * Enqueue scripts/styles & inject AJAX settings
+ */
 function es_enqueue_scripts()
 {
   wp_enqueue_script('jquery');
   wp_enqueue_script('es-attendance', plugin_dir_url(__FILE__) . 'main.js', ['jquery'], '1.0', true);
-  wp_localize_script('es-attendance', 'esAjax', ['ajaxurl' => admin_url('admin-ajax.php')]);
+
+  // Inject ajaxurl + nonce to JS
+  wp_localize_script('es-attendance', 'esAjax', [
+    'ajaxurl' => admin_url('admin-ajax.php'),
+    'nonce'   => wp_create_nonce('es_attendance_nonce'),
+  ]);
+
   wp_enqueue_style('custom-style', plugin_dir_url(__FILE__) . 'style.css');
   wp_enqueue_script('jquery-ui-datepicker');
   wp_enqueue_style('jquery-ui-datepicker-style', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
 }
-
 add_action('wp_enqueue_scripts', 'es_enqueue_scripts');
 add_action('admin_enqueue_scripts', 'es_enqueue_scripts');
 
-
+/**
+ * Shortcode: attendance form
+ */
 function attendance_form()
 {
   ob_start();
-  $currentDayOfWeek = current_time('w');
-  // FIXME
-  $isSunday = ($currentDayOfWeek == 0);
-  // $isSunday = true;
-  $todayDate = current_time('d/m/Y');
-  $dateMessage = $isSunday ? "Date: $todayDate" : "<span style='color: #ef2723;font-size: 18px'>Today is not a Sunday worship day. You cannot submit attendance today.</span>";
 
+  $targetDow  = es_get_target_dow();
+  $todayDow   = (int) current_time('w');
+  $isAllowed  = ($todayDow === $targetDow);
+  $todayDate  = esc_html(current_time('d/m/Y'));
+
+  $weekdayMap = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  $targetLabel = $weekdayMap[$targetDow];
+
+  $dateMessage = $isAllowed
+    ? "Date: {$todayDate} ({$targetLabel})"
+    : "<span style='color:#ef2723;font-size:18px'>今天不是 {$targetLabel}，不能签到。</span>";
 ?>
-
   <form id="es_attendance_form" class="es-attendance-form">
     <input type="text" name="es_first_name" required placeholder="名字（必填）">
     <input type="text" name="es_last_name" required placeholder="姓氏（必填）">
@@ -104,108 +130,145 @@ function attendance_form()
       <option value="other">其他</option>
     </select>
     <div id="date-message"><?php echo $dateMessage; ?></div>
-    <!-- <div id="date-message"><?php echo date('d/m/Y'); ?></div> -->
-    <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isSunday ? '' : 'disabled'; ?>>
+    <input type="submit" name="submit_attendance" value="Submit Attendance" <?php echo $isAllowed ? '' : 'disabled'; ?>>
   </form>
 <?php
   return ob_get_clean();
 }
 add_shortcode('attendance_form', 'attendance_form');
 
+/**
+ * 通用：统计某个星期几在区间内的次数
+ */
+function es_calculate_targetday_count($start_date, $end_date, $targetDow)
+{
+  $start = new DateTime($start_date);
+  $end   = new DateTime($end_date);
+  $interval = new DateInterval('P1D');
+  $count = 0;
+  while ($start <= $end) {
+    if ((int)$start->format('w') === (int)$targetDow) {
+      $count++;
+    }
+    $start->add($interval);
+  }
+  return $count;
+}
 
+/**
+ * AJAX: handle attendance submit (public)
+ */
 function es_handle_attendance()
 {
-  $first_name = sanitize_text_field($_POST['es_first_name']);
-  $last_name = sanitize_text_field($_POST['es_last_name']);
-  $country_code = sanitize_text_field($_POST['es_phone_country_code']);
-  $phone_number = sanitize_text_field($_POST['es_phone_number']);
-  $fellowship = sanitize_text_field($_POST['es_fellowship']);
-  $email = sanitize_email($_POST['es_email']);
+  check_ajax_referer('es_attendance_nonce', 'nonce');
+
+  // 根据统一配置限制签到日
+  $targetDow = es_get_target_dow();
+  if ((int) current_time('w') !== $targetDow) {
+    wp_send_json_error(['message' => '今天不是允许的签到日，不能签到。']);
+    return;
+  }
+
+  $first_name   = sanitize_text_field($_POST['es_first_name'] ?? '');
+  $last_name    = sanitize_text_field($_POST['es_last_name'] ?? '');
+  $country_code = sanitize_text_field($_POST['es_phone_country_code'] ?? '');
+  $phone_number = sanitize_text_field($_POST['es_phone_number'] ?? '');
+  $fellowship   = sanitize_text_field($_POST['es_fellowship'] ?? '');
+  $email        = sanitize_email($_POST['es_email'] ?? '');
   $current_date = current_time('Y-m-d');
 
-  // $yesterday_date_only = date('Y-m-d', strtotime($current_time . ' -1 day')); // This will give you just the date part for yesterday
-
-  // If country code is +61 and phone number starts with 0, remove the leading 0
   if ($country_code === '+61' && substr($phone_number, 0, 1) === '0') {
     $phone_number = substr($phone_number, 1);
   }
-  $phone = $country_code . $phone_number; // Combine country code and phone number
+  $phone = $country_code . $phone_number;
 
-  // Check for duplicate entries on the same date
   global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_table_name       = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
-  // Check if the user already exists in the database
+  // Find existing user by phone
   $existing_user = $wpdb->get_row(
-    $wpdb->prepare(
-      "SELECT * FROM $attendance_table_name WHERE phone = %s",
-      $phone
-    ),
+    $wpdb->prepare("SELECT * FROM $attendance_table_name WHERE phone = %s", $phone),
     ARRAY_A
   );
 
-  // Prepare your SQL query using the current date
-  $existing_entry = $wpdb->get_var(
-    $wpdb->prepare(
-      "SELECT COUNT(*) FROM $attendance_dates_table_name 
-       WHERE attendance_id = %d AND date_attended = %s",
-      $existing_user ? $existing_user['id'] : 0,
-      $current_date
-    )
-  );
+  // Check duplicate for today
+  $existing_entry = 0;
+  if ($existing_user) {
+    $existing_entry = (int) $wpdb->get_var(
+      $wpdb->prepare(
+        "SELECT COUNT(*) FROM $attendance_dates_table_name WHERE attendance_id = %d AND date_attended = %s",
+        $existing_user['id'],
+        $current_date
+      )
+    );
+  }
 
   if ($existing_entry > 0) {
-    // wp_send_json_error(['message' => 'You have already submitted attendance for this person on the same date.']);
     wp_send_json_error(['message' => '您今天已经签到过了，请勿重复签到!']);
     return;
   }
 
+  // Insert or update attendee
   if ($existing_user) {
     $wpdb->update(
       $attendance_table_name,
       [
         'first_name' => $first_name,
-        'last_name' => $last_name,
+        'last_name'  => $last_name,
         'fellowship' => $fellowship,
-        'email' => $email,
-        'is_new' => 0
+        'email'      => $email,
+        'is_new'     => 0,
       ],
-      ['phone' => $phone]
+      ['phone' => $phone],
+      ['%s', '%s', '%s', '%s', '%d'],
+      ['%s']
     );
-
-    $attendance_id = $existing_user['id'];
+    $attendance_id = (int) $existing_user['id'];
   } else {
-    $data = array(
-      'first_name' => $first_name,
-      'last_name' => $last_name,
-      'fellowship' => $fellowship,
-      'phone' => $phone,
-      'email' => $email,
-      'is_new' => 1,
-      'first_attendance_date' => $current_date,
-      // 'first_attendance_date' => date("2024-3-31"),
+    $res = $wpdb->insert(
+      $attendance_table_name,
+      [
+        'first_name'            => $first_name,
+        'last_name'             => $last_name,
+        'fellowship'            => $fellowship,
+        'phone'                 => $phone,
+        'email'                 => $email,
+        'is_new'                => 1,
+        'first_attendance_date' => $current_date,
+      ],
+      ['%s', '%s', '%s', '%s', '%s', '%d', '%s']
     );
-    $attendance_id = $wpdb->insert_id;
+    if ($res === false) {
+      wp_send_json_error(['message' => '创建新用户失败，请稍后再试。']);
+      return;
+    }
+    $attendance_id = (int) $wpdb->insert_id;
   }
 
-  // Insert into the attendance_dates table
-  $wpdb->insert($attendance_dates_table_name, [
-    'attendance_id' => $attendance_id,
-    'date_attended' => $current_date,
-  ]);
+  // Insert attendance date
+  $ins = $wpdb->insert(
+    $attendance_dates_table_name,
+    [
+      'attendance_id' => $attendance_id,
+      'date_attended' => $current_date,
+    ],
+    ['%d', '%s']
+  );
+
+  if ($ins === false) {
+    wp_send_json_error(['message' => '记录签到失败，请稍后再试。']);
+    return;
+  }
+
   wp_send_json_success(['message' => '签到成功！']);
 }
-
-
-// For logged-in users
 add_action('wp_ajax_es_handle_attendance', 'es_handle_attendance');
-
-// For non-logged-in users
 add_action('wp_ajax_nopriv_es_handle_attendance', 'es_handle_attendance');
 
-
-
+/**
+ * Admin table class
+ */
 if (!class_exists('WP_List_Table')) {
   require_once(ABSPATH . 'wp-admin/includes/class-wp-list-table.php');
 }
@@ -222,35 +285,31 @@ class ES_Attendance_List extends WP_List_Table
     $this->_column_headers = array($columns, $hidden, $sortable);
     $current_page = $this->get_pagenum();
     $total_items = count($data);
-    // Set pagination arguments
-    $this->set_pagination_args(array(
-      'total_items' => $total_items,                  // Calculate the total number of items
-      'per_page'    => $this->per_page,               // Determine how many items to show on a page
-      'total_pages' => ceil($total_items / $this->per_page)  // Calculate the total number of pages
-    ));
 
-    // Slice the data array according to the current page and per_page
+    $this->set_pagination_args(array(
+      'total_items' => $total_items,
+      'per_page'    => $this->per_page,
+      'total_pages' => ceil($total_items / $this->per_page)
+    ));
     $this->items = array_slice($data, (($current_page - 1) * $this->per_page), $this->per_page);
   }
 
   function get_columns()
   {
     return [
-      'cb' => '<input type="checkbox" />', // Add this line
-      'row_num' => 'No.',
-      // 'is_new' => 'is new',
-      'fellowship' => 'Fellowships',
-      'first_name' => 'First Name',
-      'last_name' => 'Last Name',
-      'phone' => 'Phone',
-      'email' => 'Email',
-      'times' => 'Times',
-      'percentage' => 'Percentage',
-      'first_attendance_date' => 'First attended Date',
-      'last_attended' => 'Last Attended Date',
-      'is_member' => 'Member',
-      'view_attendance' => 'View Attendance',
-
+      'cb'                     => '<input type="checkbox" />',
+      'row_num'                => 'No.',
+      'fellowship'             => 'Fellowships',
+      'first_name'             => 'First Name',
+      'last_name'              => 'Last Name',
+      'phone'                  => 'Phone',
+      'email'                  => 'Email',
+      'times'                  => 'Times',
+      'percentage'             => 'Percentage',
+      'first_attendance_date'  => 'First attended Date',
+      'last_attended'          => 'Last Attended Date',
+      'is_member'              => 'Member',
+      'view_attendance'        => 'View Attendance',
     ];
   }
 
@@ -258,31 +317,32 @@ class ES_Attendance_List extends WP_List_Table
   {
     return sprintf(
       '<input type="checkbox" name="bulk-select[]" value="%s" />',
-      $item['id']
+      esc_attr($item['id'])
     );
   }
+
   function get_bulk_actions()
   {
-    $actions = array(
+    return [
       'make_member'    => 'Make Member',
       'make_non_member' => 'Make Non-Member',
-    );
-    return $actions;
+    ];
   }
+
   function column_default($item, $column_name)
   {
     switch ($column_name) {
       case 'row_num':
-        // case 'is_new':
       case 'first_name':
       case 'last_name':
       case 'email':
       case 'phone':
       case 'times':
       case 'last_attended':
-        return $item[$column_name];
+        return esc_html($item[$column_name]);
+
       case 'view_attendance':
-        return  '<button class="view-attendance-button" data-attendance-id="' . $item['id'] . '">View</button>';
+        return '<button class="view-attendance-button" data-attendance-id="' . esc_attr($item['id']) . '">View</button>';
 
       case 'fellowship':
         switch ($item[$column_name]) {
@@ -299,137 +359,118 @@ class ES_Attendance_List extends WP_List_Table
           default:
             return '';
         }
+
       case 'is_member':
-        return $item[$column_name] ? "Yes" : "No";
+        return !empty($item[$column_name]) ? 'Yes' : 'No';
+
       case 'first_attendance_date':
-        return date('d/m/Y', strtotime($item[$column_name]));
+        return esc_html(date('d/m/Y', strtotime($item[$column_name])));
+
       case 'percentage':
-        return $item[$column_name] . "%";
+        return esc_html($item[$column_name] . "%");
+
       default:
-        return print_r($item, true);
+        return esc_html(print_r($item, true));
     }
   }
 }
 
+/**
+ * Helpers
+ */
+function get_last_attended_date($phone)
+{
+  global $wpdb;
+  $attendance_table_name       = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+
+  $query = $wpdb->prepare(
+    "SELECT MAX(D.date_attended)
+     FROM $attendance_table_name AS A
+     INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id
+     WHERE A.phone = %s",
+    $phone
+  );
+  return $wpdb->get_var($query);
+}
 
 function combine_attendace_with_same_phone($data, $start_date, $end_date, $percentage_filter = false)
 {
-
-
-  // $sunday_count = 3;
   $combinedData = [];
+  $targetDow = es_get_target_dow();
+
   foreach ($data as $entry) {
     $phone = $entry['phone'];
-    // $new_start_date = date('Y-m-d', strtotime($entry['first_attendance_date']));
-    $new_start_date = new DateTime($entry['first_attendance_date']);
+
+    $new_start_date    = new DateTime($entry['first_attendance_date']);
     $format_start_date = new DateTime($start_date);
     $adjusted_start_date = ($format_start_date < $new_start_date) ? $new_start_date : $format_start_date;
 
-    $sunday_count = calculate_sunday_count($adjusted_start_date->format('Y-m-d'), $end_date);
+    $target_count = es_calculate_targetday_count($adjusted_start_date->format('Y-m-d'), $end_date, $targetDow);
 
     if (!isset($combinedData[$phone])) {
-      // If this phone doesn't exist in the combined array, add it.
+      // first hit
       $combinedData[$phone] = $entry;
       $combinedData[$phone]['times'] = 1;
-      if ($sunday_count <= 0) {
-        $combinedData[$phone]['percentage'] =  "NaN";
-      } else {
-        $combinedData[$phone]['percentage'] = number_format(1 / $sunday_count * 100, 2, '.', '');
-      }
+      $combinedData[$phone]['percentage'] = ($target_count <= 0) ? 0 : number_format(1 / $target_count * 100, 2, '.', '');
       $last_attended_date = get_last_attended_date($phone);
-      $combinedData[$phone]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
-      // $combinedData[$phone]['last_attended'] = $last_attended_date;
+      $combinedData[$phone]['last_attended'] = $last_attended_date ? date('d/m/Y', strtotime($last_attended_date)) : '';
     } else {
-      // If this phone exists, increment the times counter.
+      // subsequent hit
       $combinedData[$phone]['times']++;
-      if ($sunday_count <= 0) {
-        $combinedData[$phone]['percentage'] =  "NaN";
-      } else {
-        $combinedData[$phone]['percentage'] = number_format($combinedData[$phone]['times'] / $sunday_count * 100, 2, '.', '');
-      }
-      // Update the fields if the current entry has a larger ID (is more recent).
+      $combinedData[$phone]['percentage'] = ($target_count <= 0)
+        ? 0
+        : number_format($combinedData[$phone]['times'] / $target_count * 100, 2, '.', '');
+
+      // Update to latest fields by bigger ID
       if ($entry['id'] > $combinedData[$phone]['id']) {
         $combinedData[$phone]['first_name'] = $entry['first_name'];
-        $combinedData[$phone]['last_name'] = $entry['last_name'];
-        $combinedData[$phone]['phone'] = $entry['phone'];
+        $combinedData[$phone]['last_name']  = $entry['last_name'];
+        $combinedData[$phone]['phone']      = $entry['phone'];
         $combinedData[$phone]['fellowship'] = $entry['fellowship'];
-        $combinedData[$phone]['is_new'] = $entry['is_new'];
-        // Add any other fields that you want to update to the latest one.
+        $combinedData[$phone]['is_new']     = $entry['is_new'];
       }
       $last_attended_date = get_last_attended_date($phone);
-      $combinedData[$phone]['last_attended'] = date('d/m/Y', strtotime($last_attended_date));
-      // $combinedData[$phone]['last_attended'] = $last_attended_date;
+      $combinedData[$phone]['last_attended'] = $last_attended_date ? date('d/m/Y', strtotime($last_attended_date)) : '';
     }
   }
+
   $combinedData = array_values($combinedData);
+
   if ($percentage_filter) {
     $combinedData = array_filter($combinedData, function ($item) {
-      return $item['percentage'] >= 50;
+      return is_numeric($item['percentage']) && $item['percentage'] >= 50;
     });
   }
+
   foreach ($combinedData as $key => $value) {
     $combinedData[$key] = ['row_num' => $key + 1] + $value;
   }
   return $combinedData;
 }
 
-function calculate_sunday_count($start_date, $end_date)
-{
-  $start = new DateTime($start_date);
-  $end = new DateTime($end_date);
-  $interval = new DateInterval('P1D'); // 1 day interval
-
-  $sunday_count = 0;
-
-  while ($start <= $end) {
-    if ($start->format('N') == 7) { // Sunday is day number 7
-      $sunday_count++;
-    }
-    $start->add($interval);
-  }
-
-  return $sunday_count;
-}
-
-
-function get_last_attended_date($phone)
-{
-  global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
-  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
-
-  $query = $wpdb->prepare(
-    "SELECT MAX(D.date_attended)
-    FROM $attendance_table_name AS A
-    INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id
-    WHERE A.phone = %s",
-    $phone
-  );
-
-  return $wpdb->get_var($query);
-}
-
-
+/**
+ * Admin screen render
+ */
 function es_render_attendance_list()
 {
   global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_table_name       = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
   $start_date = current_time('Y-m-d');
-  $end_date = current_time('Y-m-d');
-  // Query to select attendance data based on filters
+  $end_date   = current_time('Y-m-d');
+
   $query = "SELECT A.*
-  FROM $attendance_table_name AS A
-  INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
-  WHERE 1=1";
-  // $query .= $wpdb->prepare(" AND is_new = %s", 1);
+            FROM $attendance_table_name AS A
+            INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
+            WHERE 1=1";
   $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
   $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
-  $results = $wpdb->get_results($query, ARRAY_A);
 
+  $results = $wpdb->get_results($query, ARRAY_A);
   foreach ($results as &$item) {
     $item['start_date'] = $start_date;
-    $item['end_date'] = $end_date;
+    $item['end_date']   = $end_date;
   }
   $results = combine_attendace_with_same_phone($results, $start_date, $end_date, false);
   $attendanceListTable = new ES_Attendance_List();
@@ -455,10 +496,10 @@ function es_render_attendance_list()
       <input type="text" id="first_name_filter" placeholder="First Name">
       <input type="text" id="phone_filter" placeholder="phone">
       <input type="text" id="email_filter" placeholder="Email">
-      <span style="display: inline-block;">
-        <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo current_time('Y-m-d'); ?>">
+      <span style="display:inline-block;">
+        <input type="date" id="start_date_filter" placeholder="Start Date" value="<?php echo esc_attr(current_time('Y-m-d')); ?>">
         --
-        <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo current_time('Y-m-d'); ?>">
+        <input type="date" id="end_date_filter" placeholder="End Date" value="<?php echo esc_attr(current_time('Y-m-d')); ?>">
       </span>
       <div>
         <span class="checkbox-container">
@@ -467,49 +508,45 @@ function es_render_attendance_list()
         </span>
         <span class="checkbox-container">
           <input type="checkbox" id="percentage_filter" name="percentage_filter">
-          <label for="percentage_filter">>= 50%</label>
+          <label for="percentage_filter">&gt;= 50%</label>
         </span>
         <button id="filter-button" type="button" class="submit-btn">Filter</button>
         <button id="export-csv-button" type="button" class="export-csv">Export to CSV</button>
       </div>
       <div id="filter-table-response">
         <?php $attendanceListTable->display(); ?>
-        <div id="loader-box" style="display: none;">
+        <div id="loader-box" style="display:none;">
           <div id="es-loading-spinner" class="loader"></div>
         </div>
       </div>
     </div>
+
     <div id="attendance-info-modal" class="popup">
       <div class="popup-content">
         <span class="close">&times;</span>
-        <div id="attendance-info-modal-content">
-        </div>
+        <div id="attendance-info-modal-content"></div>
       </div>
     </div>
-
-
-
-
-  <?php
+  </div>
+<?php
 }
 
-
-add_action('wp_ajax_es_filter_attendance', 'es_filter_attendance_callback');
-
+/**
+ * Filter helpers
+ */
 function get_filtered_attendance_results($query)
 {
-  $fellowship = sanitize_text_field($_POST['fellowship']);
-  $last_name = sanitize_text_field($_POST['last_name']);
-  $first_name = sanitize_text_field($_POST['first_name']);
-  $email = sanitize_text_field($_POST['email']);
-  $phone = sanitize_text_field($_POST['phone']);
-  $is_member = sanitize_text_field($_POST['is_member']);
-  $start_date = sanitize_text_field($_POST['start_date_filter']);
-  $end_date = sanitize_text_field($_POST['end_date_filter']);
-  $percentage_filter = isset($_POST['percentage_filter']) &&  $_POST['percentage_filter'] == 'true' ? 1 : 0;
-
   global $wpdb;
 
+  $fellowship   = sanitize_text_field($_POST['fellowship'] ?? '');
+  $last_name    = sanitize_text_field($_POST['last_name'] ?? '');
+  $first_name   = sanitize_text_field($_POST['first_name'] ?? '');
+  $email        = sanitize_text_field($_POST['email'] ?? '');
+  $phone        = sanitize_text_field($_POST['phone'] ?? '');
+  $is_member    = sanitize_text_field($_POST['is_member'] ?? '');
+  $start_date   = sanitize_text_field($_POST['start_date_filter'] ?? '');
+  $end_date     = sanitize_text_field($_POST['end_date_filter'] ?? '');
+  $percentage_filter = (isset($_POST['percentage_filter']) && $_POST['percentage_filter'] == 'true') ? 1 : 0;
 
   if (!empty($fellowship)) {
     $query .= $wpdb->prepare(" AND fellowship = %s", $fellowship);
@@ -518,7 +555,6 @@ function get_filtered_attendance_results($query)
     $like_first_name = '%' . $wpdb->esc_like($first_name) . '%';
     $query .= $wpdb->prepare(" AND first_name LIKE %s", $like_first_name);
   }
-
   if (!empty($last_name)) {
     $like_last_name = '%' . $wpdb->esc_like($last_name) . '%';
     $query .= $wpdb->prepare(" AND last_name LIKE %s", $like_last_name);
@@ -527,41 +563,45 @@ function get_filtered_attendance_results($query)
     $like_phone = '%' . $wpdb->esc_like($phone) . '%';
     $query .= $wpdb->prepare(" AND phone LIKE %s", $like_phone);
   }
-
   if (!empty($email)) {
     $like_email = '%' . $wpdb->esc_like($email) . '%';
     $query .= $wpdb->prepare(" AND email LIKE %s", $like_email);
   }
   if (!empty($is_member)) {
-    $is_member = $is_member == "isMember" ? 1 : 0;
-
-    $query .= $wpdb->prepare(" AND is_member = %s", $is_member);
+    $is_member_val = ($is_member === "isMember") ? 1 : 0;
+    $query .= $wpdb->prepare(" AND is_member = %d", $is_member_val);
   }
-
-  if (isset($_POST['is_new']) &&  $_POST['is_new'] == 'true') {
-    $query .= $wpdb->prepare(" AND is_new = %s", 1);
+  if (isset($_POST['is_new']) && $_POST['is_new'] == 'true') {
+    $query .= $wpdb->prepare(" AND is_new = %d", 1);
   }
   if (!empty($start_date)) {
-    $start_date = date('Y-m-d', strtotime($start_date));
-    $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date);
+    $start_date_sql = date('Y-m-d', strtotime($start_date));
+    $query .= $wpdb->prepare(" AND D.date_attended >= %s", $start_date_sql);
   }
   if (!empty($end_date)) {
-    $end_date = date('Y-m-d', strtotime($end_date));
-    $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date);
+    $end_date_sql = date('Y-m-d', strtotime($end_date));
+    $query .= $wpdb->prepare(" AND D.date_attended <= %s", $end_date_sql);
   }
 
   $results = $wpdb->get_results($query, ARRAY_A);
-  $results = combine_attendace_with_same_phone($results, $start_date, $end_date, $percentage_filter);
 
+  // 统一使用目标星期几作为分母
+  $targetDow = es_get_target_dow();
+  $results = combine_attendace_with_same_phone($results, $start_date_sql ?? $start_date, $end_date_sql ?? $end_date, $percentage_filter);
   return $results;
 }
 
-
+/**
+ * AJAX: filter list (admin)
+ */
 function es_filter_attendance_callback()
 {
+  check_ajax_referer('es_attendance_nonce', 'nonce');
+
   global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_table_name       = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+
   $query = "SELECT A.*
             FROM $attendance_table_name AS A
             INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
@@ -571,38 +611,58 @@ function es_filter_attendance_callback()
   $attendanceListTable = new ES_Attendance_List();
   $attendanceListTable->prepare_items($results);
 
-  // Output the updated table HTML
   ob_start();
   $attendanceListTable->display();
   echo '<div id="loader-box" style="display: none;"><div id="es-loading-spinner" class="loader"></div></div>';
   $table_html = ob_get_clean();
 
-  // Send the updated table HTML as a response
   wp_send_json_success(['table_html' => $table_html]);
-  wp_die();
 }
+add_action('wp_ajax_es_filter_attendance', 'es_filter_attendance_callback');
 
-
+/**
+ * Admin menu
+ * （保留原本权限：read；安全起见建议后续换成 manage_options）
+ */
 add_action('admin_menu', function () {
-  // 'read' capability allows access to all logged-in users (including subscribers)
-  // Note: You may need additional code or a plugin to allow subscribers to access the admin dashboard.
   add_menu_page('Attendance', 'Attendance', 'read', 'es-attendance', 'es_render_attendance_list', 'dashicons-calendar', 1);
 });
 
+/**
+ * CSV export helpers
+ */
+function es_csv_escape($value)
+{
+  $v = (string) $value;
+  // 防 CSV 注入
+  if (preg_match('/^[-+=@].*/', $v)) {
+    $v = "'" . $v;
+  }
+  // 包双引号，并转义内部双引号
+  $v = str_replace('"', '""', $v);
+  return '"' . $v . '"';
+}
+
+/**
+ * AJAX: export CSV
+ */
 function es_export_attendance_csv()
 {
+  check_ajax_referer('es_attendance_nonce', 'nonce');
+
   global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_table_name       = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
-  $query = "SELECT A.fellowship, A.first_name,A.last_name,A.phone,A.email, A.is_member,A.first_attendance_date
-    FROM $attendance_table_name AS A
-    INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
-    WHERE 1=1";
+
+  $query = "SELECT A.fellowship, A.first_name, A.last_name, A.phone, A.email, A.is_member, A.first_attendance_date
+            FROM $attendance_table_name AS A
+            INNER JOIN $attendance_dates_table_name AS D ON A.id = D.attendance_id 
+            WHERE 1=1";
+
   $results = get_filtered_attendance_results($query);
   $reorderedResults = [];
 
   foreach ($results as $row) {
-    $fellowshipText = '';
     switch ($row['fellowship']) {
       case 'daniel':
         $fellowshipText = 'Daniel';
@@ -622,7 +682,7 @@ function es_export_attendance_csv()
       default:
         $fellowshipText = '';
     }
-    $reorderedResults[] = array(
+    $reorderedResults[] = [
       $row['row_num'],
       $fellowshipText,
       $row['first_name'],
@@ -633,18 +693,15 @@ function es_export_attendance_csv()
       $row['percentage'] . '%',
       $row['first_attendance_date'],
       $row['last_attended'],
-      $row['is_member'] == '1' ? 'Yes' : 'No',
-    );
+      ($row['is_member'] == '1' ? 'Yes' : 'No'),
+    ];
   }
-  $csv_data = array();
-  foreach ($reorderedResults as $row) {
-    $csv_data[] = implode(',', $row);
-  }
-  $fileName = array(
+
+  $header = [
     'No.',
     'Fellowships',
-    'First Name	',
-    'Last Name	',
+    'First Name',
+    'Last Name',
     'Phone',
     'Email',
     'Times',
@@ -652,132 +709,124 @@ function es_export_attendance_csv()
     'First attended Date',
     'Last Attended Date',
     'Member',
-  );
-  $csv_string = implode(',', $fileName);
-  $csv_string .= "\n";
-  $csv_string .= implode("\n", $csv_data);
+  ];
+
+  $lines = [implode(',', array_map('es_csv_escape', $header))];
+  foreach ($reorderedResults as $row) {
+    $lines[] = implode(',', array_map('es_csv_escape', $row));
+  }
+  $csv_string = implode("\n", $lines);
+
+  header('Content-Type: text/csv; charset=utf-8');
+  header('X-Content-Type-Options: nosniff');
   echo $csv_string;
   wp_die();
 }
 add_action('wp_ajax_es_export_attendance_csv', 'es_export_attendance_csv');
 
-
-add_action('wp_ajax_handle_member_status_update', 'handle_member_status_update');
-
+/**
+ * AJAX: bulk member status update
+ * （此处按你的要求暂不加权限控制）
+ */
 function handle_member_status_update()
 {
-  if (!current_user_can('edit_others_posts')) {
-    wp_send_json_error(array('message' => 'You do not have permission to update member status.'));
-    return;
-  }
-  global $wpdb;
-  $ids = isset($_POST['ids']) ? $_POST['ids'] : array();
-  $action = isset($_POST['member_action']) ? $_POST['member_action'] : '';
+  check_ajax_referer('es_attendance_nonce', 'nonce');
 
-  $is_member = ($action == 'make_member') ? 1 : 0;
+  global $wpdb;
+  $ids    = isset($_POST['ids']) ? (array) $_POST['ids'] : [];
+  $action = isset($_POST['member_action']) ? sanitize_text_field($_POST['member_action']) : '';
+
+  $is_member = ($action === 'make_member') ? 1 : 0;
 
   foreach ($ids as $id) {
     $wpdb->update(
       $wpdb->prefix . 'attendance',
-      array('is_member' => $is_member),
-      array('id' => intval($id))
+      ['is_member' => $is_member],
+      ['id' => intval($id)],
+      ['%d'],
+      ['%d']
     );
   }
 
-  wp_send_json_success(array('message' => 'Member status updated successfully.'));
+  wp_send_json_success(['message' => 'Member status updated successfully.']);
 }
+add_action('wp_ajax_handle_member_status_update', 'handle_member_status_update');
 
-// Add AJAX action to retrieve attendance information
-add_action('wp_ajax_get_attendance_info', 'get_attendance_info_callback');
-
-
+/**
+ * AJAX: get attendance info (detail modal)
+ */
 function get_attendance_info_callback()
 {
+  check_ajax_referer('es_attendance_nonce', 'nonce');
+
   global $wpdb;
-  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_table_name       = $wpdb->prefix . 'attendance';
   $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
-  $attendanceId = $_POST['attendance_id'];
-  $start_date = sanitize_text_field($_POST['start_date_filter']);
-  $end_date = sanitize_text_field($_POST['end_date_filter']);
 
-  $queryOfAttendance = $wpdb->prepare(
-    "SELECT first_name, last_name, phone FROM $attendance_table_name WHERE id = %d",
-    $attendanceId
+  $attendanceId = absint($_POST['attendance_id'] ?? 0);
+  $start_date   = sanitize_text_field($_POST['start_date_filter'] ?? '');
+  $end_date     = sanitize_text_field($_POST['end_date_filter'] ?? '');
+
+  $attendance = $wpdb->get_row(
+    $wpdb->prepare("SELECT first_name, last_name, phone FROM $attendance_table_name WHERE id = %d", $attendanceId)
   );
-  $attendance = $wpdb->get_row($queryOfAttendance);
 
-  // Query to fetch attendance information
-  $query = $wpdb->prepare(
-    "SELECT * FROM $attendance_dates_table_name 
-     WHERE attendance_id = %d 
-     AND date_attended BETWEEN %s AND %s",
-    $attendanceId,
-    $start_date,
-    $end_date
+  $attendanceInfo = $wpdb->get_results(
+    $wpdb->prepare(
+      "SELECT * FROM $attendance_dates_table_name WHERE attendance_id = %d AND date_attended BETWEEN %s AND %s",
+      $attendanceId,
+      $start_date,
+      $end_date
+    ),
+    ARRAY_A
   );
-  $attendanceInfo = $wpdb->get_results($query, ARRAY_A);
 
-  // Render the attendance information
-  // You can use HTML to format the information as needed
-  ob_start();
-  ?>
-    <div>
-      <?= $attendance->first_name ?> <?= $attendance->last_name  ?>
-    </div>
-    <div>
-      <?= $attendance->phone ?>
-    </div>
-    <p>
-      <?= $start_date ?>
-    </p>
-    <p>
-      <?= $end_date ?>
-    </p>
-    <table>
-      <thead>
+  ob_start(); ?>
+  <div><?php echo esc_html(($attendance->first_name ?? '') . ' ' . ($attendance->last_name ?? '')); ?></div>
+  <div><?php echo esc_html($attendance->phone ?? ''); ?></div>
+  <p><?php echo esc_html($start_date); ?> 至 <?php echo esc_html($end_date); ?></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Date Attended</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php foreach ($attendanceInfo as $info): ?>
         <tr>
-          <th>Date Attended</th>
-          <!-- Add other columns if needed -->
+          <td><?php echo esc_html($info['date_attended']); ?></td>
         </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($attendanceInfo as $info) : ?>
-          <tr>
-            <td><?php echo $info['date_attended']; ?></td>
-            <!-- Add other columns if needed -->
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  <?php
+      <?php endforeach; ?>
+    </tbody>
+  </table>
+<?php
   $attendanceInfoHTML = ob_get_clean();
-
   echo $attendanceInfoHTML;
   wp_die();
 }
 add_action('wp_ajax_get_attendance_info', 'get_attendance_info_callback');
 
-
-
+/**
+ * Deactivation hook
+ */
 function es_on_deactivation()
 {
   global $wpdb;
   if (!current_user_can('activate_plugins')) return;
 
-  // $attendance_table_name = $wpdb->prefix . 'attendance';
-  // $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
+  $attendance_table_name = $wpdb->prefix . 'attendance';
+  $attendance_dates_table_name = $wpdb->prefix . 'attendance_dates';
 
-  // // Drop the tables
-  // $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
-  // $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
+  // Drop the tables
+  $result1 = $wpdb->query("DROP TABLE IF EXISTS $attendance_dates_table_name");
+  $result2 = $wpdb->query("DROP TABLE IF EXISTS $attendance_table_name");
 
-  // if ($result1 === false || $result2 === false) {
-  //   // Log an error if dropping tables fails
-  //   error_log("Error dropping tables: " . $wpdb->last_error);
-  // } else {
-  //   // Log success message if tables are dropped successfully
-  //   error_log("Tables dropped successfully.");
-  // }
+  if ($result1 === false || $result2 === false) {
+    // Log an error if dropping tables fails
+    error_log("Error dropping tables: " . $wpdb->last_error);
+  } else {
+    // Log success message if tables are dropped successfully
+    error_log("Tables dropped successfully.");
+  }
 }
-
 register_deactivation_hook(__FILE__, 'es_on_deactivation');

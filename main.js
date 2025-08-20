@@ -3,9 +3,12 @@ jQuery(document).ready(function ($) {
   function updateFormFields() {
     let storedData = {};
     if (supportsLocalStorage()) {
-      storedData = JSON.parse(localStorage.getItem('es_attendance_form_data')) || {};
+      try {
+        storedData = JSON.parse(localStorage.getItem('es_attendance_form_data')) || {};
+      } catch (e) {
+        storedData = {};
+      }
     }
-
     $("input[name=es_first_name]").val(storedData.es_first_name || '');
     $("input[name=es_last_name]").val(storedData.es_last_name || '');
     $("input[name=es_email]").val(storedData.es_email || '');
@@ -31,8 +34,13 @@ jQuery(document).ready(function ($) {
     return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   }
 
-  $("form#es_attendance_form").submit(function (e) {
+  // ===== 表单提交（带 nonce，防重复提交）=====
+  $("form#es_attendance_form").on("submit", function (e) {
     e.preventDefault();
+
+    const $form = $(this);
+    const $submit = $form.find('input[type=submit], button[type=submit]');
+    $submit.prop('disabled', true);
 
     const formData = {
       es_first_name: $("input[name=es_first_name]").val(),
@@ -48,21 +56,31 @@ jQuery(document).ready(function ($) {
     }
 
     $.ajax({
-      url: esAjax.ajaxurl,
+      url: esAjax.ajaxurl, // 统一使用 esAjax.ajaxurl
       type: "POST",
-      data: $.extend({ action: "es_handle_attendance" }, formData),
+      data: $.extend({
+        action: "es_handle_attendance",
+        nonce: esAjax.nonce // 👈 带上 nonce
+      }, formData),
       success: function (response) {
         $(".es-message").remove();
-        displayMessage(response.data.message, response.success ? 'green' : 'red');
-        alert(response.data.message);
+        const msg = response && response.data && response.data.message ? response.data.message : (response?.message || '提交完成');
+        displayMessage(msg, response && response.success ? 'green' : 'red');
+        alert(msg);
       },
-      error: function (xhr, textStatus, errorThrown) {
-        console.error('Error: ' + xhr.responseText);
-        displayMessage('An error occurred. Please try again.', 'red');
+      error: function (xhr) {
+        console.error('Error: ' + (xhr.responseText || ''));
+        let msg = 'An error occurred. Please try again.';
+        if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+          msg = xhr.responseJSON.data.message;
+        }
+        displayMessage(msg, 'red');
         alert('网络错误，请稍后再试。');
+      },
+      complete: function () {
+        $submit.prop('disabled', false);
       }
     });
-
 
     function displayMessage(message, color) {
       $(".es-message").remove();
@@ -79,25 +97,24 @@ jQuery(document).ready(function ($) {
       }).insertAfter("form#es_attendance_form");
     }
   });
-  $("form#es_attendance_form input").focus(function () {
-    // Remove the message div when input is focused
+
+  $("form#es_attendance_form input").on("focus", function () {
     $(".es-message").remove();
   });
 
-  // Initialize the datepicker
+  // datepicker（若页面真的有该 ID）
   $("#last_date_filter").datepicker({
-    dateFormat: "dd/mm/yy", // Set the date format
+    dateFormat: "dd/mm/yy",
     changeYear: true,
     changeMonth: true,
     showButtonPanel: true,
-    yearRange: "c-100:c+0", // Allow selection of the past 100 years to the current year
+    yearRange: "c-100:c+0",
   });
 
   function bindPaginationEvent() {
     $(document).on('click', '.pagination-links a', function (e) {
       e.preventDefault();
-      // This will extract the page number from the query string in the href attribute
-      var href = $(this).attr('href');
+      var href = $(this).attr('href') || '';
       var match = href.match(/paged=(\d+)/);
       var page = match ? parseInt(match[1], 10) : false;
       if (page) {
@@ -108,41 +125,32 @@ jQuery(document).ready(function ($) {
     });
   }
 
-
   function fetchFilteredResults(page, exportCsv = false) {
-    const is_member = $("#es_member_filter").val();
-    const fellowship = $("#es_fellowship_filter").val();
-    const start_date_filter = $("#start_date_filter").val();
-    const end_date_filter = $("#end_date_filter").val();
-    const lastName = $("#last_name_filter").val();
-    const firstName = $("#first_name_filter").val();
-    const email = $("#email_filter").val();
-    const phone = $("#phone_filter").val();
-    const isNew = $("#is_new_filter").is(":checked");
-    const percentageFilter = $("#percentage_filter").is(":checked");
-    const tableName = "#filter-table-response";
     const data = {
       action: exportCsv ? "es_export_attendance_csv" : "es_filter_attendance",
-      start_date_filter,
-      end_date_filter,
-      last_name: lastName,
-      first_name: firstName,
-      email: email,
-      phone: phone,
-      fellowship: fellowship,
-      is_new: isNew,
-      percentage_filter: percentageFilter,
+      nonce: esAjax.nonce, // 👈 带上 nonce
+      start_date_filter: $("#start_date_filter").val(),
+      end_date_filter: $("#end_date_filter").val(),
+      last_name: $("#last_name_filter").val(),
+      first_name: $("#first_name_filter").val(),
+      email: $("#email_filter").val(),
+      phone: $("#phone_filter").val(),
+      fellowship: $("#es_fellowship_filter").val(),
+      is_new: $("#is_new_filter").is(":checked"),
+      percentage_filter: $("#percentage_filter").is(":checked"),
       paged: page,
-      is_member: is_member,
+      is_member: $("#es_member_filter").val(),
     };
 
     if (exportCsv) {
+      // 导出 CSV：后端应设置下载头，这里也可以直接下载 Blob
       $.ajax({
         url: esAjax.ajaxurl,
         type: "POST",
         data: data,
-        success: function (response) {
-          const blob = new Blob([response], { type: 'text/csv' });
+        success: function (response, status, xhr) {
+          // 如果后端返回纯文本 CSV
+          const blob = new Blob([response], { type: 'text/csv;charset=utf-8;' });
           const downloadUrl = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = downloadUrl;
@@ -154,6 +162,8 @@ jQuery(document).ready(function ($) {
           a.download = `Attendance_Report_${formattedDate}.csv`;
           document.body.appendChild(a);
           a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(downloadUrl);
         },
         error: function () {
           alert("An error occurred.");
@@ -166,20 +176,19 @@ jQuery(document).ready(function ($) {
 
   $(document).on("click", "#filter-button", function (e) {
     e.preventDefault();
-    fetchFilteredResults(1); // Fetch results for the first page
+    fetchFilteredResults(1);
   });
-
 
   $(document).on("click", "#export-csv-button", function (e) {
     e.preventDefault();
-    fetchFilteredResults(1, true); // Fetch results for the first page
+    fetchFilteredResults(1, true);
   });
 
+  // 批量“会员/非会员”更新（带 nonce）
   $(document).on("click", "#doaction, #doaction2", function (e) {
     e.preventDefault();
     var action = $(this).prev('select').val();
     if (action === 'make_member' || action === 'make_non_member') {
-
       var selectedIDs = $('input[name="bulk-select[]"]:checked').map(function () {
         return this.value;
       }).get();
@@ -189,23 +198,31 @@ jQuery(document).ready(function ($) {
           type: "POST",
           data: {
             action: 'handle_member_status_update',
+            nonce: esAjax.nonce, // 👈 带上 nonce
             ids: selectedIDs,
             member_action: action
           },
           success: function (response) {
-            alert(response.data.message); // Alert the response
-            const filter_params = JSON.parse(localStorage.getItem('filter_params')) || {};
-            handle_filter_data(filter_params)
+            const msg = response && response.data && response.data.message ? response.data.message : 'Updated.';
+            alert(msg);
+            const filter_params = JSON.parse(localStorage.getItem('filter_params') || '{}');
+            handle_filter_data(filter_params);
+          },
+          error: function (xhr) {
+            alert('Failed to update member status.');
           }
         });
       }
     }
   });
 
-
   function handle_filter_data(data) {
     const tableName = "#filter-table-response";
+    // 强制动作为筛选
     data.action = 'es_filter_attendance';
+    // 保证 nonce 存在
+    if (!data.nonce) data.nonce = esAjax.nonce;
+
     function bindToggleRowEvent() {
       $("tbody").on("click", ".toggle-row", function () {
         $(this).closest("tr").toggleClass("is-expanded");
@@ -217,49 +234,52 @@ jQuery(document).ready(function ($) {
       type: "POST",
       data: data,
       success: function (response) {
-        $(tableName).html(response.data.table_html);
+        if (response && response.success && response.data && response.data.table_html) {
+          $(tableName).html(response.data.table_html);
+        } else {
+          $(tableName).html('<div class="notice notice-error">Failed to load data.</div>');
+        }
         $('#loader-box').hide();
         bindToggleRowEvent();
         bindPaginationEvent();
-        localStorage.setItem('filter_params', JSON.stringify(data));
-
+        try {
+          localStorage.setItem('filter_params', JSON.stringify(data));
+        } catch (e) { }
       },
       error: function () {
         $('#loader-box').hide();
-
         alert("An error occurred.");
       },
     });
   }
 
+  // 详情弹窗（统一用 esAjax.ajaxurl + nonce）
   $(document).on("click", ".view-attendance-button", function (e) {
-    const filter_params = JSON.parse(localStorage.getItem('filter_params'));
+    const filter_params = JSON.parse(localStorage.getItem('filter_params') || '{}');
     var attendanceId = $(this).data('attendance-id');
     $.ajax({
-      url: ajaxurl,
+      url: esAjax.ajaxurl,
       type: 'POST',
       data: {
         action: 'get_attendance_info',
+        nonce: esAjax.nonce, // 👈 带上 nonce
         attendance_id: attendanceId,
         start_date_filter: filter_params.start_date_filter,
         end_date_filter: filter_params.end_date_filter
       },
       success: function (response) {
-
-        $('#attendance-info-modal-content').html(response)
-        // This function will execute after html() finishes setting the content
+        $('#attendance-info-modal-content').html(response);
         document.getElementById("attendance-info-modal").style.display = "block";
-
       },
       error: function (xhr, status, error) {
         console.error(error);
+        alert('Failed to load attendance detail.');
       }
     });
   });
 
   $(document).on("click", "#attendance-info-modal .close", function (e) {
     document.getElementById("attendance-info-modal").style.display = "none";
-
-  })
+  });
 
 });
