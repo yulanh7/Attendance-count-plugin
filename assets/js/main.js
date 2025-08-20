@@ -93,7 +93,7 @@ jQuery(function ($) {
       first_name: $("#first_name_filter").val(),
       email: $("#email_filter").val(),
       phone: $("#phone_filter").val(),
-      is_new: $("#is_new_filter").is(":checked"),
+      is_new: $("#is_new_filter").is(":checked") ? 'true' : '',
       percentage_filter: $("#percentage_filter").is(":checked"),
     };
   }
@@ -287,7 +287,7 @@ jQuery(function ($) {
         email: $c.find("#fe_email_filter").val(),
         start_date_filter: $c.find("#fe_start_date_filter").val(),
         end_date_filter: $c.find("#fe_end_date_filter").val(),
-        is_new: $c.find("#fe_is_new_filter").is(":checked"),
+        is_new: $c.find("#fe_is_new_filter").is(":checked") ? 'true' : '',
         percentage_filter: $c.find("#fe_percentage_filter").is(":checked"),
       };
     }

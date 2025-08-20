@@ -75,23 +75,25 @@ class Admin_List_Table extends \WP_List_Table
   {
     switch ($col) {
       case 'view_attendance':
-        return '<button  type="button" class="view-attendance-button" data-attendance-id="' . esc_attr($item['id']) . '">View</button>';
+        return '<button type="button" class="view-attendance-button" data-attendance-id="' . esc_attr($item['id']) . '">View</button>';
+
       case 'fellowship':
-        return [
-          'daniel' => '但以理团契',
-          'trueLove' => '真爱团团契',
-          'faithHopeLove' => '信望爱团契',
-          'peaceJoyPrayer' => '平安喜乐祷告会',
-          'other' => '其他'
-        ][$item[$col]] ?? '';
+        // 建议用 helper，避免多处维护映射
+        return \AP\ap_translate_fellowship($item[$col] ?? '');
+
       case 'is_member':
         return !empty($item[$col]) ? 'Yes' : 'No';
+
       case 'first_attendance_date':
-        return esc_html(\AP\format_date_dmy($item[$col]));
+        return esc_html(\AP\format_date_dmy($item[$col] ?? ''));
+
       case 'last_attended':
-        return esc_html(\AP\format_date_dmy($item[$col]));
+        // ✅ 已经是 d/m/Y，直接输出
+        return esc_html($item[$col] ?? '');
+
       case 'percentage':
-        return esc_html($item[$col] . '%');
+        return esc_html(($item[$col] ?? '0') . '%');
+
       default:
         return esc_html($item[$col] ?? '');
     }
@@ -176,10 +178,10 @@ class Admin_Page
       <div class="filter-form">
         <select id="es_fellowship_filter">
           <option value="" selected>全部团契</option>
-          <option value="Daniel">但以理团契</option>
-          <option value="True love">真爱团团契</option>
-          <option value="Faith Hope Love">信望爱团契</option>
-          <option value="Peace&Joy Prayer">平安喜乐祷告会</option>
+          <option value="daniel">但以理团契</option>
+          <option value="trueLove">真爱团团契</option>
+          <option value="faithHopeLove">信望爱团契</option>
+          <option value="peaceJoyPrayer">平安喜乐祷告会</option>
           <option value="other">其他</option>
         </select>
         <select id="es_member_filter">

@@ -41,15 +41,13 @@ class Frontend_Page
 
     ob_start(); ?>
     <div class="wrap ap-frontend-dashboard">
-      <!-- <h2><?php echo esc_html__('Attendance', 'attendance-plugin'); ?></h2> -->
-
       <div class="filter-form">
         <select id="fe_fellowship_filter">
           <option value="" selected>全部团契</option>
-          <option value="Daniel">但以理团契</option>
-          <option value="True love">真爱团团契</option>
-          <option value="Faith Hope Love">信望爱团契</option>
-          <option value="Peace&Joy Prayer">平安喜乐祷告会</option>
+          <option value="daniel">但以理团契</option>
+          <option value="trueLove">真爱团团契</option>
+          <option value="faithHopeLove">信望爱团契</option>
+          <option value="peaceJoyPrayer">平安喜乐祷告会</option>
           <option value="other">其他</option>
         </select>
 
@@ -84,6 +82,7 @@ class Frontend_Page
         </div>
 
       </div>
+
       <?php if (current_user_can('manage_options')): ?>
         <div class="bulk-action-bar" style="margin-top:8px;">
           <select id="fe-bulk-action-selector">
@@ -96,30 +95,27 @@ class Frontend_Page
       <?php endif; ?>
 
       <div id="filter-table-response">
-        <div id="filter-table-response">
-          <div id="table-wrap">
-            <?php
-            \AP\Admin_Page::render_table_simple($rows_page);
-            \AP\Admin_Page::render_pagination_simple($page, $pages);
-            ?>
-          </div>
-
-          <!-- 🔒 保持为 table-wrap 的兄弟节点，不会被 .html(...) 覆盖 -->
-          <div id="loader-box" style="display:none;">
-            <div id="es-loading-spinner" class="loader"></div>
-          </div>
+        <div id="table-wrap">
+          <?php
+          \AP\Admin_Page::render_table_simple($rows_page);
+          \AP\Admin_Page::render_pagination_simple($page, $pages);
+          ?>
         </div>
 
-
-        <div id="attendance-info-modal" class="popup">
-          <div class="popup-content">
-            <span class="close">&times;</span>
-            <div id="attendance-info-modal-content"></div>
-          </div>
+        <div id="loader-box" style="display:none;">
+          <div id="es-loading-spinner" class="loader"></div>
         </div>
       </div>
 
-  <?php
+      <div id="attendance-info-modal" class="popup">
+        <div class="popup-content">
+          <span class="close">&times;</span>
+          <div id="attendance-info-modal-content"></div>
+        </div>
+      </div>
+    </div>
+
+<?php
     return ob_get_clean();
   }
 }

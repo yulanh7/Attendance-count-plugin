@@ -75,3 +75,13 @@ function ap_translate_fellowship($key)
   ];
   return $map[$key] ?? $key;
 }
+
+
+if (!function_exists('ap_truthy')) {
+  function ap_truthy($v): bool
+  {
+    if (is_bool($v)) return $v;
+    $v = strtolower((string)$v);
+    return in_array($v, ['1', 'true', 'on', 'yes'], true);
+  }
+}

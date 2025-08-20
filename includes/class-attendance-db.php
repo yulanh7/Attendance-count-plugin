@@ -87,9 +87,9 @@ class Attendance_DB
     $dates      = $wpdb->prefix . 'attendance_dates';
 
     $q = "SELECT A.*
-          FROM $attendance AS A
-          INNER JOIN $dates AS D ON A.id = D.attendance_id
-          WHERE 1=1";
+        FROM $attendance AS A
+        INNER JOIN $dates AS D ON A.id = D.attendance_id
+        WHERE 1=1";
 
     $fellowship = sanitize_text_field($post['fellowship'] ?? '');
     $last_name  = sanitize_text_field($post['last_name'] ?? '');
@@ -97,19 +97,25 @@ class Attendance_DB
     $email      = sanitize_text_field($post['email'] ?? '');
     $phone      = sanitize_text_field($post['phone'] ?? '');
     $is_member  = sanitize_text_field($post['is_member'] ?? '');
-    $start_raw  = sanitize_text_field($post['start_date_filter'] ?? '');
-    $end_raw    = sanitize_text_field($post['end_date_filter'] ?? '');
+
+    $raw_is_new = isset($post['is_new']) ? sanitize_text_field($post['is_new']) : '';
+    $is_new = in_array(strtolower($raw_is_new), ['1', 'true', 'on', 'yes'], true);
+
     $pct_filter = (!empty($post['percentage_filter']) && $post['percentage_filter'] == 'true') ? 1 : 0;
 
     if ($fellowship) $q .= $wpdb->prepare(" AND fellowship = %s", $fellowship);
     if ($first_name) $q .= $wpdb->prepare(" AND first_name LIKE %s", '%' . $wpdb->esc_like($first_name) . '%');
-    if ($last_name)  $q .= $wpdb->prepare(" AND last_name LIKE %s", '%' . $wpdb->esc_like($last_name) . '%');
-    if ($phone)      $q .= $wpdb->prepare(" AND phone LIKE %s", '%' . $wpdb->esc_like($phone) . '%');
-    if ($email)      $q .= $wpdb->prepare(" AND email LIKE %s", '%' . $wpdb->esc_like($email) . '%');
+    if ($last_name)  $q .= $wpdb->prepare(" AND last_name LIKE %s",  '%' . $wpdb->esc_like($last_name)  . '%');
+    if ($phone)      $q .= $wpdb->prepare(" AND phone LIKE %s",      '%' . $wpdb->esc_like($phone)      . '%');
+    if ($email)      $q .= $wpdb->prepare(" AND email LIKE %s",      '%' . $wpdb->esc_like($email)      . '%');
+
     if ($is_member) {
       $im = ($is_member === 'isMember') ? 1 : 0;
       $q .= $wpdb->prepare(" AND is_member = %d", $im);
     }
+
+    $start_raw = sanitize_text_field($post['start_date_filter'] ?? '');
+    $end_raw   = sanitize_text_field($post['end_date_filter'] ?? '');
     if ($start_raw) {
       $start = date('Y-m-d', strtotime($start_raw));
       $q .= $wpdb->prepare(" AND D.date_attended >= %s", $start);
@@ -125,6 +131,15 @@ class Attendance_DB
       $q .= $wpdb->prepare(" AND D.date_attended <= %s", $end);
     }
 
+    if ($is_new) {
+      $q .= " AND A.id IN (
+      SELECT attendance_id
+      FROM $dates
+      GROUP BY attendance_id
+      HAVING COUNT(*) = 1
+    )";
+    }
+
     $rows = $wpdb->get_results($q, ARRAY_A);
 
     // 合并同手机号 & 计算比例（按 ES_ATTENDANCE_DOW）
@@ -132,6 +147,7 @@ class Attendance_DB
 
     return $rows;
   }
+
 
   public static function get_last_attended_date(string $phone): ?string
   {
