@@ -13,31 +13,42 @@ class Install
     $dates      = $wpdb->prefix . 'attendance_dates';
     $charset    = $wpdb->get_charset_collate();
 
+    // attendance：phone 唯一，常用筛选列加索引
     $sql = "CREATE TABLE $attendance (
-      id INT NOT NULL AUTO_INCREMENT,
-      first_name VARCHAR(255) NOT NULL,
-      last_name VARCHAR(255) NOT NULL,
-      phone VARCHAR(20) NOT NULL,
-      email VARCHAR(255),
-      fellowship VARCHAR(255) NOT NULL,
-      is_new BOOLEAN DEFAULT 1,
-      is_member BOOLEAN DEFAULT 0,
-      first_attendance_date DATE NOT NULL,
-      PRIMARY KEY (id)
-    ) $charset;";
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    first_name VARCHAR(100) NOT NULL,
+    last_name  VARCHAR(100) NOT NULL,
+    phone      VARCHAR(20)  NOT NULL,
+    email      VARCHAR(255) DEFAULT '',
+    fellowship VARCHAR(32)  NOT NULL,
+    is_new     TINYINT(1)   NOT NULL DEFAULT 1,
+    is_member  TINYINT(1)   NOT NULL DEFAULT 0,
+    first_attendance_date DATE NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_phone (phone),
+    KEY idx_fellowship (fellowship),
+    KEY idx_is_member (is_member)
+  ) $charset;";
 
+    // attendance_dates：同人同日唯一；常用列加索引
     $sql .= "CREATE TABLE $dates (
-      id INT NOT NULL AUTO_INCREMENT,
-      attendance_id INT NOT NULL,
-      date_attended DATE NOT NULL,
-      PRIMARY KEY (id),
-      UNIQUE KEY unique_attendance_date (attendance_id, date_attended),
-      FOREIGN KEY (attendance_id) REFERENCES $attendance(id)
-    ) $charset;";
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    attendance_id BIGINT UNSIGNED NOT NULL,
+    date_attended DATE NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_attendance_id (attendance_id),
+    KEY idx_date_attended (date_attended),
+    UNIQUE KEY uniq_attendance_date (attendance_id, date_attended)
+  ) $charset;";
 
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     \dbDelta($sql);
+
+    // （可选）如需确保 engine = InnoDB，可在此补一条：
+    // $wpdb->query("ALTER TABLE $attendance ENGINE=InnoDB");
+    // $wpdb->query("ALTER TABLE $dates ENGINE=InnoDB");
   }
+
 
   public static function deactivate()
   {

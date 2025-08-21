@@ -14,70 +14,79 @@ class Attendance_DB
     $attendance = $wpdb->prefix . 'attendance';
     $dates      = $wpdb->prefix . 'attendance_dates';
 
-    // 限定签到日
+    // 仅允许目标星期签到
     if ((int) current_time('w') !== get_target_dow()) {
       return ['ok' => false, 'msg' => '今天不是允许的签到日，不能签到。'];
     }
 
-    $first_name   = sanitize_text_field($post['es_first_name'] ?? '');
-    $last_name    = sanitize_text_field($post['es_last_name'] ?? '');
-    $country_code = sanitize_text_field($post['es_phone_country_code'] ?? '');
-    $phone_number = sanitize_text_field($post['es_phone_number'] ?? '');
-    $fellowship   = sanitize_text_field($post['es_fellowship'] ?? '');
+    // —— 输入清洗 & 归一化 —— //
+    $first_name   = trim(sanitize_text_field($post['es_first_name'] ?? ''));
+    $last_name    = trim(sanitize_text_field($post['es_last_name'] ?? ''));
+    $country_code = trim(sanitize_text_field($post['es_phone_country_code'] ?? ''));
+    $phone_number = trim(sanitize_text_field($post['es_phone_number'] ?? ''));
+    $fellowship   = trim(sanitize_text_field($post['es_fellowship'] ?? ''));
     $email        = sanitize_email($post['es_email'] ?? '');
     $today        = current_time('Y-m-d');
 
+    // 去除空格/连字符/括号
+    $phone_number = preg_replace('/[\s\-\(\)]/', '', $phone_number);
+
+    // AU 本地格式：+61 去掉开头 0
     if ($country_code === '+61' && substr($phone_number, 0, 1) === '0') {
       $phone_number = substr($phone_number, 1);
     }
     $phone = $country_code . $phone_number;
 
-    // 查是否存在
-    $user = $wpdb->get_row(
-      $wpdb->prepare("SELECT * FROM $attendance WHERE phone = %s", $phone),
-      ARRAY_A
+    // —— 原子 upsert 人员（依赖 attendance.phone 唯一键）—— //
+    // 首次插入 is_new=1，后续更新 is_new=0
+    $upsert_sql = $wpdb->prepare(
+      "INSERT INTO $attendance
+      (first_name, last_name, phone, email, fellowship, is_new, first_attendance_date)
+     VALUES (%s, %s, %s, %s, %s, 1, %s)
+     ON DUPLICATE KEY UPDATE
+       first_name = VALUES(first_name),
+       last_name  = VALUES(last_name),
+       email      = VALUES(email),
+       fellowship = VALUES(fellowship),
+       is_new     = 0",
+      $first_name,
+      $last_name,
+      $phone,
+      $email,
+      $fellowship,
+      $today
     );
 
-    // 重复当天
-    if ($user) {
-      $dup = (int) $wpdb->get_var($wpdb->prepare(
-        "SELECT COUNT(*) FROM $dates WHERE attendance_id = %d AND date_attended = %s",
-        $user['id'],
-        $today
-      ));
-      if ($dup > 0) return ['ok' => false, 'msg' => '您今天已经签到过了，请勿重复签到!'];
+    $ok = $wpdb->query($upsert_sql);
+    if ($ok === false) {
+      return ['ok' => false, 'msg' => '创建/更新用户失败，请稍后再试。'];
     }
 
-    // 新建/更新
-    if ($user) {
-      $wpdb->update($attendance, [
-        'first_name' => $first_name,
-        'last_name' => $last_name,
-        'fellowship' => $fellowship,
-        'email' => $email,
-        'is_new' => 0
-      ], ['phone' => $phone], ['%s', '%s', '%s', '%s', '%d'], ['%s']);
-      $aid = (int)$user['id'];
-    } else {
-      $res = $wpdb->insert($attendance, [
-        'first_name' => $first_name,
-        'last_name' => $last_name,
-        'fellowship' => $fellowship,
-        'phone' => $phone,
-        'email' => $email,
-        'is_new' => 1,
-        'first_attendance_date' => $today
-      ], ['%s', '%s', '%s', '%s', '%s', '%d', '%s']);
-      if ($res === false) return ['ok' => false, 'msg' => '创建新用户失败，请稍后再试。'];
-      $aid = (int) $wpdb->insert_id;
+    // 拿到人员 id（无论是新插入还是更新）
+    $aid = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM $attendance WHERE phone = %s", $phone));
+    if (!$aid) {
+      return ['ok' => false, 'msg' => '创建/更新用户失败（未找到记录）。'];
     }
 
-    // 写入打卡日
-    $ins = $wpdb->insert($dates, ['attendance_id' => $aid, 'date_attended' => $today], ['%d', '%s']);
-    if ($ins === false) return ['ok' => false, 'msg' => '记录签到失败，请稍后再试。'];
+    // —— 写入当日出勤（依赖 dates 上的唯一键 (attendance_id, date_attended)）—— //
+    // 原子去重：同人同日只保留一次
+    $ins = $wpdb->query($wpdb->prepare(
+      "INSERT IGNORE INTO $dates (attendance_id, date_attended) VALUES (%d, %s)",
+      $aid,
+      $today
+    ));
+
+    if ($ins === false) {
+      return ['ok' => false, 'msg' => '记录签到失败，请稍后再试。'];
+    }
+    if ($ins === 0) {
+      // 被唯一键忽略，说明今天已签到
+      return ['ok' => false, 'msg' => '您今天已经签到过了，请勿重复签到!'];
+    }
 
     return ['ok' => true, 'msg' => '签到成功！'];
   }
+
 
   // 后台筛选获取数据（返回数组，Admin_Page 负责渲染）
   public static function query_filtered(array $post): array
