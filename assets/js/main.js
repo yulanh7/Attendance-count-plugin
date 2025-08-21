@@ -333,17 +333,44 @@ jQuery(function ($) {
     }
 
     function feExportCSV($c) {
-      const params = feGetFilters($c);
-      $.ajax({ url: esAjax.ajaxurl, type: "POST", data: { action: "es_export_attendance_csv", nonce: esAjax.nonce, ...params } })
-        .done(function (csv) {
-          const blob = new Blob([csv], { type: "text/csv" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          const d = new Date(), dd = String(d.getDate()).padStart(2, "0"), mm = String(d.getMonth() + 1).padStart(2, "0"), yy = d.getFullYear();
-          a.href = url; a.download = `Attendance_Report_${dd}-${mm}-${yy}.csv`;
-          document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-        });
+      const s = $c.find("#fe_start_date_filter").val();
+      const e = $c.find("#fe_end_date_filter").val();
+
+      // 日期格式：1/7/2024（不补零），空就用今天
+      function dmyLoose(iso) {
+        const d = iso ? new Date(iso) : new Date();
+        const day = d.getDate();
+        const mon = d.getMonth() + 1;
+        const yr = d.getFullYear();
+        return `${day}/${mon}/${yr}`;
+      }
+      const titleLine = `Date Range,${dmyLoose(s)} to ${dmyLoose(e)}`;
+
+      $.ajax({
+        url: esAjax.ajaxurl,
+        type: "POST",
+        data: { action: "es_export_attendance_csv", nonce: esAjax.nonce, ...feGetFilters($c) }
+      }).done(function (csv) {
+        // 去掉服务端可能加的 BOM，避免出现在中间
+        if (csv && csv.charCodeAt && csv.charCodeAt(0) === 0xFEFF) {
+          csv = csv.slice(1);
+        }
+        // 在最前面加标题行；再加 BOM 让 Excel 识别 UTF-8
+        const finalCsv = "\uFEFF" + titleLine + "\n" + csv;
+
+        const blob = new Blob([finalCsv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const d = new Date(), dd = String(d.getDate()).padStart(2, "0"), mm = String(d.getMonth() + 1).padStart(2, "0"), yy = d.getFullYear();
+        a.href = url;
+        a.download = `Attendance_Report_${dd}-${mm}-${yy}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      });
     }
+
 
     // 批量：按钮 Loading 文案直到表格刷新完成
     function feBulkAction($c) {
