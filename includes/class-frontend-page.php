@@ -193,7 +193,7 @@ class Frontend_Page
         </div>
         <div class="ap-ft-row">
           <button type="button" class="button" id="ap-ft-refresh">刷新数据</button>
-          <button type="button" class="button button-primary" id="ap-ft-export">导出Excel</button>
+          <button type="button" class="button ap-btn-outline-gold" id="ap-ft-export">导出Excel</button>
         </div>
         <div>
           <small id="ap-ft-note" style="margin-left:8px;color:#666;">
@@ -265,6 +265,50 @@ class Frontend_Page
         border-top-color: #666;
         border-radius: 50%;
         animation: apspin 1s linear infinite;
+      }
+
+      /* 与 #FFD700 主按钮同色系的“金色描边”按钮 */
+      button.ap-btn-outline-gold {
+        --gold: #DAA520;
+        /* 默认描边/文字 */
+        --gold-hover: #B8860B;
+        /* Hover */
+        --gold-active: #8B6B00;
+        /* Active */
+        --gold-ring: rgba(255, 215, 0, .35);
+        /* Focus ring 基于 #FFD700 */
+
+        background: transparent;
+        color: var(--gold);
+        border: 1px solid currentColor;
+        /* 用文字色做描边 */
+        border-radius: 8px;
+        transition: background-color .15s, color .15s, border-color .15s, box-shadow .15s;
+      }
+
+      button.ap-btn-outline-gold:hover {
+        color: var(--gold-hover);
+        border-color: currentColor;
+        background-color: rgba(255, 215, 0, .08);
+        /* 很淡的金色底 */
+      }
+
+      button.ap-btn-outline-gold:active {
+        color: var(--gold-active);
+        border-color: currentColor;
+        background-color: rgba(255, 215, 0, .15);
+      }
+
+      button.ap-btn-outline-gold:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--gold-ring);
+      }
+
+      button.ap-btn-outline-gold[disabled],
+      button.ap-btn-outline-gold[aria-busy="true"] {
+        opacity: .5;
+        cursor: not-allowed;
+        background: transparent;
       }
 
       @keyframes apspin {
