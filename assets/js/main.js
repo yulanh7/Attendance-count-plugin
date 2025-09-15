@@ -459,7 +459,7 @@ jQuery(function ($) {
         url: esAjax.ajaxurl,
         type: "POST",
         dataType: "json",
-        data: { action: "ap_first_timers_query", nonce: esAjax.nonce, ...rng }
+        data: { action: "ap_first_timers_query", nonce: esAjax.nonce, ...rng, _r: Date.now() } // 👈 加这一项
       }).done(function (resp) {
         if (resp && resp.success) {
           $c.find("#ap-ft-list").html(resp.data.html);
@@ -469,6 +469,7 @@ jQuery(function ($) {
           alert("加载失败，请稍后再试。");
         }
       }).fail(function () {
+        console.error('AJAX fail', xhr && xhr.status, xhr && xhr.responseText);
         alert("加载失败，请稍后再试。");
       }).always(function () {
         showLoader($c, false);
@@ -487,6 +488,7 @@ jQuery(function ($) {
       add("nonce", esAjax.nonce);
       add("start", rng.start);
       add("end", rng.end);
+      add("_r", Date.now().toString());
 
       document.body.appendChild(form);
       form.submit();

@@ -123,6 +123,9 @@ class Frontend_Page
   {
     if (!headers_sent()) {
       nocache_headers();
+      header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
+      header('Pragma: no-cache');
+      header('Expires: 0');
     }
 
     $today = current_time('Y-m-d');

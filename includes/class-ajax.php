@@ -120,7 +120,15 @@ class Ajax
   }
 
   public static function first_timers_query()
+
   {
+    if (!headers_sent()) {
+      nocache_headers();
+      header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+      header('Pragma: no-cache');
+      header('Expires: 0');
+    }
+
     check_ajax_referer('es_attendance_nonce', 'nonce');
 
     $start = isset($_POST['start']) ? sanitize_text_field($_POST['start']) : '';
@@ -216,6 +224,9 @@ class Ajax
 
     // 输出
     nocache_headers();
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
     header('Content-Type: text/csv; charset=utf-8');
     $fn_date = date_i18n('Ymd', current_time('timestamp'));
     header('Content-Disposition: attachment; filename="First_Timers_' . $fn_date . '.csv"');
