@@ -140,6 +140,7 @@ class Frontend_Page
     }
 
     $today = current_time('Y-m-d');
+    $generated_at = date_i18n('Y-m-d H:i', current_time('timestamp'));
 
     $a = shortcode_atts([
       'start' => $today,
@@ -156,7 +157,6 @@ class Frontend_Page
 
     // 权限：登录且具备 read（subscriber 及以上）可看电话
     $can_view_phone = (is_user_logged_in() && current_user_can('read'));
-    $can_export     = $can_view_phone;
 
     // —— 服务器端首屏渲染一份（避免首屏空白），后续用 AJAX 刷新 ——
     global $wpdb;
@@ -181,26 +181,26 @@ class Frontend_Page
       data-count="<?php echo (int) count($rows); ?>">
 
       <form class="ap-ft-toolbar" onsubmit="return false;">
-
-        <div class="ap-ft-field">
-          <label for="ap-ft-start">开始：</label>
-          <input type="date" id="ap-ft-start" value="<?php echo esc_attr($start); ?>">
+        <div class="apt-ft-time-row">
+          <span class="ap-ft-field" style="margin-right: 5px;">
+            <span class="ap-ft-label">开始：</span>
+            <input type="date" id="ap-ft-start" aria-label="开始日期" value="<?php echo esc_attr($start); ?>">
+          </span>
+          <span class="ap-ft-field">
+            <span class="ap-ft-label">结束：</span>
+            <input type="date" id="ap-ft-end" aria-label="结束日期" value="<?php echo esc_attr($end); ?>">
+          </span>
         </div>
-
-        <div class="ap-ft-field">
-          <label for="ap-ft-end">结束：</label>
-          <input type="date" id="ap-ft-end" value="<?php echo esc_attr($end); ?>">
-        </div>
-
-        <button type="button" class="button" id="ap-ft-refresh">刷新数据</button>
-        <?php if ($can_export): ?>
+        <div class="ap-ft-row">
+          <button type="button" class="button" id="ap-ft-refresh">刷新数据</button>
           <button type="button" class="button button-primary" id="ap-ft-export">导出Excel</button>
-        <?php endif; ?>
-
-        <small id="ap-ft-note" style="margin-left:8px;color:#666;">无需刷新整页，点击“刷新数据”获取最新。</small>
+        </div>
+        <div>
+          <small id="ap-ft-note" style="margin-left:8px;color:#666;">
+            数据生成于 <?php echo esc_html($generated_at); ?>（本站时区）。点击“刷新数据”获取最新。
+          </small>
+        </div>
       </form>
-
-
       <div id="ap-ft-loader" style="display:none;margin:8px 0;">
         <div class="loader" aria-label="Loading" role="status"></div>
       </div>
@@ -210,11 +210,20 @@ class Frontend_Page
 
     <style>
       .ap-first-timers-v2 .ap-ft-toolbar {
+
+        margin-bottom: 12px;
+      }
+
+      .apt-ft-time-row {
         display: flex;
         gap: 8px;
         align-items: center;
         flex-wrap: wrap;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
+      }
+
+      .ap-ft-row {
+        margin-bottom: 10px;
       }
 
       .ap-ft-grid {
@@ -264,26 +273,20 @@ class Frontend_Page
         }
       }
 
-      .ap-ft-field {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      @media (max-width: 480px) {
-        .ap-ft-field {
-          width: 100%
-        }
-
-        .ap-ft-field input {
-          flex: 1
-        }
-      }
-
       @media print {
         .ap-ft-card {
           box-shadow: none;
           border: 0
+        }
+
+        .ap-ft-field {
+          display: flex;
+          align-items: center;
+          gap: 6px
+        }
+
+        .ap-ft-label {
+          user-select: none
         }
       }
     </style>
