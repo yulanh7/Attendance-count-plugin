@@ -20,6 +20,15 @@ class Ajax
 
     add_action('wp_ajax_ap_first_timers_export', [__CLASS__, 'first_timers_export']);
     add_action('wp_ajax_nopriv_ap_first_timers_export', [__CLASS__, 'first_timers_export']);
+
+    add_action('wp_ajax_ap_get_nonce',      ['AP\\Ajax', 'get_nonce']);
+    add_action('wp_ajax_nopriv_ap_get_nonce', ['AP\\Ajax', 'get_nonce']);
+  }
+
+  public static function get_nonce()
+  {
+    // 给当前访客发一个 fresh nonce，不改登录状态
+    wp_send_json_success(['nonce' => wp_create_nonce('es_attendance_nonce')]);
   }
 
   private static function verify_nonce()
@@ -127,6 +136,7 @@ class Ajax
       header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
       header('Pragma: no-cache');
       header('Expires: 0');
+      header('Vary: Cookie');
     }
 
     check_ajax_referer('es_attendance_nonce', 'nonce');
@@ -228,6 +238,7 @@ class Ajax
     header('Pragma: no-cache');
     header('Expires: 0');
     header('Content-Type: text/csv; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
     $fn_date = date_i18n('Ymd', current_time('timestamp'));
     header('Content-Disposition: attachment; filename="First_Timers_' . $fn_date . '.csv"');
     echo $csv;

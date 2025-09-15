@@ -9,7 +9,7 @@ function ap_enqueue_assets()
   wp_enqueue_script('jquery');
   wp_enqueue_script('ap-main', AP_URL . 'assets/js/main.js', ['jquery'], '1.0', true);
   wp_localize_script('ap-main', 'esAjax', [
-    'ajaxurl' => admin_url('admin-ajax.php'),
+    'ajaxurl' => admin_url('admin-ajax.php', 'relative'),
     'nonce'   => wp_create_nonce('es_attendance_nonce'),
   ]);
   wp_enqueue_style('ap-style', AP_URL . 'assets/css/style.css', [], '1.0');

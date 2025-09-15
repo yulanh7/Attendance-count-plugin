@@ -126,6 +126,7 @@ class Frontend_Page
       header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
       header('Pragma: no-cache');
       header('Expires: 0');
+      header('Vary: Cookie');
     }
 
     $today = current_time('Y-m-d');

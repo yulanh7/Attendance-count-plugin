@@ -441,6 +441,11 @@ jQuery(function ($) {
 
   // ========== First Timers（无刷新刷新 + 导出） ==========
   (function ($) {
+    function apAjaxUrl() {
+      const base = esAjax.ajaxurl || '';
+      return base + (base.indexOf('?') >= 0 ? '&' : '?') + '_r=' + Date.now();
+    }
+
     function $box() { const $c = $("#ap-first-timers"); return $c.length ? $c : null; }
     function getRange($c) {
       const s = $c.find("#ap-ft-start").val();
@@ -459,7 +464,7 @@ jQuery(function ($) {
         url: esAjax.ajaxurl,
         type: "POST",
         dataType: "json",
-        data: { action: "ap_first_timers_query", nonce: esAjax.nonce, ...rng, _r: Date.now() } // 👈 加这一项
+        data: { action: "ap_first_timers_query", nonce: esAjax.nonce, ...rng }
       }).done(function (resp) {
         if (resp && resp.success) {
           $c.find("#ap-ft-list").html(resp.data.html);
@@ -468,7 +473,7 @@ jQuery(function ($) {
         } else {
           alert("加载失败，请稍后再试。");
         }
-      }).fail(function () {
+      }).fail(function (xhr) {
         console.error('AJAX fail', xhr && xhr.status, xhr && xhr.responseText);
         alert("加载失败，请稍后再试。");
       }).always(function () {
@@ -480,7 +485,7 @@ jQuery(function ($) {
       // 用表单方式下载（避免 fetch/$.ajax 处理 blob 的兼容问题）
       const form = document.createElement("form");
       form.method = "POST";
-      form.action = esAjax.ajaxurl;
+      form.action = apAjaxUrl();
       form.style.display = "none";
 
       const add = (k, v) => { const i = document.createElement("input"); i.type = "hidden"; i.name = k; i.value = v; form.appendChild(i); };
