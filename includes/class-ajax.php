@@ -131,6 +131,15 @@ class Ajax
   public static function first_timers_query()
 
   {
+    if (!is_user_logged_in() || !current_user_can('read')) {
+      if (!headers_sent()) {
+        nocache_headers();
+      }
+      wp_send_json_error(['message' => 'Forbidden'], 403);
+    }
+
+    check_ajax_referer('es_attendance_nonce', 'nonce');
+
     if (!headers_sent()) {
       nocache_headers();
       header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');

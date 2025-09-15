@@ -58,11 +58,20 @@ add_action('plugins_loaded', function () {
 });
 
 add_action('template_redirect', function () {
-  if (is_user_logged_in()) return;
   if (!is_singular()) return;
 
   global $post;
-  if ($post && has_shortcode($post->post_content ?? '', 'attendance_dashboard')) {
+  if (!$post) return;
+
+  // 这些页面都需要登录（subscriber+）
+  $needs_auth =
+    has_shortcode($post->post_content ?? '', 'attendance_dashboard') ||
+    has_shortcode($post->post_content ?? '', 'attendance_first_timers');
+
+  if (!$needs_auth) return;
+
+  if (!is_user_logged_in() || !current_user_can('read')) {
+    // 跳到登录页，登录后自动回到当前页
     wp_redirect(wp_login_url(get_permalink($post)));
     exit;
   }

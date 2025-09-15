@@ -121,6 +121,16 @@ class Frontend_Page
 
   public static function render_first_timers_shortcode($atts = []): string
   {
+    if (!is_user_logged_in()) {
+      $login_url = wp_login_url(get_permalink());
+      return '<p>' . sprintf(
+        esc_html__('Please %s to view this page.', 'attendance-plugin'),
+        '<a href="' . esc_url($login_url) . '">' . esc_html__('log in', 'attendance-plugin') . '</a>'
+      ) . '</p>';
+    }
+    if (!current_user_can('read')) {
+      return '<p>' . esc_html__('You do not have permission to view this page.', 'attendance-plugin') . '</p>';
+    }
     if (!headers_sent()) {
       nocache_headers();
       header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
