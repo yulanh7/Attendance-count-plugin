@@ -184,12 +184,20 @@ class Ajax
     wp_send_json_success([
       'html' => $html,
       'generated_at' => date_i18n('Y-m-d H:i', current_time('timestamp')),
+      'count' => count($rows),
     ]);
   }
 
   /** AJAX：导出 CSV（Excel 可直接打开） */
   public static function first_timers_export()
   {
+    if (empty($rows)) {
+      nocache_headers();
+      status_header(400);
+      header('Content-Type: text/plain; charset=utf-8');
+      echo 'No data to export';
+      exit;
+    }
     if (!is_user_logged_in() || !current_user_can('read')) {
       if (!headers_sent()) {
         nocache_headers();

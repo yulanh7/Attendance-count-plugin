@@ -468,6 +468,7 @@ jQuery(function ($) {
       }).done(function (resp) {
         if (resp && resp.success) {
           $c.find("#ap-ft-list").html(resp.data.html);
+          $c.attr('data-count', (resp.data && resp.data.count) ? resp.data.count : 0);
           const t = resp.data.generated_at || '';
           $c.find("#ap-ft-note").text((t ? `数据生成于 ${t}（本站时区）。` : ''));
         } else {
@@ -481,6 +482,11 @@ jQuery(function ($) {
       });
     }
     function exportExcel($c) {
+      const cnt = parseInt($c.attr('data-count') || '0', 10);
+      if (!Number.isFinite(cnt) || cnt <= 0) {
+        alert('所选日期范围内暂无数据，无法导出。');
+        return;
+      }
       const rng = getRange($c);
       // 用表单方式下载（避免 fetch/$.ajax 处理 blob 的兼容问题）
       const form = document.createElement("form");

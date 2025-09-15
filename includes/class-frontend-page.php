@@ -177,20 +177,29 @@ class Frontend_Page
 
     // UI：筛选 + 按钮 + 列表容器（列表有服务端首屏，按钮点了走 AJAX 替换）
     ob_start(); ?>
-    <div class="ap-first-timers-v2" id="ap-first-timers">
+    <div class="ap-first-timers-v2" id="ap-first-timers"
+      data-count="<?php echo (int) count($rows); ?>">
+
       <form class="ap-ft-toolbar" onsubmit="return false;">
-        <label>开始：
+
+        <div class="ap-ft-field">
+          <label for="ap-ft-start">开始：</label>
           <input type="date" id="ap-ft-start" value="<?php echo esc_attr($start); ?>">
-        </label>
-        <label>结束：
+        </div>
+
+        <div class="ap-ft-field">
+          <label for="ap-ft-end">结束：</label>
           <input type="date" id="ap-ft-end" value="<?php echo esc_attr($end); ?>">
-        </label>
+        </div>
+
         <button type="button" class="button" id="ap-ft-refresh">刷新数据</button>
         <?php if ($can_export): ?>
           <button type="button" class="button button-primary" id="ap-ft-export">导出Excel</button>
         <?php endif; ?>
+
         <small id="ap-ft-note" style="margin-left:8px;color:#666;">无需刷新整页，点击“刷新数据”获取最新。</small>
       </form>
+
 
       <div id="ap-ft-loader" style="display:none;margin:8px 0;">
         <div class="loader" aria-label="Loading" role="status"></div>
@@ -252,6 +261,22 @@ class Frontend_Page
       @keyframes apspin {
         to {
           transform: rotate(360deg)
+        }
+      }
+
+      .ap-ft-field {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      @media (max-width: 480px) {
+        .ap-ft-field {
+          width: 100%
+        }
+
+        .ap-ft-field input {
+          flex: 1
         }
       }
 
