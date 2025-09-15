@@ -71,32 +71,68 @@ jQuery(function ($) {
     let hintShown = false; // 仅在第一次聚焦时提示一次
 
     function showPhoneHintOnce() {
-      if (hintShown || !savedPhone) return; // 没有本机保存的号码则不提示
+      if (hintShown) return;
       hintShown = true;
-      // 在电话号码区域下方插入一条温和提示
+
       const $box = $form.find(".phone-box");
       if ($box.next(".phone-hint").length === 0) {
+        // ✅ 若本机没有已保存号码 → 首次登记提示；否则 → 变更提示
+        const text = !savedPhone
+          ? "提示：这是你首次登记，手机号将作为以后签到的身份识别，请确认电话号码。"
+          : "提示：除非需要为他人签到，否则请勿更换电话号码（用于唯一身份识别）";
         $("<div/>", {
           class: "phone-hint",
-          text: "提示：除非需要为他人签到，否则请勿更换电话号码（用于唯一身份识别）",
+          text,
           css: { color: "#f99522ff", "font-size": "16px", "margin-top": "4px", "margin-bottom": "6px" }
         }).insertAfter($box);
       }
     }
 
+    function clearPhoneHint() {
+      const $h = $form.find('.phone-hint');
+      if ($h.length) $h.text(''); // 仅清空内容；也可用 $h.hide() 隐藏
+    }
     // 聚焦任一电话字段时，若本地有号码则显示一次提示（不打断操作）
     $cc.on("focus", showPhoneHintOnce);
     $num.on("focus", showPhoneHintOnce);
 
-    // 提交前二次确认：若修改了号码则弹确认框
+    // 合并后的唯一提交处理器（确保取消时不提交）
     $form.off("submit.ap").on("submit.ap", function (e) {
       e.preventDefault();
 
+      const $submit = $form.find('input[type=submit], button[type=submit]');
+
+      // 若上次请求尚未完成，直接忽略（防抖）
+      if ($submit.prop('disabled')) return;
+
       const curPhone = normalizePhone($cc.val(), $num.val());
-      if (savedPhone && curPhone && curPhone !== savedPhone) {
-        const ok = window.confirm("检测到你更改了电话号码。\n若非需要帮助他人签到，否则请不要更改号码。\n确定要用新号码提交吗？");
-        if (!ok) { $num.focus(); return; }
+
+      // —— 首次登记：无 savedPhone → 弹一次确认；Cancel 就返回，且不禁用按钮
+      if (!savedPhone) {
+        const okFirst = window.confirm(
+          "首次登记：系统将以此手机号作为你以后签到的身份识别。\n请确认号码无误后提交。\n确定提交吗？"
+        );
+        if (!okFirst) {
+          // 允许返回修改
+          clearPhoneHint();
+          setTimeout(() => { $num.focus(); $num.select && $num.select(); }, 0);
+          return;
+        }
       }
+      // —— 非首次：若号码被更改 → 弹确认；Cancel 就返回，且不禁用按钮
+      else if (curPhone && curPhone !== savedPhone) {
+        const okChange = window.confirm(
+          "检测到你更改了电话号码。\n如果不是在录入他人信息，请不要更改号码。\n确定要用新号码提交吗？"
+        );
+        if (!okChange) {
+          clearPhoneHint();
+          setTimeout(() => { $num.focus(); $num.select && $num.select(); }, 0);
+          return;
+        }
+      }
+
+      // ✅ 只有通过了上面的确认，才开始“防重复提交”
+      $submit.prop('disabled', true).attr('aria-busy', 'true');
 
       const formData = {
         es_first_name: $form.find("input[name=es_first_name]").val(),
@@ -106,16 +142,22 @@ jQuery(function ($) {
         es_phone_number: $num.val(),
         es_fellowship: $form.find("select[name=es_fellowship]").val(),
       };
-      storage.set("es_attendance_form_data", formData);
-      api.post("es_handle_attendance", formData).done((resp) => {
-        $(".es-message").remove();
-        const ok = !!(resp && resp.success);
-        const msg = (resp && resp.data && resp.data.message) || (ok ? "Success" : "Error");
-        displayMessage($form, msg, ok ? "green" : "red");
-        alert(msg);
-      });
-    });
 
+      storage.set("es_attendance_form_data", formData);
+
+      api.post("es_handle_attendance", formData)
+        .done((resp) => {
+          $(".es-message").remove();
+          const ok = !!(resp && resp.success);
+          const msg = (resp && resp.data && resp.data.message) || (ok ? "Success" : "Error");
+          displayMessage($form, msg, ok ? "green" : "red");
+          alert(msg);
+        })
+        .always(() => {
+          // 无论成功失败，都恢复按钮
+          $submit.prop('disabled', false).removeAttr('aria-busy');
+        });
+    });
 
     $form.on("focus", "input,select", function () { $(".es-message").remove(); });
 
