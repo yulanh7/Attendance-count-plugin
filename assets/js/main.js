@@ -461,7 +461,7 @@ jQuery(function ($) {
       const rng = getRange($c);
       showLoader($c, true);
       return $.ajax({
-        url: esAjax.ajaxurl,
+        url: apAjaxUrl(),
         type: "POST",
         dataType: "json",
         data: { action: "ap_first_timers_query", nonce: esAjax.nonce, ...rng }

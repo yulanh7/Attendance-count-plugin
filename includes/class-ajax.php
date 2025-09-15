@@ -139,7 +139,8 @@ class Ajax
       header('Vary: Cookie');
     }
 
-    check_ajax_referer('es_attendance_nonce', 'nonce');
+    $nonce_ok = isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'es_attendance_nonce');
+    $can_view_phone = ($nonce_ok && is_user_logged_in() && current_user_can('read'));
 
     $start = isset($_POST['start']) ? sanitize_text_field($_POST['start']) : '';
     $end   = isset($_POST['end'])   ? sanitize_text_field($_POST['end'])   : '';
@@ -180,7 +181,19 @@ class Ajax
   /** AJAX：导出 CSV（Excel 可直接打开） */
   public static function first_timers_export()
   {
+    if (!is_user_logged_in() || !current_user_can('read')) {
+      if (!headers_sent()) {
+        nocache_headers();
+        status_header(403);
+        header('Content-Type: text/plain; charset=utf-8');
+      }
+      echo 'Forbidden';
+      exit;
+    }
     check_ajax_referer('es_attendance_nonce', 'nonce');
+
+    $nonce_ok = isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'es_attendance_nonce');
+    $can_view_phone = ($nonce_ok && is_user_logged_in() && current_user_can('read'));
 
     $start = isset($_POST['start']) ? sanitize_text_field($_POST['start']) : '';
     $end   = isset($_POST['end'])   ? sanitize_text_field($_POST['end'])   : '';

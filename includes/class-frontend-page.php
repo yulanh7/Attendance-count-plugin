@@ -146,6 +146,7 @@ class Frontend_Page
 
     // 权限：登录且具备 read（subscriber 及以上）可看电话
     $can_view_phone = (is_user_logged_in() && current_user_can('read'));
+    $can_export     = $can_view_phone;
 
     // —— 服务器端首屏渲染一份（避免首屏空白），后续用 AJAX 刷新 ——
     global $wpdb;
@@ -175,7 +176,9 @@ class Frontend_Page
           <input type="date" id="ap-ft-end" value="<?php echo esc_attr($end); ?>">
         </label>
         <button type="button" class="button" id="ap-ft-refresh">刷新数据</button>
-        <button type="button" class="button button-primary" id="ap-ft-export">导出Excel</button>
+        <?php if ($can_export): ?>
+          <button type="button" class="button button-primary" id="ap-ft-export">导出Excel</button>
+        <?php endif; ?>
         <small id="ap-ft-note" style="margin-left:8px;color:#666;">无需刷新整页，点击“刷新数据”获取最新。</small>
       </form>
 
