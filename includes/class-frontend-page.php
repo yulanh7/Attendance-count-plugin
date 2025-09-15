@@ -218,9 +218,9 @@ class Frontend_Page
       }
 
       .ap-ft-meta {
-        font-size: 12px;
+        font-size: 14px;
         color: #666;
-        margin-top: 2px;
+        margin-top: 6px;
       }
 
       .ap-ft-empty {
