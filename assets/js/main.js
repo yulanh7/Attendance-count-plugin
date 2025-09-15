@@ -57,14 +57,53 @@ jQuery(function ($) {
     $form.find("input[name=es_phone_number]").val(saved.es_phone_number || "");
     $form.find("select[name=es_fellowship]").val(saved.es_fellowship || "");
 
-    $form.on("submit", function (e) {
+    // 🔽 新增：手机号一致性与提示逻辑
+    const $cc = $form.find("select[name=es_phone_country_code]");
+    const $num = $form.find("input[name=es_phone_number]");
+
+    function normalizePhone(cc, num) {
+      let n = (num || "").replace(/[\s\-()]/g, "");
+      if (cc === "+61" && n.charAt(0) === "0") n = n.slice(1);
+      return (cc || "") + n;
+    }
+
+    const savedPhone = normalizePhone(saved.es_phone_country_code || "", saved.es_phone_number || "");
+    let hintShown = false; // 仅在第一次聚焦时提示一次
+
+    function showPhoneHintOnce() {
+      if (hintShown || !savedPhone) return; // 没有本机保存的号码则不提示
+      hintShown = true;
+      // 在电话号码区域下方插入一条温和提示
+      const $box = $form.find(".phone-box");
+      if ($box.next(".phone-hint").length === 0) {
+        $("<div/>", {
+          class: "phone-hint",
+          text: "提示：除非需要为他人签到，否则请勿更换电话号码（用于唯一身份识别）",
+          css: { color: "#f99522ff", "font-size": "16px", "margin-top": "4px", "margin-bottom": "6px" }
+        }).insertAfter($box);
+      }
+    }
+
+    // 聚焦任一电话字段时，若本地有号码则显示一次提示（不打断操作）
+    $cc.on("focus", showPhoneHintOnce);
+    $num.on("focus", showPhoneHintOnce);
+
+    // 提交前二次确认：若修改了号码则弹确认框
+    $form.off("submit.ap").on("submit.ap", function (e) {
       e.preventDefault();
+
+      const curPhone = normalizePhone($cc.val(), $num.val());
+      if (savedPhone && curPhone && curPhone !== savedPhone) {
+        const ok = window.confirm("检测到你更改了电话号码。\n若非需要帮助他人签到，否则请不要更改号码。\n确定要用新号码提交吗？");
+        if (!ok) { $num.focus(); return; }
+      }
+
       const formData = {
         es_first_name: $form.find("input[name=es_first_name]").val(),
         es_last_name: $form.find("input[name=es_last_name]").val(),
         es_email: $form.find("input[name=es_email]").val(),
-        es_phone_country_code: $form.find("select[name=es_phone_country_code]").val(),
-        es_phone_number: $form.find("input[name=es_phone_number]").val(),
+        es_phone_country_code: $cc.val(),
+        es_phone_number: $num.val(),
         es_fellowship: $form.find("select[name=es_fellowship]").val(),
       };
       storage.set("es_attendance_form_data", formData);
@@ -76,6 +115,7 @@ jQuery(function ($) {
         alert(msg);
       });
     });
+
 
     $form.on("focus", "input,select", function () { $(".es-message").remove(); });
 
