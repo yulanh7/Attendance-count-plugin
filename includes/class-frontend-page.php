@@ -257,7 +257,7 @@ class Frontend_Page
     }
     $cards = '';
     foreach ($rows as $r) {
-      $name = trim(($r['first_name'] ?? '') . ' ' . ($r['last_name'] ?? ''));
+      $name = trim(($r['last_name'] ?? '') . ' ' . ($r['first_name'] ?? ''));
       $date = \AP\format_date_dmy($r['first_attendance_date'] ?? '');
       $phone = $can_view_phone ? esc_html($r['phone'] ?? '') : '';
       $phoneHtml = $phone ? '<div class="ap-ft-meta">📞 ' . $phone . '</div>' : '';
