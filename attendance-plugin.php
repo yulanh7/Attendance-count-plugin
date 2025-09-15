@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: Manage attendance (split structure).
- * Version: 2.2.0
+ * Version: 2.2.1
  * Author: Rachel Huang
  * Text Domain: attendance-plugin
  */
