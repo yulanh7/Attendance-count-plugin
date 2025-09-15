@@ -267,6 +267,43 @@ class Frontend_Page
         animation: apspin 1s linear infinite;
       }
 
+      /* 基础文字颜色 */
+      #ap-ft-start,
+      #ap-ft-end {
+        color: #006400;
+        caret-color: #006400;
+      }
+
+      /* WebKit 内部字段（年/月/日与分隔符） */
+      #ap-ft-start::-webkit-datetime-edit,
+      #ap-ft-end ::-webkit-datetime-edit,
+      #ap-ft-start::-webkit-datetime-edit-text,
+      #ap-ft-end ::-webkit-datetime-edit-text,
+      #ap-ft-start::-webkit-datetime-edit-month-field,
+      #ap-ft-end ::-webkit-datetime-edit-month-field,
+      #ap-ft-start::-webkit-datetime-edit-day-field,
+      #ap-ft-end ::-webkit-datetime-edit-day-field,
+      #ap-ft-start::-webkit-datetime-edit-year-field,
+      #ap-ft-end ::-webkit-datetime-edit-year-field {
+        color: #006400;
+      }
+
+      /* 日历图标（WebKit）——做一点绿色调的着色 */
+      #ap-ft-start::-webkit-calendar-picker-indicator,
+      #ap-ft-end ::-webkit-calendar-picker-indicator {
+        opacity: .85;
+        filter: hue-rotate(75deg) saturate(160%) brightness(0.95);
+      }
+
+      /* 聚焦态边框/高亮 */
+      #ap-ft-start:focus,
+      #ap-ft-end:focus {
+        outline: none;
+        border-color: #006400;
+        box-shadow: 0 0 0 2px rgba(0, 100, 0, .15);
+      }
+
+
       /* 与 #FFD700 主按钮同色系的“金色描边”按钮 */
       button.ap-btn-outline-gold {
         --gold: #DAA520;
