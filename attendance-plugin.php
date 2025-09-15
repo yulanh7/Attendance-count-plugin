@@ -15,7 +15,7 @@ define('AP_URL',  plugin_dir_url(__FILE__));
 
 // 让 IDE 不报未定义常量；实际可用 wp-config 覆盖
 if (!defined('ES_ATTENDANCE_DOW')) {
-  define('ES_ATTENDANCE_DOW', 1); // 0=周日, 1=周一,... 3=周三
+  define('ES_ATTENDANCE_DOW', 0); // 0=周日, 1=周一,... 3=周三
 }
 
 if (!defined('AP_FRONT_PER_PAGE')) {
