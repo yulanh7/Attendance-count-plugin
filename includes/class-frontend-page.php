@@ -115,7 +115,158 @@ class Frontend_Page
       </div>
     </div>
 
+  <?php
+    return ob_get_clean();
+  }
+
+  public static function render_first_timers_shortcode($atts = []): string
+  {
+    if (!headers_sent()) {
+      nocache_headers();
+    }
+
+    $today = current_time('Y-m-d');
+
+    $a = shortcode_atts([
+      'start' => $today,
+      'end'   => $today,
+    ], $atts, 'attendance_first_timers');
+
+    // 规范化日期
+    $to_date = function ($s) {
+      $dt = \DateTime::createFromFormat('Y-m-d', $s);
+      return $dt ? $dt->format('Y-m-d') : null;
+    };
+    $start = $to_date($a['start']) ?: $today;
+    $end   = $to_date($a['end'])   ?: $today;
+
+    // 权限：登录且具备 read（subscriber 及以上）可看电话
+    $can_view_phone = (is_user_logged_in() && current_user_can('read'));
+
+    // —— 服务器端首屏渲染一份（避免首屏空白），后续用 AJAX 刷新 ——
+    global $wpdb;
+    $attendance = $wpdb->prefix . 'attendance';
+    $rows = $wpdb->get_results(
+      $wpdb->prepare(
+        "SELECT first_name, last_name, phone, first_attendance_date
+         FROM {$attendance}
+        WHERE first_attendance_date BETWEEN %s AND %s
+        ORDER BY first_attendance_date DESC, last_name, first_name",
+        $start,
+        $end
+      ),
+      ARRAY_A
+    );
+
+    $list_html = self::render_first_timers_list_html($rows, $can_view_phone);
+
+    // UI：筛选 + 按钮 + 列表容器（列表有服务端首屏，按钮点了走 AJAX 替换）
+    ob_start(); ?>
+    <div class="ap-first-timers-v2" id="ap-first-timers">
+      <form class="ap-ft-toolbar" onsubmit="return false;">
+        <label>开始：
+          <input type="date" id="ap-ft-start" value="<?php echo esc_attr($start); ?>">
+        </label>
+        <label>结束：
+          <input type="date" id="ap-ft-end" value="<?php echo esc_attr($end); ?>">
+        </label>
+        <button type="button" class="button" id="ap-ft-refresh">刷新数据</button>
+        <button type="button" class="button button-primary" id="ap-ft-export">导出Excel</button>
+        <small id="ap-ft-note" style="margin-left:8px;color:#666;">无需刷新整页，点击“刷新数据”获取最新。</small>
+      </form>
+
+      <div id="ap-ft-loader" style="display:none;margin:8px 0;">
+        <div class="loader" aria-label="Loading" role="status"></div>
+      </div>
+
+      <div id="ap-ft-list"><?php echo $list_html; ?></div>
+    </div>
+
+    <style>
+      .ap-first-timers-v2 .ap-ft-toolbar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+      }
+
+      .ap-ft-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin-top: 8px;
+      }
+
+      .ap-ft-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+        padding: 10px 12px;
+      }
+
+      .ap-ft-name {
+        font-weight: 600;
+      }
+
+      .ap-ft-meta {
+        font-size: 12px;
+        color: #666;
+        margin-top: 2px;
+      }
+
+      .ap-ft-empty {
+        padding: 12px;
+        border: 1px dashed #e5e7eb;
+        border-radius: 8px;
+        background: #fafafa;
+      }
+
+      .loader {
+        width: 20px;
+        height: 20px;
+        border: 3px solid #ddd;
+        border-top-color: #666;
+        border-radius: 50%;
+        animation: apspin 1s linear infinite;
+      }
+
+      @keyframes apspin {
+        to {
+          transform: rotate(360deg)
+        }
+      }
+
+      @media print {
+        .ap-ft-card {
+          box-shadow: none;
+          border: 0
+        }
+      }
+    </style>
 <?php
     return ob_get_clean();
+  }
+
+  /** 服务端渲染小卡片列表（姓名 + 首次来访日期；按权限可带电话） */
+  public static function render_first_timers_list_html(array $rows, bool $can_view_phone): string
+  {
+    if (empty($rows)) {
+      return '<div class="ap-ft-empty">所选日期内暂无第一次来访的朋友。</div>';
+    }
+    $cards = '';
+    foreach ($rows as $r) {
+      $name = trim(($r['first_name'] ?? '') . ' ' . ($r['last_name'] ?? ''));
+      $date = \AP\format_date_dmy($r['first_attendance_date'] ?? '');
+      $phone = $can_view_phone ? esc_html($r['phone'] ?? '') : '';
+      $phoneHtml = $phone ? '<div class="ap-ft-meta">📞 ' . $phone . '</div>' : '';
+      $cards .= '<div class="ap-ft-card">'
+        .   '<div class="ap-ft-name">' . esc_html($name) . '</div>'
+        .   '<div class="ap-ft-meta">首次来访：' . esc_html($date) . '</div>'
+        .    $phoneHtml
+        . '</div>';
+    }
+    return '<div class="ap-ft-grid">' . $cards . '</div>';
   }
 }

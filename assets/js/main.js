@@ -435,5 +435,75 @@ jQuery(function ($) {
       });
       // 首屏/刷新：不自动 AJAX，使用服务器渲染的第 1 页
     });
+
+
   })(jQuery);
+
+  // ========== First Timers（无刷新刷新 + 导出） ==========
+  (function ($) {
+    function $box() { const $c = $("#ap-first-timers"); return $c.length ? $c : null; }
+    function getRange($c) {
+      const s = $c.find("#ap-ft-start").val();
+      const e = $c.find("#ap-ft-end").val();
+      return { start: s || new Date().toISOString().slice(0, 10), end: e || new Date().toISOString().slice(0, 10) };
+    }
+    function showLoader($c, show) {
+      const $l = $c.find("#ap-ft-loader");
+      if (!$l.length) return;
+      show ? $l.show() : $l.hide();
+    }
+    function refreshList($c) {
+      const rng = getRange($c);
+      showLoader($c, true);
+      return $.ajax({
+        url: esAjax.ajaxurl,
+        type: "POST",
+        dataType: "json",
+        data: { action: "ap_first_timers_query", nonce: esAjax.nonce, ...rng }
+      }).done(function (resp) {
+        if (resp && resp.success) {
+          $c.find("#ap-ft-list").html(resp.data.html);
+          const t = resp.data.generated_at || '';
+          $c.find("#ap-ft-note").text((t ? `数据生成于 ${t}（本站时区）。` : ''));
+        } else {
+          alert("加载失败，请稍后再试。");
+        }
+      }).fail(function () {
+        alert("加载失败，请稍后再试。");
+      }).always(function () {
+        showLoader($c, false);
+      });
+    }
+    function exportExcel($c) {
+      const rng = getRange($c);
+      // 用表单方式下载（避免 fetch/$.ajax 处理 blob 的兼容问题）
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = esAjax.ajaxurl;
+      form.style.display = "none";
+
+      const add = (k, v) => { const i = document.createElement("input"); i.type = "hidden"; i.name = k; i.value = v; form.appendChild(i); };
+      add("action", "ap_first_timers_export");
+      add("nonce", esAjax.nonce);
+      add("start", rng.start);
+      add("end", rng.end);
+
+      document.body.appendChild(form);
+      form.submit();
+      setTimeout(() => form.remove(), 1000);
+    }
+
+    $(function () {
+      const $c = $box();
+      if (!$c) return;
+
+      // 绑定事件
+      $c.on("click", "#ap-ft-refresh", function (e) { e.preventDefault(); refreshList($c); });
+      $c.on("click", "#ap-ft-export", function (e) { e.preventDefault(); exportExcel($c); });
+
+      // 可选：切日期即刷新
+      $c.on("change", "#ap-ft-start, #ap-ft-end", function () { refreshList($c); });
+    });
+  })(jQuery);
+
 });
