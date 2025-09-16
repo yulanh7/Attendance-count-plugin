@@ -479,3 +479,16 @@
   padding: 12px;
   color: #b00020;
 }
+
+.submit-hint {
+  margin-top: 6px;
+  font-size: 16px;
+  background: #b45309;
+  padding: 8px;
+  color: white;
+  display: none;
+}
+
+[aria-busy="true"] {
+  cursor: progress !important;
+}

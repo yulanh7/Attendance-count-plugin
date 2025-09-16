@@ -97,6 +97,60 @@ jQuery(function ($) {
       const s = String(msg || '').toLowerCase();
       return /已经签到|已签到|重复|already\s*(checked\s*in|signed)|duplicate/.test(s);
     }
+
+    // 找到这次真正触发提交的按钮（优先使用当前聚焦的那个）
+    function getSubmitButton($form) {
+      const $active = $(document.activeElement);
+      if ($active.is('button[type=submit], input[type=submit]')) return $active;
+      return $form.find('button[type=submit], input[type=submit]').first();
+    }
+
+
+    // 找到触发提交的按钮
+    function getSubmitButton($form) {
+      const $active = $(document.activeElement);
+      if ($active.is('button[type=submit], input[type=submit]')) return $active;
+      return $form.find('button[type=submit], input[type=submit]').first();
+    }
+
+    // 切换“提交中”状态 + 底部提示
+    function setSubmitting($btn, on) {
+      if (!$btn || !$btn.length) return;
+
+      // 确保有提示元素（按钮正下方）
+      let $hint = $btn.next('.submit-hint');
+      if (!$hint.length) {
+        $hint = $('<div class="submit-hint" role="status" aria-live="polite"/>')
+          .insertAfter($btn);
+      }
+
+      if (on) {
+        // 记住原文案
+        const original = $btn.is('input') ? $btn.val() : $btn.html();
+        $btn.data('orig-label', original);
+
+        // 改为 Submitting… 并禁用
+        if ($btn.is('input')) $btn.val('Submitting…');
+        else $btn.text('Submitting…');
+        $btn.prop('disabled', true).attr('aria-busy', 'true');
+
+        // 显示提示
+        $hint.text('在签到中，请勿关闭窗口').show();
+      } else {
+        // 还原标题 & 恢复可用
+        const original = $btn.data('orig-label');
+        if (original !== undefined) {
+          if ($btn.is('input')) $btn.val(original);
+          else $btn.html(original);
+        }
+        $btn.prop('disabled', false).removeAttr('aria-busy');
+
+        // 隐藏提示
+        $hint.text('').hide();
+      }
+    }
+
+
     // 聚焦任一电话字段时，若本地有号码则显示一次提示（不打断操作）
     $cc.on("focus", showPhoneHintOnce);
     $num.on("focus", showPhoneHintOnce);
@@ -106,14 +160,14 @@ jQuery(function ($) {
       e.preventDefault();
       e.stopImmediatePropagation();  // 阻断同一元素上的其它 submit 监听
       e.stopPropagation();
-      const $submit = $form.find('input[type=submit], button[type=submit]');
-      if ($submit.prop('disabled')) return;
+      const $submit = getSubmitButton($form);
+      if ($submit && $submit.prop('disabled')) return;
 
       const curPhone = normalizePhone($cc.val(), $num.val());
 
       // 封装真正提交
       function doSubmit() {
-        $submit.prop('disabled', true).attr('aria-busy', 'true');
+        setSubmitting($submit, true);
         const formData = {
           es_first_name: $form.find("input[name=es_first_name]").val(),
           es_last_name: $form.find("input[name=es_last_name]").val(),
@@ -152,7 +206,7 @@ jQuery(function ($) {
           .always(() => {
             hintShown = false;
             clearPhoneHint();
-            $submit.prop('disabled', false).removeAttr('aria-busy');
+            setSubmitting($submit, false);
           });
       }
 
