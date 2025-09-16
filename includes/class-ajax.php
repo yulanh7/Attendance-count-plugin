@@ -23,6 +23,9 @@ class Ajax
 
     add_action('wp_ajax_ap_get_nonce',      ['AP\\Ajax', 'get_nonce']);
     add_action('wp_ajax_nopriv_ap_get_nonce', ['AP\\Ajax', 'get_nonce']);
+
+    add_action('wp_ajax_ap_check_phone_exists', ['AP\\Ajax', 'check_phone_exists']);
+    add_action('wp_ajax_nopriv_ap_check_phone_exists', ['AP\\Ajax', 'check_phone_exists']);
   }
 
   public static function get_nonce()
@@ -127,6 +130,45 @@ class Ajax
     echo ob_get_clean();
     wp_die();
   }
+
+  public static function check_phone_exists()
+  {
+    // 校验 nonce（前端用 esAjax.nonce）
+    check_ajax_referer('es_attendance_nonce', 'nonce');
+
+    // 取参数并做与提交时一致的归一化
+    $cc  = isset($_POST['cc'])  ? sanitize_text_field($_POST['cc'])  : '';
+    $num = isset($_POST['num']) ? sanitize_text_field($_POST['num']) : '';
+    $num = preg_replace('/[\s\-\(\)]/', '', $num ?: '');
+
+    // AU 本地：+61 去掉开头 0（与 handle_submit 一致）
+    if ($cc === '+61' && substr($num, 0, 1) === '0') {
+      $num = substr($num, 1);
+    }
+    $phone = $cc . $num;
+
+    if ($phone === '' || $cc === '' || $num === '') {
+      wp_send_json_success(['exists' => false]); // 无效输入按不存在处理
+    }
+
+    global $wpdb;
+    $attendance = $wpdb->prefix . 'attendance';
+    $exists = (bool) $wpdb->get_var(
+      $wpdb->prepare("SELECT 1 FROM {$attendance} WHERE phone = %s LIMIT 1", $phone)
+    );
+
+    // 不缓存
+    if (!headers_sent()) {
+      nocache_headers();
+      header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+      header('Pragma: no-cache');
+      header('Expires: 0');
+      header('Vary: Cookie');
+    }
+
+    wp_send_json_success(['exists' => $exists]);
+  }
+
 
   public static function first_timers_query()
 
