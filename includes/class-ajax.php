@@ -26,6 +26,16 @@ class Ajax
 
     add_action('wp_ajax_ap_check_phone_exists', ['AP\\Ajax', 'check_phone_exists']);
     add_action('wp_ajax_nopriv_ap_check_phone_exists', ['AP\\Ajax', 'check_phone_exists']);
+
+    // 新增的 AJAX 动作
+    add_action('wp_ajax_es_quick_attendance', [__CLASS__, 'quick_attendance']);
+    add_action('wp_ajax_nopriv_es_quick_attendance', [__CLASS__, 'quick_attendance']);
+
+    add_action('wp_ajax_ap_get_user_profile', [__CLASS__, 'get_user_profile']);
+    add_action('wp_ajax_nopriv_ap_get_user_profile', [__CLASS__, 'get_user_profile']);
+
+    add_action('wp_ajax_ap_update_profile', [__CLASS__, 'update_profile']);
+    add_action('wp_ajax_nopriv_ap_update_profile', [__CLASS__, 'update_profile']);
   }
 
   public static function get_nonce()
@@ -309,5 +319,179 @@ class Ajax
     header('Content-Disposition: attachment; filename="First_Timers_' . $fn_date . '.csv"');
     echo $csv;
     exit;
+  }
+
+
+
+
+  /**
+   * 快速签到（仅凭电话号码）
+   */
+  public static function quick_attendance()
+  {
+    self::verify_nonce();
+
+    $phone = sanitize_text_field($_POST['phone'] ?? '');
+    if (!$phone) {
+      wp_send_json_error(['message' => '电话号码不能为空']);
+    }
+
+    global $wpdb;
+    $attendance = $wpdb->prefix . 'attendance';
+    $dates = $wpdb->prefix . 'attendance_dates';
+
+    // 检查用户是否存在
+    $user = $wpdb->get_row($wpdb->prepare(
+      "SELECT id, first_name, last_name FROM $attendance WHERE phone = %s",
+      $phone
+    ));
+
+    if (!$user) {
+      wp_send_json_error(['message' => '该电话号码未注册，请先进行首次登记']);
+    }
+
+    // 仅允许目标星期签到
+    if ((int) current_time('w') !== get_target_dow()) {
+      wp_send_json_error(['message' => '今天不是允许的签到日，不能签到。']);
+    }
+
+    $today = current_time('Y-m-d');
+
+    // 写入当日出勤（依赖 dates 唯一键）
+    $ins = $wpdb->query($wpdb->prepare(
+      "INSERT IGNORE INTO $dates (attendance_id, date_attended) VALUES (%d, %s)",
+      $user->id,
+      $today
+    ));
+
+    if ($ins === false) {
+      wp_send_json_error(['message' => '记录签到失败，请稍后再试。']);
+    }
+
+    if ($ins === 0) {
+      wp_send_json_error(['message' => '您今天已经签到过了，请勿重复签到!']);
+    }
+
+    wp_send_json_success(['message' => "签到成功！欢迎 {$user->first_name} {$user->last_name}"]);
+  }
+
+  /**
+   * 获取用户资料
+   */
+  public static function get_user_profile()
+  {
+    self::verify_nonce();
+
+    $phone = sanitize_text_field($_POST['phone'] ?? '');
+    if (!$phone) {
+      wp_send_json_error(['message' => '电话号码不能为空']);
+    }
+
+    global $wpdb;
+    $attendance = $wpdb->prefix . 'attendance';
+
+    $user = $wpdb->get_row($wpdb->prepare(
+      "SELECT first_name, last_name, phone, email, fellowship FROM $attendance WHERE phone = %s",
+      $phone
+    ));
+
+    if (!$user) {
+      wp_send_json_error(['message' => '找不到该用户资料']);
+    }
+
+    // 解析电话号码
+    $phone_parts = self::parse_phone_number($user->phone);
+
+    wp_send_json_success([
+      'first_name' => $user->first_name,
+      'last_name' => $user->last_name,
+      'email' => $user->email,
+      'fellowship' => $user->fellowship,
+      'country_code' => $phone_parts['country_code'],
+      'phone_number' => $phone_parts['phone_number'],
+    ]);
+  }
+
+  /**
+   * 更新用户资料（需要提供电话号码查找用户）
+   */
+  public static function update_profile()
+  {
+    self::verify_nonce();
+
+    $first_name = trim(sanitize_text_field($_POST['es_first_name'] ?? ''));
+    $last_name = trim(sanitize_text_field($_POST['es_last_name'] ?? ''));
+    $email = sanitize_email($_POST['es_email'] ?? '');
+    $fellowship = trim(sanitize_text_field($_POST['es_fellowship'] ?? ''));
+    $country_code = trim(sanitize_text_field($_POST['es_phone_country_code'] ?? ''));
+    $phone_number = trim(sanitize_text_field($_POST['es_phone_number'] ?? ''));
+
+    // 电话号码归一化处理
+    $phone_number = preg_replace('/[\s\-\(\)]/', '', $phone_number);
+    if ($country_code === '+61' && substr($phone_number, 0, 1) === '0') {
+      $phone_number = substr($phone_number, 1);
+    }
+    $phone = $country_code . $phone_number;
+
+    if (!$first_name || !$last_name || !$fellowship || !$phone) {
+      wp_send_json_error(['message' => '请填写所有必填字段']);
+    }
+
+    global $wpdb;
+    $attendance = $wpdb->prefix . 'attendance';
+
+    // 检查用户是否存在
+    $user_id = $wpdb->get_var($wpdb->prepare(
+      "SELECT id FROM $attendance WHERE phone = %s",
+      $phone
+    ));
+
+    if (!$user_id) {
+      wp_send_json_error(['message' => '该电话号码不存在，请先进行首次登记']);
+    }
+
+    // 更新资料
+    $result = $wpdb->update(
+      $attendance,
+      [
+        'first_name' => $first_name,
+        'last_name' => $last_name,
+        'email' => $email,
+        'fellowship' => $fellowship,
+      ],
+      ['id' => $user_id],
+      ['%s', '%s', '%s', '%s'],
+      ['%d']
+    );
+
+    if ($result === false) {
+      wp_send_json_error(['message' => '更新资料失败，请稍后再试']);
+    }
+
+    wp_send_json_success(['message' => "资料更新成功！用户：{$first_name} {$last_name}"]);
+  }
+
+  /**
+   * 解析电话号码为国家代码和号码
+   */
+  private static function parse_phone_number($full_phone)
+  {
+    // 常见的国家代码
+    $country_codes = ['+61', '+86', '+852', '+886', '+60', '+65'];
+
+    foreach ($country_codes as $code) {
+      if (strpos($full_phone, $code) === 0) {
+        return [
+          'country_code' => $code,
+          'phone_number' => substr($full_phone, strlen($code))
+        ];
+      }
+    }
+
+    // 默认返回
+    return [
+      'country_code' => '+61',
+      'phone_number' => $full_phone
+    ];
   }
 }

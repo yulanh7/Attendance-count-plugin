@@ -1,229 +1,320 @@
+/* =========================================================
+ * Attendance - Clean CSS
+ * =======================================================*/
+
+/* ---------- 通用表单容器（前台三合一） ---------- */
+.es-attendance-container {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f9f9f9;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
 .es-attendance-form {
   display: flex;
   flex-direction: column;
+  background: #fff;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  animation: fadeInUp 0.3s ease;
+}
+
+.es-attendance-form .form-title {
+  margin: 0 0 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #28a745;
+  color: #333;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
 }
 
 .es-attendance-form input[type="text"],
 .es-attendance-form input[type="date"],
 .es-attendance-form input[type="email"],
 .es-attendance-form select {
-  margin-bottom: 12px;
-  padding: 10px;
-  border-radius: 5px;
-  color: black;
+  margin-bottom: 15px;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  color: #333;
+  font-size: 16px;
+  transition: border-color 0.3s ease;
 }
 
+.es-attendance-form input[type="text"]:focus,
+.es-attendance-form input[type="date"]:focus,
+.es-attendance-form input[type="email"]:focus,
+.es-attendance-form select:focus {
+  border-color: #28a745;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 166, 191, 0.1);
+}
+
+/* 禁用状态 */
+.es-attendance-form input:disabled,
+.es-attendance-form select:disabled {
+  background-color: #f5f5f5 !important;
+  color: #999 !important;
+  cursor: not-allowed !important;
+  border-color: #e0e0e0 !important;
+}
+
+/* 提交按钮（注意 profile-action-row 内会改为自适应宽） */
 .es-attendance-form input[type="submit"] {
-  padding: 10px 20px;
-  /* Desktop padding */
-  background-color: #00a6bf;
-  /* Dynamic background color */
-  color: #ffffff;
-  /* Dynamic text color */
+  padding: 14px 20px;
+  background-color: #28a745;
+  color: #fff;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
   text-transform: uppercase;
   font-size: 16px;
+  font-weight: 600;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+  margin-bottom: 20px;
+  width: 100%;
 }
 
-.es-attendance-form input[disabled] {
-  background-color: gray !important;
-  border-radius: 5px;
-  cursor: default;
+.es-attendance-form input[type="submit"]:hover:not(:disabled) {
+  background-color: #18642a;
+  transform: translateY(-1px);
 }
 
+.es-attendance-form input[type="submit"]:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.es-attendance-form input[disabled],
 .es-attendance-form input[disabled]:hover {
-  background-color: gray !important;
-  border-radius: 5px;
-  cursor: default;
+  background-color: #ccc !important;
+  cursor: default !important;
+  transform: none !important;
 }
 
-.es-attendance-form .es-form-group {
-  color: #ffffff;
-  /* Dynamic text color */
-  margin-bottom: 12px;
+/* 信息提示条（日期） */
+.es-attendance-form #date-message,
+.es-attendance-form #date-message-first {
+  color: #333;
+  font-weight: 500;
+  text-align: center;
+  padding: 10px;
+  margin-bottom: 15px;
+  background: #e8f4f8;
+  border-radius: 6px;
+  border-left: 4px solid #28a745;
 }
 
-.es-attendance-form #date-message {
-  color: #fff;
-}
-
+/* 电话输入行 */
 .es-attendance-form .phone-box {
   display: flex;
+  gap: 8px;
+  margin-bottom: 15px;
 }
 
 .es-attendance-form .phone-box select {
-  height: 42px;
-
+  width: 80px;
+  margin-bottom: 0;
+  flex-shrink: 0;
 }
 
 .es-attendance-form .phone-box input {
-  margin-left: 5px;
-  flex: 1
+  margin-bottom: 0;
+  flex: 1;
 }
 
-
-
-@media (max-width: 768px) {
-  .es-attendance-form input[type="submit"] {
-    padding: 10px;
-    /* Mobile padding */
-  }
-}
-
-.filter-form input[type="text"],
-.filter-form input[type="date"],
-.filter-form select {
-  margin-bottom: 12px;
-  padding: 5px 10px;
-  border-radius: 5px;
-}
-
-.filter-form select {
-  margin-bottom: 4px;
-  width: 200px;
-}
-
-.filter-form .checkbox-container {
-  width: 130px;
-  display: inline-block;
-  padding: 0 10px;
-}
-
-.filter-form .submit-btn {
-  width: 100px;
-  height: 40px;
-  border-radius: 5px;
-  background: #ffd400;
-  border-color: #ffd400;
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.filter-form .submit-btn:hover {
-  border-radius: 5px;
-  background: #d6b40c;
-}
-
-.filter-form .export-csv {
-  width: 140px;
-  height: 40px;
-  border-radius: 5px;
-  background: #0073aa;
-  border-color: #0073aa;
-  font-size: 16px;
-  font-weight: 500;
-  color: #fff;
-}
-
-.filter-form .export-csv:hover {
-  border-radius: 5px;
-  background: #06567b;
-}
-
-@media (max-width: 768px) {
-  .filter-form input[type="text"] {
-    margin-bottom: 12px;
-    padding: 5px 10px;
-    border-radius: 5px;
-    width: 100%;
-  }
-
-  .filter-form .checkbox-container {
-    width: 130px;
-    display: block;
-    padding: 10px 0px 20px;
-  }
-}
-
-
-#filter-table-response {
-  position: relative;
-}
-
-#loader-box {
-  position: absolute;
-  inset: 0;
-  display: none;
-  align-items: center;
+/* 表单切换按钮 */
+.form-switch-buttons {
+  display: flex;
+  gap: 10px;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.6);
-  z-index: 10;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
 }
 
-#es-loading-spinner.loader {
-  width: 36px;
-  height: 36px;
-  border: 3px solid #ddd;
-  border-top-color: #666;
-  border-radius: 50%;
-  animation: apSpin .8s linear infinite;
+.switch-btn {
+  padding: 8px 16px;
+  background: #f8f9fa;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
 }
 
-@keyframes apSpin {
-  to {
-    transform: rotate(360deg)
+.switch-btn:hover {
+  background: #e9ecef;
+  color: #333;
+  border-color: #adb5bd;
+}
+
+.switch-btn:active {
+  transform: translateY(1px);
+}
+
+/* 提交状态提示（统一一版） */
+.submit-hint {
+  margin-top: 8px;
+  font-size: 14px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  color: #856404;
+  padding: 8px 12px;
+  border-radius: 4px;
+  text-align: center;
+  display: none;
+}
+
+[aria-busy="true"] {
+  cursor: progress !important;
+  opacity: 0.7;
+}
+
+/* 全局消息（displayMessage 注入） */
+.es-message {
+  font-size: 14px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* 兼容旧的橙色 message */
+.es-message[style*="orange"] {
+  background-color: #fd7e14 !important;
+}
+
+/* 错误状态 */
+.es-attendance-form input.error,
+.es-attendance-form select.error {
+  border-color: #dc3545;
+  background-color: #fff5f5;
+}
+
+.es-attendance-form input.error:focus,
+.es-attendance-form select.error:focus {
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+/* 修改资料：查找按钮与区块 */
+.es-attendance-form #profile-check-section {
+  margin-bottom: 20px;
+}
+
+.es-attendance-form .profile-check-btn {
+  width: 100%;
+  padding: 12px 20px;
+  background-color: #28a745;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.es-attendance-form .profile-check-btn:hover:not(:disabled) {
+  background-color: #218838;
+  transform: translateY(-1px);
+}
+
+.es-attendance-form .profile-check-btn:disabled {
+  background-color: #6c757d !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.es-attendance-form #profile-user-info {
+  animation: fadeIn 0.3s ease;
+}
+
+/* 更新资料按钮行（同一行展示） */
+.profile-action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  /* 同一行 */
+}
+
+#profile-user-info .profile-action-row input[type="submit"],
+#profile-user-info .profile-action-row button {
+  width: auto;
+  white-space: nowrap;
+}
+
+/* 手机端适配 */
+@media (max-width: 768px) {
+  .es-attendance-container {
+    margin: 10px;
+    padding: 15px;
+  }
+
+  .es-attendance-form {
+    padding: 20px;
+  }
+
+  .es-attendance-form .form-title {
+    font-size: 18px;
+  }
+
+  .es-attendance-form input[type="text"],
+  .es-attendance-form input[type="date"],
+  .es-attendance-form input[type="email"],
+  .es-attendance-form select {
+    padding: 10px;
+    font-size: 16px;
+    /* 防 iOS 缩放 */
+  }
+
+  .es-attendance-form input[type="submit"] {
+    padding: 12px 20px;
+    font-size: 16px;
+  }
+
+  .form-switch-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .switch-btn {
+    width: 100%;
+    padding: 10px 16px;
   }
 }
 
+/* 表单动画 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
 
-.g-recaptcha {
-  padding: 10px 0;
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.es-message {
-  font-size: 16px;
-  margin-top: 5px;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
-#attendance-info-modal {
-  display: none;
-  position: fixed;
-  z-index: 9999;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0, 0, 0, 0.5);
-}
-
-#attendance-info-modal .popup-content {
-  position: relative;
-  background-color: #fefefe;
-  margin: 15% auto;
-  padding: 20px;
-  border: 1px solid #888;
-  width: 80%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: scroll;
-}
-
-#attendance-info-modal .close {
-  background: none;
-  color: black;
-  font-size: 28px;
-  font-weight: bold;
-  cursor: pointer;
-  border: none;
-}
-
-#attendance-info-modal .close::before,
-#attendance-info-modal .close::after {
-  display: none;
-}
-
-#attendance-info-modal .close:hover,
-#attendance-info-modal .close:focus {
-  color: black;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-
-/* 作用域限定：只影响前台仪表板 */
+/* ---------- 前台仪表板（FE Dashboard） ---------- */
 .wrap.ap-frontend-dashboard {
   font-size: 14px;
 }
@@ -300,15 +391,42 @@
   margin-bottom: 15px;
 }
 
-/* 表格容器允许横向滚动（移动端更友好） */
-.ap-frontend-dashboard #filter-table-response {
+/* 表格与 loader */
+#filter-table-response {
   position: relative;
-  /* 已有 loader 需要 */
-  overflow-x: auto;
-  /* 新增 */
 }
 
-/* 简单前台表格样式 */
+#loader-box {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.6);
+  z-index: 10;
+}
+
+#es-loading-spinner.loader,
+.ap-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #ddd;
+  border-top-color: #666;
+  border-radius: 50%;
+  animation: apSpin .8s linear infinite;
+}
+
+@keyframes apSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 前台表格 */
+.ap-frontend-dashboard #filter-table-response {
+  overflow-x: auto;
+}
+
 .ap-table {
   width: 100%;
   border-collapse: collapse;
@@ -318,7 +436,6 @@
   overflow: hidden;
 }
 
-/* 表头 */
 .ap-table thead th {
   background: #f6f7f7;
   text-align: left;
@@ -326,10 +443,8 @@
   padding: 10px 12px;
   border-bottom: 1px solid #e6e6e6;
   white-space: nowrap;
-  /* 表头保持不换行 */
 }
 
-/* 表格内容 */
 .ap-table tbody td {
   padding: 10px 12px;
   border-bottom: 1px solid #f0f0f0;
@@ -337,25 +452,20 @@
   white-space: nowrap;
 }
 
-/* 限制特定列（Phone 和 Email）的宽度并允许换行 */
+/* Phone / Email 可换行 */
 .ap-table td:nth-child(6),
-/* Phone */
-.ap-table td:nth-child(7)
-
-/* Email */
-  {
+.ap-table td:nth-child(7) {
   min-width: 120px;
   white-space: normal;
   word-break: break-word;
 }
 
-/* 限制 First attended Date 和 Last Attended Date 列 */
+/* 日期列限制宽度 */
 .ap-table th:nth-child(10),
 .ap-table th:nth-child(11),
 .ap-table td:nth-child(10),
 .ap-table td:nth-child(11) {
   min-width: 120px;
-
   white-space: normal;
   word-break: break-word;
   text-align: center;
@@ -365,17 +475,15 @@
   background: #fafafa;
 }
 
-/* hover 高亮 */
 .ap-table tbody tr:hover {
   background: #f5fbff;
 }
-
 
 /* 查看按钮 */
 .ap-table .view-attendance-button {
   padding: 6px 10px;
   border-radius: 6px;
-  background: #00a6bf;
+  background: #28a745;
   color: #fff;
   border: 0;
   cursor: pointer;
@@ -384,15 +492,94 @@
 }
 
 .ap-table .view-attendance-button:hover {
-  background: #008fa5;
+  background: #165e27;
 }
 
-/* Loader 遮罩：已在你原样式中定义，这里保持兼容
-#loader-box { ... }
-.loader { ... }
-*/
+/* 分页 */
+.ap-pager a {
+  display: inline-block;
+  margin: 0 3px;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-decoration: none;
+  color: #333;
+}
 
-/* ============== Mobile 优化 ============== */
+.ap-pager a.active {
+  background: #ccc;
+  color: #fff;
+  pointer-events: none;
+  cursor: default;
+}
+
+.ap-pager a.disabled {
+  background: #eee;
+  color: #aaa;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* 弹窗 */
+#attendance-info-modal {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+#attendance-info-modal .popup-content {
+  position: relative;
+  background-color: #fefefe;
+  margin: 15% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: scroll;
+}
+
+#attendance-info-modal .close {
+  background: none;
+  color: #000;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  border: none;
+}
+
+#attendance-info-modal .close::before,
+#attendance-info-modal .close::after {
+  display: none;
+}
+
+#attendance-info-modal .close:hover,
+#attendance-info-modal .close:focus {
+  color: #000;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* 弹窗内 Loading */
+.ap-modal-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+
+.ap-modal-error {
+  padding: 12px;
+  color: #b00020;
+}
+
+/* 前台仪表板 Mobile 优化 */
 @media (max-width: 768px) {
   .ap-frontend-dashboard .filter-form {
     gap: 10px;
@@ -414,7 +601,6 @@
     width: 100%;
   }
 
-  /* 表格在小屏保留横向滚动，不做卡片堆叠，信息密度更好 */
   .ap-table thead th,
   .ap-table tbody td {
     padding: 8px 10px;
@@ -423,72 +609,68 @@
 }
 
 
-.ap-pager a {
-  display: inline-block;
-  margin: 0 3px;
-  padding: 4px 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  text-decoration: none;
-  color: #333;
+
+/* 1) 干掉主题对提交按钮的 line-height:40px 影响（仅限本插件容器内） */
+.es-attendance-container input[type="submit"],
+.es-attendance-container button[type="submit"],
+.es-attendance-container .profile-check-btn {
+  line-height: 1.2 !important;
+  height: auto !important;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+  font-size: 16px;
+  margin: 0;
 }
 
-.ap-pager a.active {
-  background: #ccc;
-  /* 当前页背景灰 */
-  color: #fff;
-  pointer-events: none;
-  /* 禁止点击 */
-  cursor: default;
+/* 2) 修改资料表单的输入项统一全宽（避免不等宽的违和感） */
+#es_profile_form input[type="text"],
+#es_profile_form input[type="email"],
+#es_profile_form input[type="date"],
+#es_profile_form select {
+  width: 100%;
+  box-sizing: border-box;
+  /* 宽度包含 padding/border，避免溢出 */
 }
 
-.ap-pager a.disabled {
-  background: #eee;
-  color: #aaa;
-  pointer-events: none;
-  cursor: not-allowed;
+/* 3) 修改资料表单里的电话号码行，保持好看的左右布局 */
+#es_profile_form .phone-box {
+  display: flex;
+  gap: 8px;
 }
 
-/* 弹窗内加载中的小圆圈 */
+#es_profile_form .phone-box select {
+  width: 80px;
+  flex-shrink: 0;
+}
+
+#es_profile_form .phone-box input {
+  flex: 1;
+}
+
+#es_profile_form #profile-cancel-edit {
+  background-color: rgb(243 177 130);
+}
 
 
-.ap-modal-loading {
+#es_profile_form .profile-action-row {
   display: flex;
   align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
   justify-content: center;
-  min-height: 120px;
 }
 
-.ap-spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid #ddd;
-  border-top-color: #666;
-  border-radius: 50%;
-  animation: apSpin .8s linear infinite;
+#es_profile_form .profile-action-row>* {
+  width: auto;
+  white-space: nowrap;
 }
 
-@keyframes apSpin {
-  to {
-    transform: rotate(360deg);
-  }
+#es_profile_form .profile-action-row input[type="submit"],
+#es_profile_form .profile-action-row button {
+  width: auto;
+  line-height: normal;
 }
 
-/* 可选：错误提示 */
-.ap-modal-error {
-  padding: 12px;
-  color: #b00020;
-}
-
-.submit-hint {
-  margin-top: 6px;
-  font-size: 16px;
-  background: #b45309;
-  padding: 8px;
-  color: white;
-  display: none;
-}
-
-[aria-busy="true"] {
-  cursor: progress !important;
+#es_profile_form .profile-action-row+.submit-hint {
+  margin-top: 8px;
 }
