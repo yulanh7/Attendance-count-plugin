@@ -56,8 +56,6 @@ add_action('plugins_loaded', function () {
     add_shortcode('attendance_form', 'AP\\ap_render_form_shortcode');
     add_shortcode('attendance_dashboard', ['AP\\Frontend_Page', 'render_shortcode']);
     add_shortcode('attendance_first_timers', ['AP\\Frontend_Page', 'render_first_timers_shortcode']);
-    add_shortcode('attendance_first_timers_log', ['AP\Frontend_Page', 'render_first_timers_log_shortcode']);
-    // 新增：教会新来宾记录
     add_shortcode('attendance_newcomers', ['AP\Frontend_Page', 'render_newcomers_shortcode']);
   });
 });
