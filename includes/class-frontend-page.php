@@ -181,7 +181,7 @@ class Frontend_Page
       data-count="<?php echo (int) count($rows); ?>">
 
       <form class="ap-ft-toolbar" onsubmit="return false;">
-        <div class="apt-ft-time-row">
+        <div class="ap-ft-time-row">
           <span class="ap-ft-field" style="margin-right: 5px;">
             <span class="ap-ft-label">开始：</span>
             <input type="date" id="ap-ft-start" aria-label="开始日期" value="<?php echo esc_attr($start); ?>">
@@ -192,8 +192,8 @@ class Frontend_Page
           </span>
         </div>
         <div class="ap-ft-row">
-          <button type="button" class="button" id="ap-ft-refresh">刷新数据</button>
-          <button type="button" class="button ap-btn-outline-gold" id="ap-ft-export">导出Excel</button>
+          <button type="button" class="button button-left" id="ap-ft-refresh">刷新数据</button>
+          <button type="button" class="button button-right" id="ap-ft-export">导出Excel</button>
         </div>
         <div>
           <small id="ap-ft-note" style="margin-left:8px;color:#666;">
@@ -301,7 +301,7 @@ class Frontend_Page
 
 
       <form class="ap-ft-toolbar" onsubmit="return false;">
-        <div class="apt-ft-time-row">
+        <div class="ap-ft-time-row">
           <span class="ap-ft-field" style="margin-right: 5px;">
             <span class="ap-ft-label">开始：</span>
             <input type="date" id="ap-ft-start" aria-label="开始日期" value="<?php echo esc_attr($start); ?>">
@@ -312,8 +312,8 @@ class Frontend_Page
           </span>
         </div>
         <div class="ap-ft-row">
-          <button type="button" class="button" id="ap-ft-refresh">刷新数据</button>
-          <button type="button" class="button ap-btn-outline-gold" id="ap-ft-export">导出Excel</button>
+          <button type="button" class="button button-left" id="ap-ft-refresh">刷新数据</button>
+          <button type="button" class="button button-right" id="ap-ft-export">导出Excel</button>
         </div>
         <div>
           <small id="ap-ft-note" style="margin-left:8px;color:#666;">

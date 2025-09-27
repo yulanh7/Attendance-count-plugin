@@ -604,7 +604,23 @@
 }
 
 .ap-first-timers-v2 .ap-ft-row {
-  margin-bottom: 10px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.ap-first-timers-v2 .ap-ft-row button {
+  font-size: 16px;
+  padding-bottom: 10px;
+  padding-top: 10px;
+}
+
+.ap-first-timers-v2 .ap-ft-row button.button-right {
+  padding-bottom: 9px;
+  padding-top: 9px;
+  background-color:
+    color-mix(in oklab, #84d303 10%, transparent);
+  color: #4a7502;
+  border: 1px solid #4a7502;
 }
 
 /* 默认：小屏 1 列 */
