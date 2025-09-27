@@ -82,7 +82,7 @@
 .es-attendance-form .form-title {
   margin: 0 0 20px;
   padding-bottom: 10px;
-  border-bottom: 2px solid #28a745;
+  border-bottom: 2px solid #FFD700;
   color: #333;
   font-size: 20px;
   font-weight: 600;
@@ -106,7 +106,7 @@
 .es-attendance-form input[type="date"]:focus,
 .es-attendance-form input[type="email"]:focus,
 .es-attendance-form select:focus {
-  border-color: #28a745;
+  border-color: #FFD700;
   outline: none;
   box-shadow: 0 0 0 3px rgba(0, 166, 191, .1);
 }
@@ -123,8 +123,8 @@
 /* Submit buttons */
 .es-attendance-form input[type="submit"] {
   padding: 14px 20px;
-  background: #28a745 !important;
-  color: #fff;
+  background: #FFD700 !important;
+  color: #333;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -162,7 +162,7 @@
   margin-bottom: 15px;
   background: #e8f4f8;
   border-radius: 6px;
-  border-left: 4px solid #28a745;
+  border-left: 4px solid #FFD700;
 }
 
 /* Phone row */
@@ -196,24 +196,40 @@
   border-top: 1px solid #eee;
 }
 
-.switch-btn {
+.form-switch-buttons .switch-btn {
   padding: 8px 16px;
-  background: #f8f9fa;
-  color: #666;
-  border: 1px solid #ddd;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   transition: all .3s ease;
 }
 
-.switch-btn:hover {
-  background: #e9ecef;
-  color: #333;
-  border-color: #adb5bd;
+.form-switch-buttons .switch-btn.switch-btn-left {
+  background-color:
+    color-mix(in oklab, #84d303 10%, transparent);
+  color: #4a7502;
+  border: 1px solid #4a7502;
 }
 
-.switch-btn:active {
+.form-switch-buttons .switch-btn.switch-btn-left:hover {
+  background-color:
+    color-mix(in oklab, #84d303 30%, transparent);
+}
+
+.form-switch-buttons .switch-btn.switch-btn-right {
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #d5d7da;
+}
+
+.form-switch-buttons .switch-btn.switch-btn-right:hover {
+  background: #f3f4f6;
+  color: #1f2937;
+  color: #333;
+}
+
+
+.form-switch-buttons .switch-btn:active {
   transform: translateY(1px);
 }
 
@@ -237,8 +253,8 @@
 .es-attendance-form .profile-check-btn {
   width: 100%;
   padding: 12px 20px;
-  background: #28a745;
-  color: #fff;
+  background: #FFD700;
+  color: #333;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -248,7 +264,7 @@
 }
 
 .es-attendance-form .profile-check-btn:hover:not(:disabled) {
-  background: #218838;
+  background: #c9b43b;
   transform: translateY(-1px);
 }
 
@@ -282,8 +298,8 @@
 .es-attendance-container .profile-check-btn {
   line-height: 1.2 !important;
   height: auto !important;
-  padding-top: 12px !important;
-  padding-bottom: 12px !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
   font-size: 16px;
   margin: 0;
 }
@@ -297,8 +313,15 @@
   box-sizing: border-box;
 }
 
+#es_profile_form button {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  font-size: 16px;
+}
+
 #es_profile_form #profile-cancel-edit {
   background: rgb(243 177 130);
+
 }
 
 #es_profile_form .profile-action-row {
@@ -472,8 +495,8 @@
 .ap-table .view-attendance-button {
   padding: 6px 10px;
   border-radius: 6px;
-  background: #28a745;
-  color: #fff;
+  background: #FFD700;
+  color: #333;
   border: 0;
   cursor: pointer;
   font-size: 14px;
@@ -584,12 +607,21 @@
   margin-bottom: 10px;
 }
 
+/* 默认：小屏 1 列 */
 .ap-first-timers-v2 .ap-ft-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr;
   gap: 12px;
   margin-top: 8px;
 }
+
+/* 大屏（例如 ≥1024px）：3 列 */
+@media (min-width: 1024px) {
+  .ap-first-timers-v2 .ap-ft-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 
 .ap-first-timers-v2 .ap-ft-card {
   border: 1px solid #e5e7eb;
@@ -598,6 +630,47 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
   padding: 10px 12px;
 }
+
+.ap-first-timers-v2 .ap-ft-card .ap-ft-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 作用于组件内的删除按钮，覆盖主题黄色 */
+.ap-first-timers-v2 .ap-ft-actions .ap-ft-delete {
+  appearance: none;
+  border: 1px solid #e5e7eb;
+  /* 灰色描边 */
+  background: #ffffff;
+  /* 白底 */
+  color: #b91c1c;
+  /* 深红字，危险操作感 */
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+/* hover / focus / disabled 状态 */
+.ap-first-timers-v2 .ap-ft-actions .ap-ft-delete:hover {
+  background: #fee2e2;
+  /* 淡红底 */
+  border-color: #fecaca;
+}
+
+.ap-first-timers-v2 .ap-ft-actions .ap-ft-delete:focus {
+  outline: 2px solid #fecaca;
+  outline-offset: 2px;
+}
+
+.ap-first-timers-v2 .ap-ft-actions .ap-ft-delete:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+
+
 
 .ap-first-timers-v2 .ap-ft-name {
   font-weight: 600;
