@@ -53,8 +53,8 @@ class Frontend_Page
 
         <select id="fe_member_filter">
           <option value="" selected>全部会友</option>
-          <option value="isMember">会員</option>
-          <option value="isNonMember">非会員</option>
+          <option value="isMember">会员</option>
+          <option value="isNonMember">非会员</option>
         </select>
 
         <input type="text" id="fe_last_name_filter" placeholder="Last Name">
@@ -197,7 +197,7 @@ class Frontend_Page
         </div>
         <div>
           <small id="ap-ft-note" style="margin-left:8px;color:#666;">
-            数据生成于 <?php echo esc_html($generated_at); ?>（本站时区）。点击“刷新数据”获取最新。
+            数据生成于 <?php echo esc_html($generated_at); ?>（本站时区）。点击"刷新数据"获取最新。
           </small>
         </div>
       </form>
@@ -210,7 +210,6 @@ class Frontend_Page
 
     <style>
       .ap-first-timers-v2 .ap-ft-toolbar {
-
         margin-bottom: 12px;
       }
 
@@ -303,22 +302,16 @@ class Frontend_Page
         box-shadow: 0 0 0 2px rgba(0, 100, 0, .15);
       }
 
-
-      /* 与 #FFD700 主按钮同色系的“金色描边”按钮 */
+      /* 与 #FFD700 主按钮同色系的"金色描边"按钮 */
       button.ap-btn-outline-gold {
         --gold: #DAA520;
-        /* 默认描边/文字 */
         --gold-hover: #B8860B;
-        /* Hover */
         --gold-active: #8B6B00;
-        /* Active */
         --gold-ring: rgba(255, 215, 0, .35);
-        /* Focus ring 基于 #FFD700 */
 
         background: transparent;
         color: var(--gold);
         border: 1px solid currentColor;
-        /* 用文字色做描边 */
         border-radius: 8px;
         transition: background-color .15s, color .15s, border-color .15s, box-shadow .15s;
       }
@@ -327,7 +320,333 @@ class Frontend_Page
         color: var(--gold-hover);
         border-color: currentColor;
         background-color: rgba(255, 215, 0, .08);
-        /* 很淡的金色底 */
+      }
+
+      button.ap-btn-outline-gold:active {
+        color: var(--gold-active);
+        border-color: currentColor;
+        background-color: rgba(255, 215, 0, .15);
+      }
+
+      button.ap-btn-outline-gold:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--gold-ring);
+      }
+
+      button.ap-btn-outline-gold[disabled],
+      button.ap-btn-outline-gold[aria-busy="true"] {
+        opacity: .5;
+        cursor: not-allowed;
+        background: transparent;
+      }
+
+      @keyframes apspin {
+        to {
+          transform: rotate(360deg)
+        }
+      }
+
+      @media print {
+        .ap-ft-card {
+          box-shadow: none;
+          border: 0
+        }
+
+        .ap-ft-field {
+          display: flex;
+          align-items: center;
+          gap: 6px
+        }
+
+        .ap-ft-label {
+          user-select: none
+        }
+      }
+    </style>
+  <?php
+    return ob_get_clean();
+  }
+
+  /** 服务端渲染小卡片列表（姓名 + 首次来访日期；按权限可带电话） */
+  public static function render_first_timers_list_html(array $rows, bool $can_view_phone): string
+  {
+    if (empty($rows)) {
+      return '<div class="ap-ft-empty">所选日期内暂无第一次来访的朋友。</div>';
+    }
+    $cards = '';
+    foreach ($rows as $r) {
+      $name = trim(($r['last_name'] ?? '') . ' ' . ($r['first_name'] ?? ''));
+      $date = \AP\format_date_dmy($r['first_attendance_date'] ?? '');
+      $phone = $can_view_phone ? esc_html($r['phone'] ?? '') : '';
+      $phoneHtml = $phone ? '<div class="ap-ft-meta">📞 ' . $phone . '</div>' : '';
+      $cards .= '<div class="ap-ft-card">'
+        .   '<div class="ap-ft-name">' . esc_html($name) . '</div>'
+        .   '<div class="ap-ft-meta">首次来访：' . esc_html($date) . '</div>'
+        .    $phoneHtml
+        . '</div>';
+    }
+    return '<div class="ap-ft-grid">' . $cards . '</div>';
+  }
+
+  public static function render_first_timers_log_shortcode($atts = []): string
+  {
+    if (!is_user_logged_in()) {
+      $login_url = wp_login_url(get_permalink());
+      return '<p>' . sprintf(
+        esc_html__('Please %s to view this page.', 'attendance-plugin'),
+        '<a href="' . esc_url($login_url) . '">' . esc_html__('log in', 'attendance-plugin') . '</a>'
+      ) . '</p>';
+    }
+    if (!current_user_can('read')) {
+      return '<p>' . esc_html__('You do not have permission to view this page.', 'attendance-plugin') . '</p>';
+    }
+    if (!headers_sent()) {
+      nocache_headers();
+      header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
+      header('Pragma: no-cache');
+    }
+
+    $can_view_phone = current_user_can('read'); // 与原逻辑一致
+    $start = current_time('Y-m-d');
+    $end   = current_time('Y-m-d');
+
+    // **不同点：首屏数据直接来自 first_time 日志表**
+    $rows = Attendance_DB::query_first_timers_log($start, $end);
+    $generated_at = current_time('Y-m-d H:i:s');
+
+    // 复用现有 HTML/CSS/JS，但容器上打 data-source="log"
+    ob_start(); ?>
+    <div class="ap-first-timers-v2" id="ap-first-timers"
+      data-count="<?php echo (int) count($rows); ?>"
+      data-source="log">
+
+      <form class="ap-ft-toolbar" onsubmit="return false;">
+        <div class="apt-ft-time-row">
+          <span class="ap-ft-field" style="margin-right: 5px;">
+            <span class="ap-ft-label">开始：</span>
+            <input type="date" id="ap-ft-start" aria-label="开始日期" value="<?php echo esc_attr($start); ?>">
+          </span>
+          <span class="ap-ft-field">
+            <span class="ap-ft-label">结束：</span>
+            <input type="date" id="ap-ft-end" aria-label="结束日期" value="<?php echo esc_attr($end); ?>">
+          </span>
+        </div>
+        <div class="ap-ft-row">
+          <button type="button" class="button" id="ap-ft-refresh">刷新数据</button>
+          <button type="button" class="button ap-btn-outline-gold" id="ap-ft-export">导出Excel</button>
+        </div>
+        <div>
+          <small id="ap-ft-note" style="margin-left:8px;color:#666;">
+            数据生成于 <?php echo esc_html($generated_at); ?>（本站时区）。点击"刷新数据"获取最新。
+          </small>
+        </div>
+      </form>
+
+      <div id="ap-ft-loader" style="display:none;margin:8px 0;">
+        <div class="loader" aria-label="Loading" role="status"></div>
+      </div>
+
+      <div id="ap-ft-list">
+        <?php echo self::render_first_timers_list_html($rows, $can_view_phone); ?>
+      </div>
+    </div>
+  <?php
+    return ob_get_clean();
+  }
+
+  /**
+   * 新来宾记录短代码：[attendance_newcomers]
+   * - 与 first_timers 完全一样的UI，但数据来源是 attendance_first_time_attendance_dates 表
+   */
+  public static function render_newcomers_shortcode($atts = []): string
+  {
+    if (!is_user_logged_in()) {
+      $login_url = wp_login_url(get_permalink());
+      return '<p>' . sprintf(
+        esc_html__('Please %s to view this page.', 'attendance-plugin'),
+        '<a href="' . esc_url($login_url) . '">' . esc_html__('log in', 'attendance-plugin') . '</a>'
+      ) . '</p>';
+    }
+    if (!current_user_can('read')) {
+      return '<p>' . esc_html__('You do not have permission to view this page.', 'attendance-plugin') . '</p>';
+    }
+    if (!headers_sent()) {
+      nocache_headers();
+      header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
+      header('Pragma: no-cache');
+    }
+
+    $today = current_time('Y-m-d');
+    $generated_at = date_i18n('Y-m-d H:i', current_time('timestamp'));
+
+    $a = shortcode_atts([
+      'start' => $today,
+      'end'   => $today,
+    ], $atts, 'attendance_newcomers');
+
+    // 规范化日期
+    $to_date = function ($s) {
+      $dt = \DateTime::createFromFormat('Y-m-d', $s);
+      return $dt ? $dt->format('Y-m-d') : null;
+    };
+    $start = $to_date($a['start']) ?: $today;
+    $end   = $to_date($a['end'])   ?: $today;
+
+    // 权限：登录且具备 read（subscriber 及以上）可看电话
+    $can_view_phone = (is_user_logged_in() && current_user_can('read'));
+
+    // 首屏数据直接来自 attendance_first_time_attendance_dates 表
+    $rows = Attendance_DB::query_first_timers_log($start, $end);
+
+    $list_html = self::render_first_timers_list_html($rows, $can_view_phone);
+
+    // UI：与 first_timers 一样，但容器标记为 data-source="newcomers"
+    ob_start(); ?>
+    <div class="ap-first-timers-v2" id="ap-first-timers"
+      data-count="<?php echo (int) count($rows); ?>"
+      data-source="newcomers">
+
+      <form class="ap-ft-toolbar" onsubmit="return false;">
+        <div class="apt-ft-time-row">
+          <span class="ap-ft-field" style="margin-right: 5px;">
+            <span class="ap-ft-label">开始：</span>
+            <input type="date" id="ap-ft-start" aria-label="开始日期" value="<?php echo esc_attr($start); ?>">
+          </span>
+          <span class="ap-ft-field">
+            <span class="ap-ft-label">结束：</span>
+            <input type="date" id="ap-ft-end" aria-label="结束日期" value="<?php echo esc_attr($end); ?>">
+          </span>
+        </div>
+        <div class="ap-ft-row">
+          <button type="button" class="button" id="ap-ft-refresh">刷新数据</button>
+          <button type="button" class="button ap-btn-outline-gold" id="ap-ft-export">导出Excel</button>
+        </div>
+        <div>
+          <small id="ap-ft-note" style="margin-left:8px;color:#666;">
+            数据生成于 <?php echo esc_html($generated_at); ?>（本站时区）。点击"刷新数据"获取最新。
+          </small>
+        </div>
+      </form>
+
+      <div id="ap-ft-loader" style="display:none;margin:8px 0;">
+        <div class="loader" aria-label="Loading" role="status"></div>
+      </div>
+
+      <div id="ap-ft-list"><?php echo $list_html; ?></div>
+    </div>
+
+    <style>
+      .ap-first-timers-v2 .ap-ft-toolbar {
+        margin-bottom: 12px;
+      }
+
+      .apt-ft-time-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+
+      .ap-ft-row {
+        margin-bottom: 10px;
+      }
+
+      .ap-ft-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin-top: 8px;
+      }
+
+      .ap-ft-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+        padding: 10px 12px;
+      }
+
+      .ap-ft-name {
+        font-weight: 600;
+      }
+
+      .ap-ft-meta {
+        font-size: 14px;
+        color: #666;
+        margin-top: 6px;
+      }
+
+      .ap-ft-empty {
+        padding: 12px;
+        border: 1px dashed #e5e7eb;
+        border-radius: 8px;
+        background: #fafafa;
+      }
+
+      .loader {
+        width: 20px;
+        height: 20px;
+        border: 3px solid #ddd;
+        border-top-color: #666;
+        border-radius: 50%;
+        animation: apspin 1s linear infinite;
+      }
+
+      /* 基础文字颜色 */
+      #ap-ft-start,
+      #ap-ft-end {
+        color: #006400;
+        caret-color: #006400;
+      }
+
+      /* WebKit 内部字段（年/月/日与分隔符） */
+      #ap-ft-start::-webkit-datetime-edit,
+      #ap-ft-end ::-webkit-datetime-edit,
+      #ap-ft-start::-webkit-datetime-edit-text,
+      #ap-ft-end ::-webkit-datetime-edit-text,
+      #ap-ft-start::-webkit-datetime-edit-month-field,
+      #ap-ft-end ::-webkit-datetime-edit-month-field,
+      #ap-ft-start::-webkit-datetime-edit-day-field,
+      #ap-ft-end ::-webkit-datetime-edit-day-field,
+      #ap-ft-start::-webkit-datetime-edit-year-field,
+      #ap-ft-end ::-webkit-datetime-edit-year-field {
+        color: #006400;
+      }
+
+      /* 日历图标（WebKit）——做一点绿色调的着色 */
+      #ap-ft-start::-webkit-calendar-picker-indicator,
+      #ap-ft-end ::-webkit-calendar-picker-indicator {
+        opacity: .85;
+        filter: hue-rotate(75deg) saturate(160%) brightness(0.95);
+      }
+
+      /* 聚焦态边框/高亮 */
+      #ap-ft-start:focus,
+      #ap-ft-end:focus {
+        outline: none;
+        border-color: #006400;
+        box-shadow: 0 0 0 2px rgba(0, 100, 0, .15);
+      }
+
+      /* 与 #FFD700 主按钮同色系的"金色描边"按钮 */
+      button.ap-btn-outline-gold {
+        --gold: #DAA520;
+        --gold-hover: #B8860B;
+        --gold-active: #8B6B00;
+        --gold-ring: rgba(255, 215, 0, .35);
+
+        background: transparent;
+        color: var(--gold);
+        border: 1px solid currentColor;
+        border-radius: 8px;
+        transition: background-color .15s, color .15s, border-color .15s, box-shadow .15s;
+      }
+
+      button.ap-btn-outline-gold:hover {
+        color: var(--gold-hover);
+        border-color: currentColor;
+        background-color: rgba(255, 215, 0, .08);
       }
 
       button.ap-btn-outline-gold:active {
@@ -373,26 +692,5 @@ class Frontend_Page
     </style>
 <?php
     return ob_get_clean();
-  }
-
-  /** 服务端渲染小卡片列表（姓名 + 首次来访日期；按权限可带电话） */
-  public static function render_first_timers_list_html(array $rows, bool $can_view_phone): string
-  {
-    if (empty($rows)) {
-      return '<div class="ap-ft-empty">所选日期内暂无第一次来访的朋友。</div>';
-    }
-    $cards = '';
-    foreach ($rows as $r) {
-      $name = trim(($r['last_name'] ?? '') . ' ' . ($r['first_name'] ?? ''));
-      $date = \AP\format_date_dmy($r['first_attendance_date'] ?? '');
-      $phone = $can_view_phone ? esc_html($r['phone'] ?? '') : '';
-      $phoneHtml = $phone ? '<div class="ap-ft-meta">📞 ' . $phone . '</div>' : '';
-      $cards .= '<div class="ap-ft-card">'
-        .   '<div class="ap-ft-name">' . esc_html($name) . '</div>'
-        .   '<div class="ap-ft-meta">首次来访：' . esc_html($date) . '</div>'
-        .    $phoneHtml
-        . '</div>';
-    }
-    return '<div class="ap-ft-grid">' . $cards . '</div>';
   }
 }

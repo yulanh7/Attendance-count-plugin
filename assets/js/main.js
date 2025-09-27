@@ -1,5 +1,5 @@
 /* =========================================================
- * Attendance Plugin - main.js (完整合并版)
+ * Attendance Plugin - main.js (完整合并版 + 新来宾功能)
  * =======================================================*/
 jQuery(function ($) {
   const AP = (window.AP = window.AP || {});
@@ -65,7 +65,7 @@ jQuery(function ($) {
   function setSubmitting($btn, on) {
     if (!$btn || !$btn.length) return;
 
-    // 根据所在容器决定提示条插入位置
+    // 根据所在容器决定提示栏插入位置
     function ensureHintEl() {
       const $row = $btn.closest('.profile-action-row');
       if ($row.length) {
@@ -153,8 +153,6 @@ jQuery(function ($) {
       $row.append($editOther);
     }
   }
-
-
 
   function shouldAdoptCurrentPhone(resp, msg) {
     if (resp && resp.success) return true;
@@ -336,9 +334,6 @@ jQuery(function ($) {
     $(".es-message").remove();
   }
 
-
-
-
   function prefillPhoneFromStorage($form) {
     const saved = storage.get("es_attendance_form_data", {}) || {};
     const cc = saved.es_phone_country_code || "+61";
@@ -346,7 +341,6 @@ jQuery(function ($) {
     $form.find("select[name=es_phone_country_code]").val(cc);
     $form.find("input[name=es_phone_number]").val(num);
   }
-
 
   function syncQuickFormPhone(cc, num) {
     const saved = storage.get("es_attendance_form_data", {}) || {};
@@ -359,7 +353,6 @@ jQuery(function ($) {
     }
   }
 
-
   function resetFirstTimeForm() {
     const $form = $(S.firstTimeForm);
     $form.find("input[name=es_first_name]").val("");
@@ -370,7 +363,6 @@ jQuery(function ($) {
     $form.find("select[name=es_fellowship]").val("");
     $(".es-message").remove();
   }
-
 
   function checkPhoneAndLoadProfile(phone, $form) {
     const $checkBtn = $("#check-profile-phone");
@@ -387,10 +379,10 @@ jQuery(function ($) {
 
         if (!exists) {
           const go = window.confirm(
-            "该电话号码未注册，请完整填写信息进行首次登记。\n\n点击【确定】前往首次登记，点击【取消】留在当前页面。"
+            "该电话号码未注册，请完整填写信息进行首次登记。\n\n点击「确定」前往首次登记，点击「取消」留在当前页面。"
           );
           if (go) {
-            // 切到首次登记前就把按钮复原
+            // 切到首次登记前就把按钮恢复
             $checkBtn.prop("disabled", false).text(originalText);
             resetFirstTimeForm && resetFirstTimeForm();
             switchToForm(S.firstTimeForm);
@@ -405,8 +397,8 @@ jQuery(function ($) {
           return;
         }
 
-        // ★ 号码存在：进入“加载资料”第二阶段
-        //   等 loadUserProfileForEdit 完成后，再把按钮从“查找中...”复原
+        // ☆ 号码存在：进入"加载资料"第二阶段
+        //   等 loadUserProfileForEdit 完成后，再把按钮从"查找中..."恢复
         loadUserProfileForEdit(phone, $form)
           .always(() => {
             $checkBtn.prop("disabled", false).text(originalText);
@@ -423,8 +415,8 @@ jQuery(function ($) {
     const $info = $form.find("#profile-user-info");
     const $check = $form.find("#profile-check-section");
 
-    // 查找阶段：保持在“查找”区，不切换、不显示表格
-    // 返回 jqXHR 让上层等待完成后再复原按钮
+    // 查找阶段：保持在"查找"区，不切换、不显示表格
+    // 返回 jqXHR 让上层等待完成后再恢复按钮
     return api.post("ap_get_user_profile", { phone: phone })
       .done((resp) => {
         if (resp && resp.success && resp.data) {
@@ -436,12 +428,12 @@ jQuery(function ($) {
           $form.find("input[name=es_email]").val(data.email || "");
           $form.find("select[name=es_fellowship]").val(data.fellowship || "");
 
-          // 查找成功后再切换到“更新资料”区
+          // 查找成功后再切换到"更新资料"区
           $check.hide();
           $info.show();
           ensureProfileActionButtons($form);
 
-          // 查找完成时：只显示“取消”
+          // 查找完成时：只显示"取消"
           $form.find("#profile-cancel-edit").show();
           $form.find("#profile-edit-other").hide();
 
@@ -453,8 +445,6 @@ jQuery(function ($) {
         displayMessage($form, "加载资料失败，请稍后再试", "red");
       });
   }
-
-
 
   function doQuickAttendance(phone, $form, $submit) {
     setSubmitting($submit, true);
@@ -480,7 +470,6 @@ jQuery(function ($) {
         $(".es-message").remove();
         const ok = !!(resp && resp.success);
         let msg = "";
-
         if (ok) {
           msg = (resp && resp.data && resp.data.message) || "签到成功";
           // 如果服务端返回的消息包含用户姓名，直接使用
@@ -511,13 +500,56 @@ jQuery(function ($) {
       });
   }
 
-  function doFullAttendance($form, $submit) {
+  function doFullAttendance($form, $submit, opts = {}) {
     setSubmitting($submit, true);
+
+    // 组装表单数据
     const formData = getFormData($form);
 
-    api.post("es_handle_attendance", formData)
+    // 复选框：教会新来宾（有勾选才发 1）
+    const isNewcomer = $form.find("input[name=es_is_newcomer]").is(':checked');
+    if (isNewcomer) formData.es_is_newcomer = '1';
+
+    // 可选：外部要求“强制登记为新来宾”，用于一次确认直达入库
+    const forceNewcomer = !!(opts && opts.forceNewcomer);
+    if (forceNewcomer) {
+      formData.es_is_newcomer = '1';     // 双保险：确保带上
+      formData.es_force_newcomer = '1';  // 关键：让后端直接写表，跳过 confirm
+    }
+
+    const ACTION = "es_handle_attendance";
+
+    function postOnce(extra = {}) {
+      return api.post(ACTION, { ...formData, ...extra }).then(resp => resp || {});
+    }
+
+    // 首次提交
+    postOnce()
       .done((resp) => {
         $(".es-message").remove();
+
+        // 如果没有强制，且后端要求确认（保留原逻辑给其它入口/兜底）
+        if (!forceNewcomer && resp && resp.success && resp.data && resp.data.ok === 'confirm') {
+          const last = resp.data.last_date ? `（最近 ${resp.data.last_date} 出席）` : '';
+          const go = window.confirm(
+            `系统检测到该号码已有出席记录${last}。\n`
+            + `您勾选了“新来宾”。是否仍要将 TA 登记为新来宾？\n\n`
+            + `确定：仍要记录   取消：不记录`
+          );
+          const forceFlag = go ? '1' : '0';
+          return postOnce({ es_force_newcomer: forceFlag }).done((resp2) => {
+            const ok2 = !!(resp2 && resp2.success);
+            const msg2 = (resp2 && resp2.data && resp2.data.message) || (ok2 ? "登记成功" : "登记失败");
+            displayMessage($form, msg2, ok2 ? "green" : "red");
+            alert(msg2);
+            if (ok2) {
+              storage.set("es_attendance_form_data", formData);
+              syncQuickFormPhone(formData.es_phone_country_code, formData.es_phone_number);
+            }
+          });
+        }
+
+        // 普通成功/失败路径（或已强制的一次提交成功）
         const ok = !!(resp && resp.success);
         const msg = (resp && resp.data && resp.data.message) || (ok ? "登记成功" : "登记失败");
         displayMessage($form, msg, ok ? "green" : "red");
@@ -526,13 +558,14 @@ jQuery(function ($) {
         if (shouldAdoptCurrentPhone(resp, msg)) {
           storage.set("es_attendance_form_data", formData);
           syncQuickFormPhone(formData.es_phone_country_code, formData.es_phone_number);
-
         }
       })
       .always(() => {
         setSubmitting($submit, false);
       });
   }
+
+
 
   function doUpdateProfile($form, $submit) {
     // 提交期间需要禁用的按钮
@@ -566,7 +599,7 @@ jQuery(function ($) {
           const num2 = $form.find("input[name=es_phone_number]").val();
           if (cc2 || num2) syncQuickFormPhone(cc2, num2);
 
-          // 更新成功后显示“修改其他号码”，隐藏“取消”
+          // 更新成功后显示"修改其他号码"，隐藏"取消"
           ensureProfileActionButtons($form);
           $form.find("#profile-edit-other").show();
           $form.find("#profile-cancel-edit").hide();
@@ -577,7 +610,6 @@ jQuery(function ($) {
         $alsoDisable.prop('disabled', false).removeAttr('aria-disabled');
       });
   }
-
 
   function initTripleForms() {
     if (!$(S.container).length) return;
@@ -653,17 +685,17 @@ jQuery(function ($) {
       };
       storage.set("es_attendance_form_data", { ...storage.get("es_attendance_form_data", {}), ...quickData });
 
-      // 一按就显示“提交中/在处理中”
+      // 一按就显示"提交中/在处理中"
       setSubmitting($submit, true);
 
-      // 让浏览器先绘制状态，再发起请求（避免“晚一拍”）
+      // 让浏览器先绘制状态，再发起请求（避免"晚一拍"）
       requestAnimationFrame(() => {
         api.post("ap_check_phone_exists", { cc: cc, num: num })
           .done((resp) => {
             const exists = !!(resp && resp.success && resp.data && resp.data.exists);
             if (!exists) {
               const go = window.confirm(
-                "该电话号码未注册，请完整填写信息进行首次登记。\n\n点击【确定】前往首次登记，点击【取消】留在当前页面。"
+                "该电话号码未注册，请完整填写信息进行首次登记。\n\n点击「确定」前往首次登记，点击「取消」留在当前页面。"
               );
               if (go) {
                 resetFirstTimeForm();
@@ -706,7 +738,7 @@ jQuery(function ($) {
       const num = $form.find("input[name=es_phone_number]").val();
       const phone = normalizePhone(cc, num);
 
-      // 一按就显示“提交中/在处理中”
+      // 一按就显示"提交中/在处理中"
       setSubmitting($submit, true);
 
       requestAnimationFrame(() => {
@@ -715,32 +747,55 @@ jQuery(function ($) {
             const exists = !!(resp && resp.success && resp.data && resp.data.exists);
 
             if (exists) {
-              const userChoice = window.confirm(
-                "该电话号码已经登记过了。\n" +
-                "点击【确定】直接为该号码签到\n" +
-                "点击【取消】返回快速签到页面"
-              );
+              const isNewcomerChecked = $form.find("input[name=es_is_newcomer]").is(':checked');
 
-              if (userChoice) {
-                // 保持 loading；由 doQuickAttendanceFromFirstTime 自行关闭
-                doQuickAttendanceFromFirstTime(phone, $form, $submit);
+              if (isNewcomerChecked) {
+                // 用户勾选了“新来宾” → 走完整登记以触发后端“轻确认”与新来宾表写入
+                const go = window.confirm(
+                  "该电话号码已经登记过了，但你勾选了“新来宾”。\n\n" +
+                  "【确定】：仍按“新来宾”签到并会写入[新来宾登记表]\n" +
+                  "【取消】：仅进行签到且不会写入[新来宾登记表]"
+                );
+                if (go) {
+                  // 走 handle_submit（es_handle_attendance），里面会返回 ok:'confirm' → 二次提交携带 es_force_newcomer=1
+                  doFullAttendance($form, $submit, { forceNewcomer: true });
+                } else {
+                  // 只签到，不写新来宾表
+                  doQuickAttendanceFromFirstTime(phone, $form, $submit);
+                }
               } else {
-                // 切回快速签到，这里要关闭本表单按钮的 loading
-                setSubmitting($submit, false);
-                const $quickForm = $(S.quickForm);
-                $quickForm.find("select[name=es_phone_country_code]").val(cc);
-                $quickForm.find("input[name=es_phone_number]").val(num);
-                switchToForm(S.quickForm);
-                displayMessage($quickForm, "已切换到快速签到页面，电话号码已预填", "green");
+                // 未勾选新来宾，保持原有文案与行为：直接快速签到 or 回到快速签到页
+                const userChoice = window.confirm(
+                  "该电话号码已经登记过了。\n" +
+                  "点击「确定」直接为该号码签到\n" +
+                  "点击「取消」返回快速签页面"
+                );
+
+                if (userChoice) {
+                  doQuickAttendanceFromFirstTime(phone, $form, $submit);
+                } else {
+                  setSubmitting($submit, false);
+                  const $quickForm = $(S.quickForm);
+                  $quickForm.find("select[name=es_phone_country_code]").val(cc);
+                  $quickForm.find("input[name=es_phone_number]").val(num);
+                  switchToForm(S.quickForm);
+                  displayMessage($quickForm, "已切换到快速签到页面，电话号码已预填", "green");
+                }
               }
             } else {
-              // 保持 loading；由 doFullAttendance 自行关闭
+              // 号码未登记：仍按首次登记
               doFullAttendance($form, $submit);
             }
+
           })
           .fail(() => {
             // 检查失败，走保守路径；由 doFullAttendance 自行关闭
-            doFullAttendance($form, $submit);
+            const go = window.confirm("无法确认该号码是否已登记。\n\n选择「确定」：直接进行快速签到；\n选择「取消」：仍然按首次登记提交。");
+            if (go) {
+              doQuickAttendanceFromFirstTime(phone, $form, $submit); // 不改资料
+            } else {
+              doFullAttendance($form, $submit); // 仍走首次登记
+            }
           });
       });
 
@@ -758,18 +813,18 @@ jQuery(function ($) {
       doUpdateProfile($form, $submit);
     });
 
-    // “取消”：回到查找状态
+    // "取消"：回到查找状态
     $(document).on("click", "#profile-cancel-edit", function () {
       const $form = $(S.profileForm);
       resetProfileForm(); // 显示查找区、隐藏资料区并清空资料字段
       // 恢复查找按钮
       const $btn = $("#check-profile-phone");
       $btn.prop("disabled", false).text("查找");
-      // 隐藏“修改其他号码”按钮，保留“取消”隐藏（reset 后也不可见）
+      // 隐藏"修改其他号码"按钮，保留"取消"隐藏（reset 后也不可见）
       $form.find("#profile-edit-other").hide();
     });
 
-    // “修改其他号码”：回到查找状态以便输入新号码
+    // "修改其他号码"：回到查找状态以便输入新号码
     $(document).on("click", "#profile-edit-other", function () {
       const $form = $(S.profileForm);
       resetProfileForm();
@@ -777,7 +832,6 @@ jQuery(function ($) {
       $btn.prop("disabled", false).text("查找");
       $(this).hide(); // 自己隐藏
     });
-
 
     // 清除消息当聚焦到输入框
     $(S.container).on("focus", "input,select", function () {
@@ -1126,7 +1180,7 @@ jQuery(function ($) {
     });
   })(jQuery);
 
-  /* ========== 原有 First Timers（无刷新刷新 + 导出）（保持不变） ========== */
+  /* ========== First Timers 通用处理（支持多种模式） ========== */
   (function ($) {
     function apAjaxUrl() {
       const base = esAjax.ajaxurl || '';
@@ -1144,19 +1198,58 @@ jQuery(function ($) {
       if (!$l.length) return;
       show ? $l.show() : $l.hide();
     }
+
+    // 根据容器的 data-source 属性决定使用哪个 AJAX action
+    function getAjaxAction($c, isExport) {
+      const source = $c.attr('data-source');
+      if (source === 'log') {
+        return isExport ? 'ap_first_timers_log_export' : 'ap_first_timers_log_query';
+      } else if (source === 'newcomers') {
+        return isExport ? 'ap_newcomers_export' : 'ap_newcomers_query';
+      } else {
+        // 默认 first_timers
+        return isExport ? 'ap_first_timers_export' : 'ap_first_timers_query';
+      }
+    }
+
     function refreshList($c) {
       const rng = getRange($c);
+      const action = getAjaxAction($c, false);
       showLoader($c, true);
       return $.ajax({
         url: apAjaxUrl(),
         type: "POST",
         dataType: "json",
-        data: { action: "ap_first_timers_query", nonce: esAjax.nonce, ...rng }
+        data: { action: action, nonce: esAjax.nonce, ...rng }
       }).done(function (resp) {
         if (resp && resp.success) {
-          $c.find("#ap-ft-list").html(resp.data.html);
+          // 优先使用后端返回的 HTML
+          if (resp.data && typeof resp.data.html === "string") {
+            $c.find("#ap-ft-list").html(resp.data.html);
+          } else if (Array.isArray(resp.data && resp.data.rows)) {
+            // 兼容：若只返回 rows（无 html），做一个简易渲染
+            var rows = resp.data.rows;
+            if (!rows.length) {
+              $c.find("#ap-ft-list").html('<div class="ap-ft-empty">所选日期内暂无记录。</div>');
+            } else {
+              var html = rows.map(function (r) {
+                var fn = (r.first_name || "").toString();
+                var ln = (r.last_name || "").toString();
+                var ph = (r.phone || "").toString();
+                var dt = (r.first_attendance_date || "").toString();
+                return (
+                  '<div class="ap-ft-card">' +
+                  '<div class="ap-ft-name"><strong>' + ln + ' ' + fn + '</strong></div>' +
+                  '<div class="ap-ft-meta">首次来访：' + dt + '</div>' +
+                  '<div class="ap-ft-meta">📞 ' + ph + '</div>' +
+                  '</div>'
+                );
+              }).join("");
+              $c.find("#ap-ft-list").html('<div class="ap-ft-grid">' + html + '</div>');
+            }
+          }
           $c.attr('data-count', (resp.data && resp.data.count) ? resp.data.count : 0);
-          const t = resp.data.generated_at || '';
+          const t = resp.data && resp.data.generated_at || '';
           $c.find("#ap-ft-note").text((t ? `数据生成于 ${t}（本站时区）。` : ''));
         } else {
           alert("加载失败，请稍后再试。");
@@ -1168,6 +1261,7 @@ jQuery(function ($) {
         showLoader($c, false);
       });
     }
+
     function exportExcel($c) {
       const cnt = parseInt($c.attr('data-count') || '0', 10);
       if (!Number.isFinite(cnt) || cnt <= 0) {
@@ -1175,13 +1269,14 @@ jQuery(function ($) {
         return;
       }
       const rng = getRange($c);
+      const action = getAjaxAction($c, true);
       const form = document.createElement("form");
       form.method = "POST";
       form.action = apAjaxUrl();
       form.style.display = "none";
 
       const add = (k, v) => { const i = document.createElement("input"); i.type = "hidden"; i.name = k; i.value = v; form.appendChild(i); };
-      add("action", "ap_first_timers_export");
+      add("action", action);
       add("nonce", esAjax.nonce);
       add("start", rng.start);
       add("end", rng.end);

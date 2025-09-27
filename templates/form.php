@@ -44,6 +44,15 @@ $dateMessage = $isAllowed
   <form id="es_first_time_form" class="es-attendance-form" style="display: none;">
     <h3 class="form-title">首次登记</h3>
 
+    <div class="es-field es-field--checkbox">
+      <!-- hidden 先传 0，checkbox 覆盖为 1；避免未勾选时字段缺失 -->
+      <input type="hidden" name="es_is_newcomer" value="0">
+      <label class="es-checkbox">
+        <input type="checkbox" name="es_is_newcomer" value="1" checked>
+        <span><?php echo esc_html__('是否是新来宾', 'attendance-plugin'); ?></span>
+      </label>
+    </div>
+
     <input type="text" name="es_first_name" required placeholder="名字（必填）">
     <input type="text" name="es_last_name" required placeholder="姓氏（必填）">
     <input type="email" name="es_email" placeholder="邮箱（选填）">

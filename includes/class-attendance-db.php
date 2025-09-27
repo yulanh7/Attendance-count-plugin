@@ -11,12 +11,14 @@ class Attendance_DB
    * - 仅允许在目标星期签到
    * - 以 phone 为唯一键：首插 is_new=1，之后更新 is_new=0
    * - 出勤表对同人同日使用 INSERT IGNORE（依赖唯一键）
+   * - 如果是新来宾（es_is_newcomer），同时记录到 attendance_first_time_attendance_dates
    */
   public static function handle_submit(array $post): array
   {
     global $wpdb;
     $attendance = $wpdb->prefix . 'attendance';
     $dates      = $wpdb->prefix . 'attendance_dates';
+    $first_dates = $wpdb->prefix . 'attendance_first_time_attendance_dates';
 
     // 仅允许目标星期签到
     if ((int) current_time('w') !== get_target_dow()) {
@@ -32,6 +34,9 @@ class Attendance_DB
     $email        = sanitize_email($post['es_email'] ?? '');
     $today        = current_time('Y-m-d');
 
+    // 检查是否为新来宾
+    $is_newcomer = isset($post['es_is_newcomer']) && (string)$post['es_is_newcomer'] === '1';
+
     // 去除空格/连字符/括号
     $phone_number = preg_replace('/[\s\-\(\)]/', '', $phone_number);
     // AU 本地格式：+61 去掉开头 0
@@ -44,13 +49,13 @@ class Attendance_DB
     $upsert_sql = $wpdb->prepare(
       "INSERT INTO $attendance
         (first_name, last_name, phone, email, fellowship, is_new, first_attendance_date)
-       VALUES (%s, %s, %s, %s, %s, 1, %s)
-       ON DUPLICATE KEY UPDATE
-         first_name = VALUES(first_name),
-         last_name  = VALUES(last_name),
-         email      = VALUES(email),
-         fellowship = VALUES(fellowship),
-         is_new     = 0",
+      VALUES (%s, %s, %s, %s, %s, 1, %s)
+      ON DUPLICATE KEY UPDATE
+        first_name = IF(VALUES(first_name) IS NULL OR VALUES(first_name) = '', first_name, VALUES(first_name)),
+        last_name  = IF(VALUES(last_name)  IS NULL OR VALUES(last_name)  = '', last_name,  VALUES(last_name)),
+        email      = IF(VALUES(email)      IS NULL OR VALUES(email)      = '', email,      VALUES(email)),
+        fellowship = IF(VALUES(fellowship) IS NULL OR VALUES(fellowship) = '', fellowship, VALUES(fellowship)),
+        is_new     = 0",
       $first_name,
       $last_name,
       $phone,
@@ -58,6 +63,7 @@ class Attendance_DB
       $fellowship,
       $today
     );
+
 
     $ok = $wpdb->query($upsert_sql);
     if ($ok === false) {
@@ -83,6 +89,43 @@ class Attendance_DB
       return ['ok' => false, 'msg' => '您今天已经签到过了，请勿重复签到!'];
     }
 
+    $times_all = (int) $wpdb->get_var(
+      $wpdb->prepare("SELECT COUNT(*) FROM $dates WHERE attendance_id = %d", $aid)
+    );
+    $force_new = isset($post['es_force_newcomer']) && (string)$post['es_force_newcomer'] === '1';
+
+    if ($is_newcomer && $times_all > 1 && !$force_new) {
+      // 老号码但勾选了新来宾：不再要求确认，直接按“强制”处理，同时返回 warn
+      $wpdb->query($wpdb->prepare(
+        "INSERT IGNORE INTO $first_dates (attendance_id, date_attended) VALUES (%d, %s)",
+        $aid,
+        $today
+      ));
+      $affected = (int) $wpdb->rows_affected;
+      return [
+        'ok'       => true,
+        'inserted' => ($affected > 0),
+        'warn'     => 'existing_phone_checked_new',
+        'last_date' => self::get_last_attended_date($phone) ?: '',
+        'msg'      => ($affected > 0)
+          ? '签到成功！已登记为新来宾（该号码此前已有出席记录）。'
+          : '签到成功！今日已登记过为新来宾（该号码此前已有出席记录）。'
+      ];
+    }
+
+
+    // ============ 轻确认：二次提交 或 本就不冲突 的写入 ============
+    if ($is_newcomer && ($force_new || $times_all <= 1)) {
+      $wpdb->query($wpdb->prepare(
+        "INSERT IGNORE INTO $first_dates (attendance_id, date_attended) VALUES (%d, %s)",
+        $aid,
+        $today
+      ));
+      // IGNORE 保证幂等，无需检查返回值
+      return ['ok' => true, 'msg' => '签到成功！已登记为新来宾。'];
+    }
+
+    // 不勾选或选择了“不记录”
     return ['ok' => true, 'msg' => '签到成功！'];
   }
 
@@ -90,7 +133,7 @@ class Attendance_DB
    * 后台/前台筛选列表查询
    * - 连接出勤表以应用日期过滤
    * - 额外带出 times_all（全历史次数）供 is_new 计算
-   * - is_new 过滤按“全历史仅 1 次”判断（与日期区间无关）
+   * - is_new 过滤按"全历史仅 1 次"判断（与日期区间无关）
    */
   public static function query_filtered(array $post): array
   {
@@ -147,7 +190,7 @@ class Attendance_DB
       $q  .= $wpdb->prepare(" AND D.date_attended <= %s", $end);
     }
 
-    // “新出席”过滤：按全历史只来过 1 次（与日期筛选无关）
+    // "新出席"过滤：按全历史只来过 1 次（与日期筛选无关）
     if ($is_new) {
       $q .= " AND A.id IN (
                SELECT attendance_id
@@ -348,5 +391,28 @@ class Attendance_DB
     ), ARRAY_A);
 
     return ['user' => $user, 'list' => $list];
+  }
+
+  /**
+   * 查询首访日志（从 attendance_first_time_attendance_dates 表）
+   */
+  public static function query_first_timers_log(string $start, string $end): array
+  {
+    global $wpdb;
+    $attendance  = $wpdb->prefix . 'attendance';
+    $first_dates = $wpdb->prefix . 'attendance_first_time_attendance_dates';
+
+    // 直接读日志表；按日期区间筛选
+    $sql = $wpdb->prepare(
+      "SELECT A.first_name, A.last_name, A.phone, D.date_attended AS first_attendance_date
+       FROM $attendance AS A
+       INNER JOIN $first_dates AS D ON A.id = D.attendance_id
+      WHERE D.date_attended BETWEEN %s AND %s
+      ORDER BY D.date_attended DESC, A.last_name ASC, A.first_name ASC",
+      $start,
+      $end
+    );
+
+    return $wpdb->get_results($sql, ARRAY_A) ?: [];
   }
 }

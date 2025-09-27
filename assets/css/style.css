@@ -66,7 +66,7 @@
 /* 提交按钮（注意 profile-action-row 内会改为自适应宽） */
 .es-attendance-form input[type="submit"] {
   padding: 14px 20px;
-  background-color: #28a745;
+  background-color: #28a745 !important;
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -673,4 +673,9 @@
 
 #es_profile_form .profile-action-row+.submit-hint {
   margin-top: 8px;
+}
+
+#es_first_time_form .es-checkbox {
+  color: #333333;
+  margin-bottom: 10px;
 }

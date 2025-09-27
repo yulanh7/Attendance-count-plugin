@@ -36,6 +36,14 @@ class Ajax
 
     add_action('wp_ajax_ap_update_profile', [__CLASS__, 'update_profile']);
     add_action('wp_ajax_nopriv_ap_update_profile', [__CLASS__, 'update_profile']);
+
+    // 新增日志专用接口（仅登录用户）
+    add_action('wp_ajax_ap_first_timers_log_query',  [__CLASS__, 'first_timers_log_query']);
+    add_action('wp_ajax_ap_first_timers_log_export', [__CLASS__, 'first_timers_log_export']);
+
+    // 新来宾记录专用接口
+    add_action('wp_ajax_ap_newcomers_query',  [__CLASS__, 'newcomers_query']);
+    add_action('wp_ajax_ap_newcomers_export', [__CLASS__, 'newcomers_export']);
   }
 
   public static function get_nonce()
@@ -83,8 +91,6 @@ class Ajax
     $html = ob_get_clean();
     wp_send_json_success(['table_html' => $html]);
   }
-
-
 
   public static function export_csv()
   {
@@ -179,9 +185,7 @@ class Ajax
     wp_send_json_success(['exists' => $exists]);
   }
 
-
   public static function first_timers_query()
-
   {
     if (!is_user_logged_in() || !current_user_can('read')) {
       if (!headers_sent()) {
@@ -243,7 +247,6 @@ class Ajax
   /** AJAX：导出 CSV（Excel 可直接打开） */
   public static function first_timers_export()
   {
-
     if (!is_user_logged_in() || !current_user_can('read')) {
       if (!headers_sent()) {
         nocache_headers();
@@ -320,9 +323,6 @@ class Ajax
     echo $csv;
     exit;
   }
-
-
-
 
   /**
    * 快速签到（仅凭电话号码）
@@ -493,5 +493,137 @@ class Ajax
       'country_code' => '+61',
       'phone_number' => $full_phone
     ];
+  }
+
+  public static function first_timers_log_query(): void
+  {
+    // 安全 & 权限（与现有 first_timers_query 完全一致）
+    check_ajax_referer('es_attendance_nonce', 'nonce');
+
+    if (!is_user_logged_in() || !current_user_can('read')) {
+      wp_send_json_error(['message' => __('Permission denied', 'attendance-plugin')], 403);
+    }
+
+    $start = isset($_POST['start']) ? sanitize_text_field(wp_unslash($_POST['start'])) : current_time('Y-m-d');
+    $end   = isset($_POST['end'])   ? sanitize_text_field(wp_unslash($_POST['end']))   : current_time('Y-m-d');
+
+    // 唯一的区别：直接读日志表
+    $rows = \AP\Attendance_DB::query_first_timers_log($start, $end);
+
+    wp_send_json_success([
+      'count' => count($rows),
+      'rows'  => $rows,
+    ]);
+  }
+
+  public static function first_timers_log_export(): void
+  {
+    // 安全 & 权限（与现有 first_timers_export 完全一致）
+    check_admin_referer('es_attendance_nonce', 'nonce');
+
+    if (!is_user_logged_in() || !current_user_can('read')) {
+      wp_die(__('Permission denied', 'attendance-plugin'));
+    }
+
+    $start = isset($_POST['start']) ? sanitize_text_field(wp_unslash($_POST['start'])) : current_time('Y-m-d');
+    $end   = isset($_POST['end'])   ? sanitize_text_field(wp_unslash($_POST['end']))   : current_time('Y-m-d');
+
+    // 唯一的区别：直接读日志表
+    $rows = \AP\Attendance_DB::query_first_timers_log($start, $end);
+
+    // === 以下与原导出逻辑一致：设置头 & 输出 CSV ===
+    if (!headers_sent()) {
+      nocache_headers();
+      header('Content-Type: text/csv; charset=UTF-8');
+      header('Content-Disposition: attachment; filename="first_timers_log_' . sanitize_file_name($start . '_to_' . $end) . '.csv"');
+      header('Pragma: no-cache');
+    }
+
+    $out = fopen('php://output', 'w');
+
+    // 表头（保持与原来的导出列一致）
+    fputcsv($out, ['First Name', 'Last Name', 'Phone', 'First Attendance Date']);
+
+    foreach ($rows as $r) {
+      fputcsv($out, [
+        $r['first_name'] ?? '',
+        $r['last_name'] ?? '',
+        $r['phone'] ?? '',
+        $r['first_attendance_date'] ?? '',
+      ]);
+    }
+
+    fclose($out);
+    exit;
+  }
+
+  /**
+   * 新来宾查询 AJAX 接口
+   */
+  public static function newcomers_query(): void
+  {
+    // 安全 & 权限（与现有 first_timers_query 完全一致）
+    check_ajax_referer('es_attendance_nonce', 'nonce');
+
+    if (!is_user_logged_in() || !current_user_can('read')) {
+      wp_send_json_error(['message' => __('Permission denied', 'attendance-plugin')], 403);
+    }
+
+    $start = isset($_POST['start']) ? sanitize_text_field(wp_unslash($_POST['start'])) : current_time('Y-m-d');
+    $end   = isset($_POST['end'])   ? sanitize_text_field(wp_unslash($_POST['end']))   : current_time('Y-m-d');
+
+    // 直接读日志表
+    $rows = \AP\Attendance_DB::query_first_timers_log($start, $end);
+
+    wp_send_json_success([
+      'count' => count($rows),
+      'rows'  => $rows,
+      'html'  => \AP\Frontend_Page::render_first_timers_list_html($rows, true), // 权限用户可以看电话
+      'generated_at' => date_i18n('Y-m-d H:i', current_time('timestamp')),
+    ]);
+  }
+
+  /**
+   * 新来宾导出 AJAX 接口
+   */
+  public static function newcomers_export(): void
+  {
+    // 安全 & 权限（与现有 first_timers_export 完全一致）
+    check_admin_referer('es_attendance_nonce', 'nonce');
+
+    if (!is_user_logged_in() || !current_user_can('read')) {
+      wp_die(__('Permission denied', 'attendance-plugin'));
+    }
+
+    $start = isset($_POST['start']) ? sanitize_text_field(wp_unslash($_POST['start'])) : current_time('Y-m-d');
+    $end   = isset($_POST['end'])   ? sanitize_text_field(wp_unslash($_POST['end']))   : current_time('Y-m-d');
+
+    // 直接读日志表
+    $rows = \AP\Attendance_DB::query_first_timers_log($start, $end);
+
+    // === 以下与原导出逻辑一致：设置头 & 输出 CSV ===
+    if (!headers_sent()) {
+      nocache_headers();
+      header('Content-Type: text/csv; charset=UTF-8');
+      header('Content-Disposition: attachment; filename="newcomers_' . sanitize_file_name($start . '_to_' . $end) . '.csv"');
+      header('Pragma: no-cache');
+    }
+
+    $out = fopen('php://output', 'w');
+
+    // 表头（保持与原来的导出列一致）
+    fputcsv($out, ['First Name', 'Last Name', 'Phone', 'First Attendance Date']);
+
+    foreach ($rows as $r) {
+      fputcsv($out, [
+        $r['first_name'] ?? '',
+        $r['last_name'] ?? '',
+        $r['phone'] ?? '',
+        $r['first_attendance_date'] ?? '',
+      ]);
+    }
+
+    fclose($out);
+    exit;
   }
 }
