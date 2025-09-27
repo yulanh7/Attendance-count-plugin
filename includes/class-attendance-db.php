@@ -404,7 +404,7 @@ class Attendance_DB
 
     // 直接读日志表；按日期区间筛选
     $sql = $wpdb->prepare(
-      "SELECT A.first_name, A.last_name, A.phone, D.date_attended AS first_attendance_date
+      "SELECT A.first_name, A.last_name, A.phone, D.date_attended AS first_attendance_date, D.id AS id
        FROM $attendance AS A
        INNER JOIN $first_dates AS D ON A.id = D.attendance_id
       WHERE D.date_attended BETWEEN %s AND %s

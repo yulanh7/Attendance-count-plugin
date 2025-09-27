@@ -35,8 +35,8 @@ $dateMessage = $isAllowed
     <input type="submit" name="submit_attendance" value="签到" <?php echo $isAllowed ? '' : 'disabled'; ?>>
 
     <div class="form-switch-buttons">
-      <button type="button" id="switch-to-first-time" class="switch-btn">首次登记</button>
-      <button type="button" id="switch-to-profile" class="switch-btn">修改资料</button>
+      <button type="button" id="switch-to-first-time" class="switch-btn switch-btn-left ">首次登记</button>
+      <button type="button" id="switch-to-profile" class="switch-btn switch-btn-right">修改资料</button>
     </div>
   </form>
 
@@ -82,8 +82,8 @@ $dateMessage = $isAllowed
     <input type="submit" name="submit_attendance" value="首次登记并签到" <?php echo $isAllowed ? '' : 'disabled'; ?>>
 
     <div class="form-switch-buttons">
-      <button type="button" id="back-to-quick" class="switch-btn">返回快速签到</button>
-      <button type="button" id="first-to-profile" class="switch-btn">修改资料</button>
+      <button type="button" id="back-to-quick" class="switch-btn switch-btn-left">返回快速签到</button>
+      <button type="button" id="first-to-profile" class="switch-btn switch-btn-right">修改资料</button>
     </div>
   </form>
 
@@ -130,8 +130,8 @@ $dateMessage = $isAllowed
     </div>
 
     <div class="form-switch-buttons">
-      <button type="button" id="profile-to-quick" class="switch-btn">返回快速签到</button>
-      <button type="button" id="profile-to-first" class="switch-btn">首次登记</button>
+      <button type="button" id="profile-to-quick" class="switch-btn switch-btn-left">返回快速签到</button>
+      <button type="button" id="profile-to-first" class="switch-btn switch-btn-right">首次登记</button>
     </div>
   </form>
 </div>

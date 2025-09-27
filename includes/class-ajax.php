@@ -44,6 +44,8 @@ class Ajax
     // 新来宾记录专用接口
     add_action('wp_ajax_ap_newcomers_query',  [__CLASS__, 'newcomers_query']);
     add_action('wp_ajax_ap_newcomers_export', [__CLASS__, 'newcomers_export']);
+
+    add_action('wp_ajax_ap_delete_newcomer', [__CLASS__, 'handle_delete_newcomer']);
   }
 
   public static function get_nonce()
@@ -625,5 +627,44 @@ class Ajax
 
     fclose($out);
     exit;
+  }
+
+  public static function handle_delete_newcomer(): void
+  {
+    // 权限 & Nonce
+    if (! is_user_logged_in()) {
+      wp_send_json_error(['message' => __('Not logged in', 'attendance-plugin')], 401);
+    }
+    // 你可以按需提升权限门槛，例如 current_user_can('edit_posts') 或 manage_options
+    if (! current_user_can('read')) {
+      wp_send_json_error(['message' => __('Permission denied', 'attendance-plugin')], 403);
+    }
+    $nonce = isset($_POST['_wpnonce']) ? sanitize_text_field(wp_unslash($_POST['_wpnonce'])) : '';
+    if (! wp_verify_nonce($nonce, 'ap_ft_delete_newcomer')) {
+      wp_send_json_error(['message' => __('Bad nonce', 'attendance-plugin')], 400);
+    }
+
+    // 参数
+    $id = isset($_POST['id']) ? absint($_POST['id']) : 0;
+    if ($id <= 0) {
+      wp_send_json_error(['message' => __('Invalid ID', 'attendance-plugin')], 400);
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'attendance_first_time_attendance_dates';
+
+    // 只删除 newcomers 表
+    $deleted = $wpdb->delete($table, ['id' => $id], ['%d']);
+
+    if ($deleted === false) {
+      // SQL 错误
+      wp_send_json_error(['message' => __('DB error when deleting', 'attendance-plugin')], 500);
+    } elseif ($deleted === 0) {
+      // 没有匹配行
+      wp_send_json_error(['message' => __('Record not found', 'attendance-plugin')], 404);
+    }
+
+    // 成功
+    wp_send_json_success(['id' => $id]);
   }
 }

@@ -214,25 +214,35 @@ class Frontend_Page
   }
 
   /** 服务端渲染小卡片列表（姓名 + 首次来访日期；按权限可带电话） */
-  public static function render_first_timers_list_html(array $rows, bool $can_view_phone): string
+  public static function render_first_timers_list_html(array $rows, bool $can_view_phone, bool $deletable = false): string
   {
     if (empty($rows)) {
       return '<div class="ap-ft-empty">所选日期内暂无第一次来访的朋友。</div>';
     }
     $cards = '';
     foreach ($rows as $r) {
+      // 这里假设 Attendance_DB::query_first_timers_log() 返回包含主键 id
+      $id   = isset($r['id']) ? (int) $r['id'] : 0;
       $name = trim(($r['last_name'] ?? '') . ' ' . ($r['first_name'] ?? ''));
       $date = \AP\format_date_dmy($r['first_attendance_date'] ?? '');
       $phone = $can_view_phone ? esc_html($r['phone'] ?? '') : '';
       $phoneHtml = $phone ? '<div class="ap-ft-meta">📞 ' . $phone . '</div>' : '';
-      $cards .= '<div class="ap-ft-card">'
+
+      $deleteBtn = '';
+      if ($deletable && $id > 0) {
+        $deleteBtn = '<button type="button" class="button-link ap-ft-delete" data-id="' . esc_attr($id) . '">删除</button>';
+      }
+
+      $cards .= '<div class="ap-ft-card" data-card-id="' . esc_attr($id) . '">'
         .   '<div class="ap-ft-name">' . esc_html($name) . '</div>'
         .   '<div class="ap-ft-meta">首次来访：' . esc_html($date) . '</div>'
         .    $phoneHtml
+        .   ($deleteBtn ? '<div class="ap-ft-actions" style="margin-top:6px;">' . $deleteBtn . '</div>' : '')
         . '</div>';
     }
     return '<div class="ap-ft-grid">' . $cards . '</div>';
   }
+
 
   /**
    * 新来宾记录短代码：[attendance_newcomers]
@@ -278,13 +288,17 @@ class Frontend_Page
     // 首屏数据直接来自 attendance_first_time_attendance_dates 表
     $rows = Attendance_DB::query_first_timers_log($start, $end);
 
-    $list_html = self::render_first_timers_list_html($rows, $can_view_phone);
+    $list_html = self::render_first_timers_list_html($rows, $can_view_phone, true);
+    $nonce = wp_create_nonce('ap_ft_delete_newcomer');
 
     // UI：与 first_timers 一样，但容器标记为 data-source="newcomers"
     ob_start(); ?>
+
     <div class="ap-first-timers-v2" id="ap-first-timers"
       data-count="<?php echo (int) count($rows); ?>"
-      data-source="newcomers">
+      data-source="newcomers"
+      data-nonce="<?php echo esc_attr($nonce); ?>">
+
 
       <form class="ap-ft-toolbar" onsubmit="return false;">
         <div class="apt-ft-time-row">

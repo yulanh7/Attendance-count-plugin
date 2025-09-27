@@ -1213,9 +1213,16 @@ jQuery(function ($) {
     }
 
     function refreshList($c) {
+      // 简易转义，避免把原始数据直接插到 HTML 里
+      const esc = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
       const rng = getRange($c);
       const action = getAjaxAction($c, false);
       showLoader($c, true);
+
       return $.ajax({
         url: apAjaxUrl(),
         type: "POST",
@@ -1223,34 +1230,56 @@ jQuery(function ($) {
         data: { action: action, nonce: esAjax.nonce, ...rng }
       }).done(function (resp) {
         if (resp && resp.success) {
-          // 优先使用后端返回的 HTML
+          // 1) 后端有 html：直接用
           if (resp.data && typeof resp.data.html === "string") {
             $c.find("#ap-ft-list").html(resp.data.html);
+
+            // 2) 后端仅给 rows：前端简易渲染（含删除按钮）
           } else if (Array.isArray(resp.data && resp.data.rows)) {
-            // 兼容：若只返回 rows（无 html），做一个简易渲染
             var rows = resp.data.rows;
             if (!rows.length) {
               $c.find("#ap-ft-list").html('<div class="ap-ft-empty">所选日期内暂无记录。</div>');
             } else {
+              const isNewcomers = ($c.attr('data-source') === 'newcomers'); // 只有 newcomers 才显示“删除”
               var html = rows.map(function (r) {
-                var fn = (r.first_name || "").toString();
-                var ln = (r.last_name || "").toString();
-                var ph = (r.phone || "").toString();
-                var dt = (r.first_attendance_date || "").toString();
+                var fn = esc(r.first_name || "");
+                var ln = esc(r.last_name || "");
+                var ph = esc(r.phone || "");
+                var dt = esc(r.first_attendance_date || "");
+
+                // 删除按钮（复合键）
+                var delBtn = '';
+                if (isNewcomers) {
+                  delBtn =
+                    '<div class="ap-ft-actions" style="margin-top:6px;">' +
+                    '<button type="button" class="ap-btn ap-btn-danger ap-ft-delete" ' +
+                    'data-first-name="' + fn + '" ' +
+                    'data-last-name="' + ln + '" ' +
+                    'data-phone="' + ph + '" ' +
+                    'data-date="' + dt + '">' +
+                    '删除' +
+                    '</button>' +
+                    '</div>';
+                }
+
                 return (
                   '<div class="ap-ft-card">' +
                   '<div class="ap-ft-name"><strong>' + ln + ' ' + fn + '</strong></div>' +
                   '<div class="ap-ft-meta">首次来访：' + dt + '</div>' +
-                  '<div class="ap-ft-meta">📞 ' + ph + '</div>' +
+                  (ph ? '<div class="ap-ft-meta">📞 ' + ph + '</div>' : '') +
+                  delBtn +
                   '</div>'
                 );
               }).join("");
               $c.find("#ap-ft-list").html('<div class="ap-ft-grid">' + html + '</div>');
             }
           }
+
+          // 计数与时间
           $c.attr('data-count', (resp.data && resp.data.count) ? resp.data.count : 0);
-          const t = resp.data && resp.data.generated_at || '';
-          $c.find("#ap-ft-note").text((t ? `数据生成于 ${t}（本站时区）。` : ''));
+          const t = (resp.data && resp.data.generated_at) || '';
+          $c.find("#ap-ft-note").text(t ? `数据生成于 ${t}（本站时区）。` : '');
+
         } else {
           alert("加载失败，请稍后再试。");
         }
@@ -1261,6 +1290,7 @@ jQuery(function ($) {
         showLoader($c, false);
       });
     }
+
 
     function exportExcel($c) {
       const cnt = parseInt($c.attr('data-count') || '0', 10);
@@ -1298,3 +1328,63 @@ jQuery(function ($) {
   })(jQuery);
 
 });
+
+(function () {
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.ap-ft-delete');
+    if (!btn) return;
+
+    const wrap = document.getElementById('ap-first-timers');
+    if (!wrap) return;
+
+    // 仅当 data-source="newcomers" 时允许删除
+    if (wrap.getAttribute('data-source') !== 'newcomers') {
+      return;
+    }
+
+    const id = parseInt(btn.getAttribute('data-id') || '0', 10);
+    if (!id || id <= 0) return;
+
+    if (!window.confirm('确定要删除这条首次登记记录吗？此操作仅删除“首次登记”日志，不会影响其他表。')) {
+      return;
+    }
+
+    const nonce = wrap.getAttribute('data-nonce') || '';
+    const form = new FormData();
+    form.append('action', 'ap_delete_newcomer');
+    form.append('id', String(id));
+    form.append('_wpnonce', nonce);
+
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(ajaxurl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: form
+      });
+      const data = await res.json();
+
+      if (!data || !data.success) {
+        const msg = (data && data.data && data.data.message) ? data.data.message : '删除失败';
+        alert(msg);
+        btn.disabled = false;
+        return;
+      }
+
+      // 从 DOM 移除卡片 & 更新计数
+      const card = btn.closest('.ap-ft-card');
+      if (card) card.remove();
+
+      const countEl = wrap;
+      const oldCount = parseInt(countEl.getAttribute('data-count') || '0', 10);
+      const newCount = Math.max(oldCount - 1, 0);
+      countEl.setAttribute('data-count', String(newCount));
+
+    } catch (err) {
+      console.error(err);
+      alert('网络或服务器错误，稍后再试');
+      btn.disabled = false;
+    }
+  });
+})();
