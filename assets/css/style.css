@@ -1,15 +1,72 @@
 /* =========================================================
- * Attendance - Clean CSS
+ * Attendance – Consolidated & Deduplicated CSS
+ * Notes:
+ * - Inline <style> blocks in PHP can be removed; this file covers them.
+ * - Duplicates merged (e.g., gold outline button, spinners, First Timers UI).
+ * - Keyframes unified to `ap-spin` (was `apSpin`/`apspin`).
+ * - Fixed WebKit date selector typos (extra spaces).
+ * - Kept backward compatibility for existing markup (e.g., #es-loading-spinner.loader).
  * =======================================================*/
 
-/* ---------- 通用表单容器（前台三合一） ---------- */
+/* ========== 1) Utilities / Base ========== */
+[aria-busy="true"] {
+  cursor: progress !important;
+  opacity: .7;
+}
+
+.es-message {
+  font-size: 14px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.es-message[style*="orange"] {
+  background-color: #fd7e14 !important;
+}
+
+.submit-hint {
+  margin-top: 8px;
+  font-size: 14px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  color: #856404;
+  padding: 8px 12px;
+  border-radius: 4px;
+  text-align: center;
+  display: none;
+}
+
+/* Spinner (unified) */
+.ap-spinner,
+/* preferred class */
+#es-loading-spinner.loader,
+/* compatibility with existing markup */
+.ap-first-timers-v2 .ap-ft-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #ddd;
+  border-top-color: #666;
+  border-radius: 50%;
+  animation: ap-spin 1s linear infinite;
+}
+
+@keyframes ap-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========== 2) Frontend attendance forms (three-in-one) ========== */
 .es-attendance-container {
   max-width: 500px;
   margin: 0 auto;
   padding: 20px;
   background: #f9f9f9;
   border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .1);
 }
 
 .es-attendance-form {
@@ -18,8 +75,8 @@
   background: #fff;
   padding: 25px;
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  animation: fadeInUp 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .1);
+  animation: fadeInUp .3s ease;
 }
 
 .es-attendance-form .form-title {
@@ -42,10 +99,8 @@
   border-radius: 6px;
   color: #333;
   font-size: 16px;
-  transition: border-color 0.3s ease;
+  transition: border-color .3s ease;
 }
-
-
 
 .es-attendance-form input[type="text"]:focus,
 .es-attendance-form input[type="date"]:focus,
@@ -53,22 +108,22 @@
 .es-attendance-form select:focus {
   border-color: #28a745;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(0, 166, 191, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 166, 191, .1);
 }
 
-/* 禁用状态 */
+/* Disabled fields */
 .es-attendance-form input:disabled,
 .es-attendance-form select:disabled {
-  background-color: #f5f5f5 !important;
+  background: #f5f5f5 !important;
   color: #999 !important;
   cursor: not-allowed !important;
   border-color: #e0e0e0 !important;
 }
 
-/* 提交按钮（注意 profile-action-row 内会改为自适应宽） */
+/* Submit buttons */
 .es-attendance-form input[type="submit"] {
   padding: 14px 20px;
-  background-color: #28a745 !important;
+  background: #28a745 !important;
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -76,28 +131,28 @@
   text-transform: uppercase;
   font-size: 16px;
   font-weight: 600;
-  transition: background-color 0.3s ease, transform 0.1s ease;
+  transition: background-color .3s ease, transform .1s ease;
   margin-bottom: 20px;
   width: 100%;
 }
 
 .es-attendance-form input[type="submit"]:hover:not(:disabled) {
-  background-color: #18642a;
+  background: #18642a;
   transform: translateY(-1px);
 }
 
 .es-attendance-form input[type="submit"]:active:not(:disabled) {
-  transform: translateY(0);
+  transform: none;
 }
 
 .es-attendance-form input[disabled],
 .es-attendance-form input[disabled]:hover {
-  background-color: #ccc !important;
+  background: #ccc !important;
   cursor: default !important;
   transform: none !important;
 }
 
-/* 信息提示条（日期） */
+/* Info bars (dates) */
 .es-attendance-form #date-message,
 .es-attendance-form #date-message-first {
   color: #333;
@@ -110,25 +165,28 @@
   border-left: 4px solid #28a745;
 }
 
-/* 电话输入行 */
-.es-attendance-form .phone-box {
+/* Phone row */
+.es-attendance-form .phone-box,
+#es_profile_form .phone-box {
   display: flex;
   gap: 8px;
   margin-bottom: 15px;
 }
 
-.es-attendance-form .phone-box select {
+.es-attendance-form .phone-box select,
+#es_profile_form .phone-box select {
   width: 80px;
   margin-bottom: 0;
   flex-shrink: 0;
 }
 
-.es-attendance-form .phone-box input {
+.es-attendance-form .phone-box input,
+#es_profile_form .phone-box input {
   margin-bottom: 0;
   flex: 1;
 }
 
-/* 表单切换按钮 */
+/* Switch between forms */
 .form-switch-buttons {
   display: flex;
   gap: 10px;
@@ -146,7 +204,7 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
-  transition: all 0.3s ease;
+  transition: all .3s ease;
 }
 
 .switch-btn:hover {
@@ -159,52 +217,19 @@
   transform: translateY(1px);
 }
 
-/* 提交状态提示（统一一版） */
-.submit-hint {
-  margin-top: 8px;
-  font-size: 14px;
-  background: #fff3cd;
-  border: 1px solid #ffeaa7;
-  color: #856404;
-  padding: 8px 12px;
-  border-radius: 4px;
-  text-align: center;
-  display: none;
-}
-
-[aria-busy="true"] {
-  cursor: progress !important;
-  opacity: 0.7;
-}
-
-/* 全局消息（displayMessage 注入） */
-.es-message {
-  font-size: 14px;
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 4px;
-  text-align: center;
-  font-weight: 500;
-}
-
-/* 兼容旧的橙色 message */
-.es-message[style*="orange"] {
-  background-color: #fd7e14 !important;
-}
-
-/* 错误状态 */
+/* Errors */
 .es-attendance-form input.error,
 .es-attendance-form select.error {
   border-color: #dc3545;
-  background-color: #fff5f5;
+  background: #fff5f5;
 }
 
 .es-attendance-form input.error:focus,
 .es-attendance-form select.error:focus {
-  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, .1);
 }
 
-/* 修改资料：查找按钮与区块 */
+/* Profile check + actions */
 .es-attendance-form #profile-check-section {
   margin-bottom: 20px;
 }
@@ -212,39 +237,37 @@
 .es-attendance-form .profile-check-btn {
   width: 100%;
   padding: 12px 20px;
-  background-color: #28a745;
+  background: #28a745;
   color: #fff;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   font-size: 16px;
   font-weight: 600;
-  transition: all 0.3s ease;
+  transition: all .3s ease;
 }
 
 .es-attendance-form .profile-check-btn:hover:not(:disabled) {
-  background-color: #218838;
+  background: #218838;
   transform: translateY(-1px);
 }
 
 .es-attendance-form .profile-check-btn:disabled {
-  background-color: #6c757d !important;
+  background: #6c757d !important;
   cursor: not-allowed !important;
   transform: none !important;
 }
 
 .es-attendance-form #profile-user-info {
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn .3s ease;
 }
 
-/* 更新资料按钮行（同一行展示） */
 .profile-action-row {
   display: flex;
   align-items: center;
   gap: 8px;
   justify-content: flex-start;
   flex-wrap: nowrap;
-  /* 同一行 */
 }
 
 #profile-user-info .profile-action-row input[type="submit"],
@@ -253,63 +276,54 @@
   white-space: nowrap;
 }
 
-/* 手机端适配 */
-@media (max-width: 768px) {
-  .es-attendance-container {
-    margin: 10px;
-    padding: 15px;
-  }
-
-  .es-attendance-form {
-    padding: 20px;
-  }
-
-  .es-attendance-form .form-title {
-    font-size: 18px;
-  }
-
-
-
-  .es-attendance-form input[type="submit"] {
-    padding: 12px 20px;
-    font-size: 16px;
-  }
-
-  .form-switch-buttons {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .switch-btn {
-    width: 100%;
-    padding: 10px 16px;
-  }
+/* Theme overrides for submit buttons inside plugin container */
+.es-attendance-container input[type="submit"],
+.es-attendance-container button[type="submit"],
+.es-attendance-container .profile-check-btn {
+  line-height: 1.2 !important;
+  height: auto !important;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+  font-size: 16px;
+  margin: 0;
 }
 
-/* 表单动画 */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Profile form – full width fields */
+#es_profile_form input[type="text"],
+#es_profile_form input[type="email"],
+#es_profile_form input[type="date"],
+#es_profile_form select {
+  width: 100%;
+  box-sizing: border-box;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+#es_profile_form #profile-cancel-edit {
+  background: rgb(243 177 130);
 }
 
-/* ---------- 前台仪表板（FE Dashboard） ---------- */
+#es_profile_form .profile-action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  justify-content: center;
+}
+
+#es_profile_form .profile-action-row>* {
+  width: auto;
+  white-space: nowrap;
+}
+
+#es_profile_form .profile-action-row+.submit-hint {
+  margin-top: 8px;
+}
+
+#es_first_time_form .es-checkbox {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+/* ========== 3) Frontend Dashboard (filters + table) ========== */
 .wrap.ap-frontend-dashboard {
   font-size: 14px;
 }
@@ -383,12 +397,13 @@
 }
 
 .ap-frontend-dashboard .bulk-action-bar {
-  margin-bottom: 15px;
+  margin: 8px 0 15px;
 }
 
-/* 表格与 loader */
+/* Table & loader */
 #filter-table-response {
   position: relative;
+  overflow-x: auto;
 }
 
 #loader-box {
@@ -397,29 +412,8 @@
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, .6);
   z-index: 10;
-}
-
-#es-loading-spinner.loader,
-.ap-spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid #ddd;
-  border-top-color: #666;
-  border-radius: 50%;
-  animation: apSpin .8s linear infinite;
-}
-
-@keyframes apSpin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* 前台表格 */
-.ap-frontend-dashboard #filter-table-response {
-  overflow-x: auto;
 }
 
 .ap-table {
@@ -447,7 +441,7 @@
   white-space: nowrap;
 }
 
-/* Phone / Email 可换行 */
+/* Phone / Email wrap */
 .ap-table td:nth-child(6),
 .ap-table td:nth-child(7) {
   min-width: 120px;
@@ -455,7 +449,7 @@
   word-break: break-word;
 }
 
-/* 日期列限制宽度 */
+/* Date columns */
 .ap-table th:nth-child(10),
 .ap-table th:nth-child(11),
 .ap-table td:nth-child(10),
@@ -474,7 +468,7 @@
   background: #f5fbff;
 }
 
-/* 查看按钮 */
+/* View button */
 .ap-table .view-attendance-button {
   padding: 6px 10px;
   border-radius: 6px;
@@ -490,7 +484,7 @@
   background: #165e27;
 }
 
-/* 分页 */
+/* Pager */
 .ap-pager a {
   display: inline-block;
   margin: 0 3px;
@@ -515,7 +509,7 @@
   cursor: not-allowed;
 }
 
-/* 弹窗 */
+/* Modal */
 #attendance-info-modal {
   display: none;
   position: fixed;
@@ -525,19 +519,19 @@
   width: 100%;
   height: 100%;
   overflow: auto;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, .5);
 }
 
 #attendance-info-modal .popup-content {
   position: relative;
-  background-color: #fefefe;
+  background: #fefefe;
   margin: 15% auto;
   padding: 20px;
   border: 1px solid #888;
   width: 80%;
   max-width: 500px;
   max-height: 80vh;
-  overflow-y: scroll;
+  overflow-y: auto;
 }
 
 #attendance-info-modal .close {
@@ -561,7 +555,6 @@
   cursor: pointer;
 }
 
-/* 弹窗内 Loading */
 .ap-modal-loading {
   display: flex;
   align-items: center;
@@ -574,109 +567,7 @@
   color: #b00020;
 }
 
-/* 前台仪表板 Mobile 优化 */
-@media (max-width: 768px) {
-  .ap-frontend-dashboard .filter-form {
-    gap: 10px;
-  }
-
-  .ap-frontend-dashboard .filter-form input[type="text"],
-  .ap-frontend-dashboard .filter-form input[type="date"],
-  .ap-frontend-dashboard .filter-form select {
-    width: 100%;
-  }
-
-  .ap-frontend-dashboard .filter-form .checkbox-container {
-    width: 100%;
-    padding: 4px 0 8px;
-  }
-
-  .ap-frontend-dashboard .filter-form .submit-btn,
-  .ap-frontend-dashboard .filter-form .export-csv {
-    width: 100%;
-  }
-
-  .ap-table thead th,
-  .ap-table tbody td {
-    padding: 8px 10px;
-    font-size: 14px;
-  }
-}
-
-
-
-/* 1) 干掉主题对提交按钮的 line-height:40px 影响（仅限本插件容器内） */
-.es-attendance-container input[type="submit"],
-.es-attendance-container button[type="submit"],
-.es-attendance-container .profile-check-btn {
-  line-height: 1.2 !important;
-  height: auto !important;
-  padding-top: 12px !important;
-  padding-bottom: 12px !important;
-  font-size: 16px;
-  margin: 0;
-}
-
-/* 2) 修改资料表单的输入项统一全宽（避免不等宽的违和感） */
-#es_profile_form input[type="text"],
-#es_profile_form input[type="email"],
-#es_profile_form input[type="date"],
-#es_profile_form select {
-  width: 100%;
-  box-sizing: border-box;
-  /* 宽度包含 padding/border，避免溢出 */
-}
-
-/* 3) 修改资料表单里的电话号码行，保持好看的左右布局 */
-#es_profile_form .phone-box {
-  display: flex;
-  gap: 8px;
-}
-
-#es_profile_form .phone-box select {
-  width: 80px;
-  flex-shrink: 0;
-}
-
-#es_profile_form .phone-box input {
-  flex: 1;
-}
-
-#es_profile_form #profile-cancel-edit {
-  background-color: rgb(243 177 130);
-}
-
-
-#es_profile_form .profile-action-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: nowrap;
-  justify-content: center;
-}
-
-#es_profile_form .profile-action-row>* {
-  width: auto;
-  white-space: nowrap;
-}
-
-#es_profile_form .profile-action-row input[type="submit"],
-#es_profile_form .profile-action-row button {
-  width: auto;
-  line-height: normal;
-}
-
-#es_profile_form .profile-action-row+.submit-hint {
-  margin-top: 8px;
-}
-
-#es_first_time_form .es-checkbox {
-  color: #333333;
-  margin-bottom: 10px;
-}
-
-
-/* ===== First Timers / Newcomers (scoped) ===== */
+/* ========== 4) First Timers / Newcomers (scoped) ========== */
 .ap-first-timers-v2 .ap-ft-toolbar {
   margin-bottom: 12px;
 }
@@ -725,7 +616,7 @@
   background: #fafafa;
 }
 
-/* date inputs (scoped by id) */
+/* Date inputs (IDs scoped) */
 #ap-ft-start,
 #ap-ft-end {
   color: #006400;
@@ -748,7 +639,7 @@
 #ap-ft-start::-webkit-calendar-picker-indicator,
 #ap-ft-end::-webkit-calendar-picker-indicator {
   opacity: .85;
-  filter: hue-rotate(75deg) saturate(160%) brightness(0.95);
+  filter: hue-rotate(75deg) saturate(160%) brightness(.95);
 }
 
 #ap-ft-start:focus,
@@ -758,7 +649,7 @@
   box-shadow: 0 0 0 2px rgba(0, 100, 0, .15);
 }
 
-/* outline gold button */
+/* Outline gold button (shared component) */
 button.ap-btn-outline-gold {
   --gold: #DAA520;
   --gold-hover: #B8860B;
@@ -793,23 +684,87 @@ button.ap-btn-outline-gold[aria-busy="true"] {
   background: transparent;
 }
 
-/* local spinner: rename from .loader -> .ap-ft-spinner to avoid global collision */
-.ap-first-timers-v2 .ap-ft-spinner {
-  width: 20px;
-  height: 20px;
-  border: 3px solid #ddd;
-  border-top-color: #666;
-  border-radius: 50%;
-  animation: apspin 1s linear infinite;
-}
+/* ========== 5) Animations ========== */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
 
-@keyframes apspin {
   to {
-    transform: rotate(360deg);
+    opacity: 1;
+    transform: none;
   }
 }
 
-/* print */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* ========== 6) Responsive ========== */
+@media (max-width: 768px) {
+  .es-attendance-container {
+    margin: 10px;
+    padding: 15px;
+  }
+
+  .es-attendance-form {
+    padding: 20px;
+  }
+
+  .es-attendance-form .form-title {
+    font-size: 18px;
+  }
+
+  .es-attendance-form input[type="submit"] {
+    padding: 12px 20px;
+    font-size: 16px;
+  }
+
+  .form-switch-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .switch-btn {
+    width: 100%;
+    padding: 10px 16px;
+  }
+
+  .ap-frontend-dashboard .filter-form {
+    gap: 10px;
+  }
+
+  .ap-frontend-dashboard .filter-form input[type="text"],
+  .ap-frontend-dashboard .filter-form input[type="date"],
+  .ap-frontend-dashboard .filter-form select {
+    width: 100%;
+  }
+
+  .ap-frontend-dashboard .filter-form .checkbox-container {
+    width: 100%;
+    padding: 4px 0 8px;
+  }
+
+  .ap-frontend-dashboard .filter-form .submit-btn,
+  .ap-frontend-dashboard .filter-form .export-csv {
+    width: 100%;
+  }
+
+  .ap-table thead th,
+  .ap-table tbody td {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+}
+
+/* ========== 7) Print ========== */
 @media print {
   .ap-first-timers-v2 .ap-ft-card {
     box-shadow: none;
