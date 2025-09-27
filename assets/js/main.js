@@ -379,7 +379,7 @@ jQuery(function ($) {
 
         if (!exists) {
           const go = window.confirm(
-            "该电话号码未注册，请完整填写信息进行首次登记。\n\n点击「确定」前往首次登记，点击「取消」留在当前页面。"
+            "此电话号码尚未登记。\n\n 首次登记：点「确定」前往首次登记 \n\n 已登记过：点「取消」返回确认所输入的号码"
           );
           if (go) {
             // 切到首次登记前就把按钮恢复
@@ -695,8 +695,9 @@ jQuery(function ($) {
             const exists = !!(resp && resp.success && resp.data && resp.data.exists);
             if (!exists) {
               const go = window.confirm(
-                "该电话号码未注册，请完整填写信息进行首次登记。\n\n点击「确定」前往首次登记，点击「取消」留在当前页面。"
+                " 此电话号码尚未登记。\n\n 首次登记：点「确定」前往首次登记 \n\n 已登记过：点「取消」返回确认所输入的号码"
               );
+
               if (go) {
                 resetFirstTimeForm();
                 switchToForm(S.firstTimeForm);

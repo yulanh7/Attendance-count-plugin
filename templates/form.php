@@ -12,13 +12,18 @@ $targetLabel = $weekdayMap[$targetDow];
 $dateMessage = $isAllowed
   ? "Date: {$todayDate} ({$targetLabel})"
   : "<span style='color:#ef2723;font-size:18px'>今天不是 {$targetLabel}，不能签到。</span>";
+
+
+$logo_url = esc_url('https://wp.canberra-ccc.org/wp-content/uploads/2023/08/church_logo_only.png');
 ?>
 
 <div class="es-attendance-container">
   <!-- 默认签到表单 (只需电话) -->
   <form id="es_quick_attendance_form" class="es-attendance-form" style="display: block;">
-    <h3 class="form-title">快速签到</h3>
-
+    <div class="form-header">
+      <img src="<?php echo $logo_url; ?>" alt="<?php echo esc_attr__('教会 Logo', 'attendance-plugin'); ?>" class="form-logo">
+      <h3 class="form-title" style="margin:0;">快速签到</h3>
+    </div>
     <div class="phone-box">
       <select name="es_phone_country_code" required>
         <option value="+61" selected>+61</option>
@@ -42,7 +47,10 @@ $dateMessage = $isAllowed
 
   <!-- 首次签到表单 (完整信息) -->
   <form id="es_first_time_form" class="es-attendance-form" style="display: none;">
-    <h3 class="form-title">首次登记</h3>
+    <div class="form-header">
+      <img src="<?php echo $logo_url; ?>" alt="<?php echo esc_attr__('教会 Logo', 'attendance-plugin'); ?>" class="form-logo">
+      <h3 class="form-title" style="margin:0;">首次登记</h3>
+    </div>
 
     <div class="es-field es-field--checkbox">
       <!-- hidden 先传 0，checkbox 覆盖为 1；避免未勾选时字段缺失 -->
@@ -89,8 +97,10 @@ $dateMessage = $isAllowed
 
   <!-- 修改资料表单 (需输入电话查找用户) -->
   <form id="es_profile_form" class="es-attendance-form" style="display: none;">
-    <h3 class="form-title">修改资料</h3>
-
+    <div class="form-header">
+      <img src="<?php echo $logo_url; ?>" alt="<?php echo esc_attr__('教会 Logo', 'attendance-plugin'); ?>" class="form-logo">
+      <h3 class="form-title" style="margin:0;">修改资料</h3>
+    </div>
     <div class="phone-box">
       <select name="es_phone_country_code" required>
         <option value="+61" selected>+61</option>
