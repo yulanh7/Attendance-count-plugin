@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: Manage attendance (split structure).
- * Version: 2.4.4
+ * Version: 2.5.0
  * Author: Rachel Huang
  * Text Domain: attendance-plugin
  */
@@ -17,7 +17,7 @@ require_once AP_PATH . 'includes/class-install.php';
 
 // 让 IDE 不报未定义常量；实际可用 wp-config 覆盖
 if (!defined('ES_ATTENDANCE_DOW')) {
-  define('ES_ATTENDANCE_DOW', 6); // 0=周日, 1=周一,... 3=周三
+  define('ES_ATTENDANCE_DOW', 7); // 0=周日, 1=周一,... 3=周三
 }
 
 if (!defined('AP_FRONT_PER_PAGE')) {
