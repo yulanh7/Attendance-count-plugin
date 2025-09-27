@@ -79,7 +79,33 @@
   animation: fadeInUp .3s ease;
 }
 
+.es-attendance-container .es-attendance-form .form-header .form-logo {
+  margin: 0;
+  margin-right: 5px;
+  display: block;
+  width: 30px;
+  height: auto;
+  flex: 0 0 auto;
+}
+
+.es-attendance-container .es-attendance-form .form-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 .es-attendance-container .es-attendance-form .form-title {
+  margin: 0;
+}
+
+
+.es-attendance-container .es-attendance-form .form-title {
+  font-size: 20px;
+}
+
+/* .es-attendance-container .es-attendance-form .form-title {
   margin: 0 0 20px;
   padding-bottom: 10px;
   border-bottom: 2px solid #FFD700;
@@ -87,7 +113,7 @@
   font-size: 20px;
   font-weight: 600;
   text-align: center;
-}
+} */
 
 .es-attendance-container .es-attendance-form input[type="text"],
 .es-attendance-container .es-attendance-form input[type="date"],
@@ -808,31 +834,7 @@ button.ap-btn-outline-gold[aria-busy="true"] {
   }
 
   /* 只影响表单标题里的 logo，不动其它图片的“居中”行为 */
-  .es-attendance-container .es-attendance-form .form-header .form-logo {
-    margin: 0;
-    margin-right: 5px;
-    display: block;
-    width: 30px;
-    height: auto;
-    flex: 0 0 auto;
-  }
 
-  .es-attendance-container .es-attendance-form .form-header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 10px;
-  }
-
-  .es-attendance-container .es-attendance-form .form-title {
-    margin: 0;
-  }
-
-
-  .es-attendance-container .es-attendance-form .form-title {
-    font-size: 18px;
-  }
 
   .es-attendance-container .es-attendance-form input[type="submit"] {
     padding: 12px 20px;
