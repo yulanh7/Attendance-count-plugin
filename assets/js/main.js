@@ -142,14 +142,14 @@ jQuery(function ($) {
     // 取消
     let $cancel = $row.find('#profile-cancel-edit');
     if (!$cancel.length) {
-      $cancel = $('<button type="button" id="profile-cancel-edit" class="switch-btn" style="margin-left:8px;">取消</button>');
+      $cancel = $('<button type="button" id="profile-cancel-edit" class="switch-btn">取消</button>');
       $row.append($cancel);
     }
 
     // 修改其他号码
     let $editOther = $row.find('#profile-edit-other');
     if (!$editOther.length) {
-      $editOther = $('<button type="button" id="profile-edit-other" class="switch-btn" style="margin-left:8px; display:none;">修改其他号码</button>');
+      $editOther = $('<button type="button" id="profile-edit-other" class="switch-btn" style="display:none;">修改其他号码</button>');
       $row.append($editOther);
     }
   }

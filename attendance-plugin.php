@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: Manage attendance (split structure).
- * Version: 2.5.7
+ * Version: 2.5.8
  * Author: Rachel Huang
  * Text Domain: attendance-plugin
  */
@@ -60,23 +60,66 @@ add_action('plugins_loaded', function () {
   });
 });
 
+
+
 add_action('template_redirect', function () {
   if (!is_singular()) return;
 
   global $post;
   if (!$post) return;
 
-  // 这些页面都需要登录（subscriber+）
-  $needs_auth =
-    has_shortcode($post->post_content ?? '', 'attendance_dashboard') ||
-    has_shortcode($post->post_content ?? '', 'attendance_first_timers') ||
-    has_shortcode($post->post_content ?? '', 'attendance_newcomers');
+  // 检查是否是签到相关页面
+  $is_attendance_page =
+    has_shortcode($post->post_content ?? '', 'attendance_form');
+  // has_shortcode($post->post_content ?? '', 'attendance_dashboard') ||
+  // has_shortcode($post->post_content ?? '', 'attendance_first_timers') ||
+  // has_shortcode($post->post_content ?? '', 'attendance_newcomers');
 
-  if (!$needs_auth) return;
+  if (!$is_attendance_page) return;
 
-  if (!is_user_logged_in() || !current_user_can('read')) {
-    // 跳到登录页，登录后自动回到当前页
-    wp_redirect(wp_login_url(get_permalink($post)));
-    exit;
-  }
-});
+  // ✅ 禁用主题和其他插件的非关键资源
+  add_action('wp_print_styles', function () {
+    global $wp_styles;
+
+    // 保留关键样式
+    $keep = [
+      'wp-block-library',      // WordPress 核心块样式
+      'ap-style',              // 你的插件样式
+      'jquery-ui-datepicker-style', // jQuery UI
+    ];
+
+    if (isset($wp_styles->queue)) {
+      foreach ($wp_styles->queue as $handle) {
+        // 如果不在保留列表中，移除
+        if (
+          !in_array($handle, $keep) &&
+          strpos($handle, 'admin') === false
+        ) { // 保留 admin 相关
+          wp_dequeue_style($handle);
+        }
+      }
+    }
+  }, 100); // 优先级设高，确保在其他插件之后执行
+
+  add_action('wp_print_scripts', function () {
+    global $wp_scripts;
+
+    // 保留关键脚本
+    $keep = [
+      'jquery',
+      'jquery-ui-datepicker',
+      'ap-main',              // 你的插件 JS
+    ];
+
+    if (isset($wp_scripts->queue)) {
+      foreach ($wp_scripts->queue as $handle) {
+        if (
+          !in_array($handle, $keep) &&
+          strpos($handle, 'admin') === false
+        ) {
+          wp_dequeue_script($handle);
+        }
+      }
+    }
+  }, 100);
+}, 1); // 优先级设为1，尽早执行

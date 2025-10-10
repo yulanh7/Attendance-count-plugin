@@ -127,8 +127,8 @@ $logo_url = esc_url('https://wp.canberra-ccc.org/wp-content/uploads/2023/08/chur
         </select>
 
         <div class="profile-action-row">
-          <button type="button" id="profile-cancel-edit" style="display:none;margin-left:8px;">取消</button>
-          <button type="button" id="profile-edit-other" style="display:none;margin-left:8px;">修改其他号码</button>
+          <button type="button" id="profile-cancel-edit" style="display:none;">取消</button>
+          <button type="button" id="profile-edit-other" style="display:none;">修改其他号码</button>
           <input type="submit" name="update_profile" value="更新资料">
         </div>
       </div>

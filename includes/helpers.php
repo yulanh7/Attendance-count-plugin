@@ -6,15 +6,68 @@ defined('ABSPATH') || exit;
 
 function ap_enqueue_assets()
 {
+  // 检查当前页面是否包含签到短代码
+  global $post;
+  $is_attendance_page = false;
+
+  if ($post) {
+    $is_attendance_page =
+      has_shortcode($post->post_content, 'attendance_form') ||
+      has_shortcode($post->post_content, 'attendance_dashboard') ||
+      has_shortcode($post->post_content, 'attendance_first_timers') ||
+      has_shortcode($post->post_content, 'attendance_newcomers');
+  }
+
+  // ✅ 如果不是签到页面，直接返回（不加载任何资源）
+  if (!$is_attendance_page && !is_admin()) {
+    return;
+  }
+
+  // ✅ jQuery 已经由 WordPress 核心提供，不需要重复加载
   wp_enqueue_script('jquery');
-  wp_enqueue_script('ap-main', AP_URL . 'assets/js/main.js', ['jquery'], '1.0', true);
+
+  // ✅ 主JS文件 - 添加版本号用于缓存控制
+  wp_enqueue_script(
+    'ap-main',
+    AP_URL . 'assets/js/main.js',
+    ['jquery'],
+    filemtime(AP_PATH . 'assets/js/main.js'), // 使用文件修改时间作为版本号
+    true
+  );
+
   wp_localize_script('ap-main', 'esAjax', [
     'ajaxurl' => admin_url('admin-ajax.php', 'relative'),
     'nonce'   => wp_create_nonce('es_attendance_nonce'),
   ]);
-  wp_enqueue_style('ap-style', AP_URL . 'assets/css/style.css', [], '1.0');
-  wp_enqueue_script('jquery-ui-datepicker');
-  wp_enqueue_style('jquery-ui-datepicker-style', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
+
+  // ✅ 主样式文件 - 添加版本号
+  wp_enqueue_style(
+    'ap-style',
+    AP_URL . 'assets/css/style.css',
+    [],
+    filemtime(AP_PATH . 'assets/css/style.css')
+  );
+
+  // ✅ 只在需要 datepicker 的页面加载（Dashboard 和 Admin）
+  $needs_datepicker =
+    (is_admin() && isset($_GET['page']) && $_GET['page'] === 'es-attendance') ||
+    ($post && has_shortcode($post->post_content, 'attendance_dashboard'));
+
+  if ($needs_datepicker) {
+    wp_enqueue_script('jquery-ui-datepicker');
+
+    // ✅ 使用本地 jQuery UI CSS（避免外部 CDN 慢）
+    // 方法1：如果你有本地文件
+    // wp_enqueue_style('jquery-ui-datepicker-style', AP_URL . 'assets/css/jquery-ui.min.css');
+
+    // 方法2：如果没有，先保留 CDN 但添加超时处理
+    wp_enqueue_style(
+      'jquery-ui-datepicker-style',
+      AP_URL . 'assets/css/jquery-ui.min.css',
+      [],
+      filemtime(AP_PATH . 'assets/css/jquery-ui.min.css')
+    );
+  }
 }
 
 // 通用：统计区间内指定星期几的次数

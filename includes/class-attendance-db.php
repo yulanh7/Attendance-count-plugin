@@ -125,8 +125,22 @@ class Attendance_DB
       return ['ok' => true, 'msg' => '签到成功！已登记为新来宾。'];
     }
 
+    self::clear_attendance_cache();
+
     // 不勾选或选择了“不记录”
     return ['ok' => true, 'msg' => '签到成功！'];
+  }
+
+  private static function clear_attendance_cache(): void
+  {
+    global $wpdb;
+
+    // 删除所有 ap_filtered_ 开头的 transient
+    $wpdb->query(
+      "DELETE FROM {$wpdb->options} 
+     WHERE option_name LIKE '_transient_ap_filtered_%' 
+        OR option_name LIKE '_transient_timeout_ap_filtered_%'"
+    );
   }
 
   /**
@@ -141,11 +155,21 @@ class Attendance_DB
     $attendance = $wpdb->prefix . 'attendance';
     $dates      = $wpdb->prefix . 'attendance_dates';
 
+    // ✅ 生成缓存键（基于查询参数）
+    $cache_key = 'ap_filtered_' . md5(serialize($post));
+    $cached = get_transient($cache_key);
+
+    // ✅ 如果有缓存且未过期，直接返回
+    if ($cached !== false) {
+      return $cached;
+    }
+
+    // 原有查询逻辑保持不变
     $q = "SELECT A.*,
-                 (SELECT COUNT(*) FROM $dates WHERE attendance_id = A.id) AS times_all
-          FROM $attendance AS A
-          INNER JOIN $dates AS D ON A.id = D.attendance_id
-          WHERE 1=1";
+               (SELECT COUNT(*) FROM $dates WHERE attendance_id = A.id) AS times_all
+        FROM $attendance AS A
+        INNER JOIN $dates AS D ON A.id = D.attendance_id
+        WHERE 1=1";
 
     $fellowship = sanitize_text_field($post['fellowship'] ?? '');
     $last_name  = sanitize_text_field($post['last_name'] ?? '');
@@ -170,7 +194,6 @@ class Attendance_DB
       $q .= $wpdb->prepare(" AND is_member = %d", $im);
     }
 
-    // 日期过滤（默认当天到当天）
     $start_raw = sanitize_text_field($post['start_date_filter'] ?? '');
     $end_raw   = sanitize_text_field($post['end_date_filter'] ?? '');
 
@@ -190,20 +213,20 @@ class Attendance_DB
       $q  .= $wpdb->prepare(" AND D.date_attended <= %s", $end);
     }
 
-    // "新出席"过滤：按全历史只来过 1 次（与日期筛选无关）
     if ($is_new) {
       $q .= " AND A.id IN (
-               SELECT attendance_id
-               FROM $dates
-               GROUP BY attendance_id
-               HAVING COUNT(*) = 1
-             )";
+             SELECT attendance_id
+             FROM $dates
+             GROUP BY attendance_id
+             HAVING COUNT(*) = 1
+           )";
     }
 
     $rows = $wpdb->get_results($q, ARRAY_A);
-
-    // 合并同手机号并计算 times/percentage/last_attended
     $rows = self::combine_by_phone($rows, $start, $end, $pct_filter);
+
+    // ✅ 缓存结果 5 分钟
+    set_transient($cache_key, $rows, 5 * MINUTE_IN_SECONDS);
 
     return $rows;
   }
