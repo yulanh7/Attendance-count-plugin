@@ -12,7 +12,7 @@ class Install
    * 每次结构有变更时，更新这个版本号（用于 maybe_upgrade 判定）
    * 建议用日期版本，便于回顾
    */
-  private const SCHEMA_VERSION = '2025.09.26';
+  private const SCHEMA_VERSION = '2026.04.28';
   private const OPTION_KEY     = 'ap_attendance_schema_ver';
 
   /**
@@ -62,6 +62,7 @@ class Install
             phone      VARCHAR(20)  NOT NULL,
             email      VARCHAR(255) DEFAULT '',
             fellowship VARCHAR(32)  NOT NULL,
+            referral_source VARCHAR(32) DEFAULT '',
             is_new     TINYINT(1)   NOT NULL DEFAULT 1,
             is_member  TINYINT(1)   NOT NULL DEFAULT 0,
             first_attendance_date DATE NOT NULL,

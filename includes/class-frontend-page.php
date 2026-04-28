@@ -214,7 +214,7 @@ class Frontend_Page
   }
 
   /** 服务端渲染小卡片列表（姓名 + 首次来访日期；按权限可带电话） */
-  public static function render_first_timers_list_html(array $rows, bool $can_view_phone, bool $deletable = false): string
+  public static function render_first_timers_list_html(array $rows, bool $can_view_phone, bool $deletable = false, bool $show_referral_source = false): string
   {
     if (empty($rows)) {
       return '<div class="ap-ft-empty">所选日期内暂无第一次来访的朋友。</div>';
@@ -227,15 +227,21 @@ class Frontend_Page
       $date = \AP\format_date_dmy($r['first_attendance_date'] ?? '');
       $phone = $can_view_phone ? esc_html($r['phone'] ?? '') : '';
       $phoneHtml = $phone ? '<div class="ap-ft-meta">📞 ' . $phone . '</div>' : '';
+      $referralHtml = '';
+      if ($show_referral_source) {
+        $referral = \AP\ap_translate_referral_source($r['referral_source'] ?? '');
+        $referralHtml = '<div class="ap-ft-meta">认识途径：' . esc_html($referral) . '</div>';
+      }
 
       $deleteBtn = '';
       if ($deletable && $id > 0) {
-        $deleteBtn = '<button type="button" class="button-link ap-ft-delete" data-id="' . esc_attr($id) . '">删除</button>';
+        $deleteBtn = '<button type="button" class="button-link ap-ft-delete" data-id="' . esc_attr($id) . '">移出新来宾名单</button>';
       }
 
       $cards .= '<div class="ap-ft-card" data-card-id="' . esc_attr($id) . '">'
         .   '<div class="ap-ft-name">' . esc_html($name) . '</div>'
         .   '<div class="ap-ft-meta">首次来访：' . esc_html($date) . '</div>'
+        .    $referralHtml
         .    $phoneHtml
         .   ($deleteBtn ? '<div class="ap-ft-actions" style="margin-top:6px;">' . $deleteBtn . '</div>' : '')
         . '</div>';
@@ -288,7 +294,7 @@ class Frontend_Page
     // 首屏数据直接来自 attendance_first_time_attendance_dates 表
     $rows = Attendance_DB::query_first_timers_log($start, $end);
 
-    $list_html = self::render_first_timers_list_html($rows, $can_view_phone, true);
+    $list_html = self::render_first_timers_list_html($rows, $can_view_phone, true, true);
     $nonce = wp_create_nonce('ap_ft_delete_newcomer');
 
     // UI：与 first_timers 一样，但容器标记为 data-source="newcomers"

@@ -75,12 +75,14 @@ $logo_url = esc_url('https://wp.canberra-ccc.org/wp-content/uploads/2023/08/chur
         <input type="text" name="es_phone_number" required placeholder="电话号码（必填）">
       </div>
 
-      <select name="es_fellowship" required>
-        <option value="" disabled selected>您的团契（必选）</option>
-        <option value="daniel">但以理团契</option>
-        <option value="trueLove">真爱团团契</option>
-        <option value="faithHopeLove">信望爱团契</option>
-        <option value="peaceJoyPrayer">平安喜乐祷告会</option>
+      <input type="hidden" name="es_fellowship" value="other">
+
+      <select name="es_referral_source" required>
+        <option value="" disabled selected>您是如何认识并来到本教会的？（必选）</option>
+        <option value="family">家人</option>
+        <option value="friends">朋友</option>
+        <option value="internet">网路</option>
+        <option value="walk_in">路过</option>
         <option value="other">其他</option>
       </select>
 

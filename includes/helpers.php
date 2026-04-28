@@ -129,6 +129,23 @@ function ap_translate_fellowship($key)
   return $map[$key] ?? $key;
 }
 
+function ap_translate_referral_source($key)
+{
+  $key = trim((string) $key);
+  if ($key === '') {
+    return '无';
+  }
+
+  $map = [
+    'family'   => '家人',
+    'friends'  => '朋友',
+    'internet' => '网路',
+    'walk_in'  => '路过',
+    'other'    => '其他',
+  ];
+  return $map[$key] ?? $key;
+}
+
 
 if (!function_exists('ap_truthy')) {
   function ap_truthy($v): bool

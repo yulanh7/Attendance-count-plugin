@@ -227,7 +227,7 @@ class Ajax
 
     $rows = $wpdb->get_results(
       $wpdb->prepare(
-        "SELECT first_name, last_name, phone, first_attendance_date
+        "SELECT first_name, last_name, phone, referral_source, first_attendance_date
            FROM {$attendance}
           WHERE first_attendance_date BETWEEN %s AND %s
           ORDER BY first_attendance_date DESC, last_name, first_name",
@@ -292,7 +292,7 @@ class Ajax
     );
 
     // CSV 头
-    $head = ['First Name', 'Last Name', 'First Attended Date'];
+    $head = ['First Name', 'Last Name', 'First Attended Date', 'Referral Source'];
     if ($can_view_phone) $head[] = 'Phone';
 
     // 构建 CSV（带 BOM 以便 Excel 识别 UTF-8）
@@ -306,6 +306,7 @@ class Ajax
         $r['first_name'] ?? '',
         $r['last_name'] ?? '',
         \AP\format_date_dmy($r['first_attendance_date'] ?? ''),
+        \AP\ap_translate_referral_source($r['referral_source'] ?? ''),
       ];
       if ($can_view_phone) $cols[] = $r['phone'] ?? '';
       $lines[] = implode(',', array_map('\AP\csv_escape', $cols));
@@ -544,13 +545,14 @@ class Ajax
     $out = fopen('php://output', 'w');
 
     // 表头（保持与原来的导出列一致）
-    fputcsv($out, ['First Name', 'Last Name', 'Phone', 'First Attendance Date']);
+    fputcsv($out, ['First Name', 'Last Name', 'Phone', 'Referral Source', 'First Attendance Date']);
 
     foreach ($rows as $r) {
       fputcsv($out, [
         $r['first_name'] ?? '',
         $r['last_name'] ?? '',
         $r['phone'] ?? '',
+        \AP\ap_translate_referral_source($r['referral_source'] ?? ''),
         $r['first_attendance_date'] ?? '',
       ]);
     }
@@ -580,7 +582,7 @@ class Ajax
     wp_send_json_success([
       'count' => count($rows),
       'rows'  => $rows,
-      'html'  => \AP\Frontend_Page::render_first_timers_list_html($rows, true), // 权限用户可以看电话
+      'html'  => \AP\Frontend_Page::render_first_timers_list_html($rows, true, true, true), // newcomers 显示 referral_source + 可移除按钮
       'generated_at' => date_i18n('Y-m-d H:i', current_time('timestamp')),
     ]);
   }
@@ -614,13 +616,14 @@ class Ajax
     $out = fopen('php://output', 'w');
 
     // 表头（保持与原来的导出列一致）
-    fputcsv($out, ['First Name', 'Last Name', 'Phone', 'First Attendance Date']);
+    fputcsv($out, ['First Name', 'Last Name', 'Phone', 'Referral Source', 'First Attendance Date']);
 
     foreach ($rows as $r) {
       fputcsv($out, [
         $r['first_name'] ?? '',
         $r['last_name'] ?? '',
         $r['phone'] ?? '',
+        \AP\ap_translate_referral_source($r['referral_source'] ?? ''),
         $r['first_attendance_date'] ?? '',
       ]);
     }

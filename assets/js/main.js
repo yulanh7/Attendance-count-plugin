@@ -171,7 +171,8 @@ jQuery(function ($) {
     $form.find("input[name=es_email]").val(saved.es_email || "");
     $form.find("select[name=es_phone_country_code]").val(saved.es_phone_country_code || "+61");
     $form.find("input[name=es_phone_number]").val(saved.es_phone_number || "");
-    $form.find("select[name=es_fellowship]").val(saved.es_fellowship || "");
+    $form.find("[name=es_fellowship]").val(saved.es_fellowship || "");
+    $form.find("select[name=es_referral_source]").val(saved.es_referral_source || "");
 
     // 原有手机号一致性与提示逻辑
     const $cc = $form.find("select[name=es_phone_country_code]");
@@ -221,7 +222,8 @@ jQuery(function ($) {
           es_email: $form.find("input[name=es_email]").val(),
           es_phone_country_code: $cc.val(),
           es_phone_number: $num.val(),
-          es_fellowship: $form.find("select[name=es_fellowship]").val(),
+          es_fellowship: $form.find("[name=es_fellowship]").val(),
+          es_referral_source: $form.find("select[name=es_referral_source]").val(),
         };
         storage.set("es_attendance_form_data", formData);
         api.post("es_handle_attendance", formData)
@@ -239,7 +241,8 @@ jQuery(function ($) {
                 es_email: $form.find("input[name=es_email]").val(),
                 es_phone_country_code: $cc.val(),
                 es_phone_number: $num.val(),
-                es_fellowship: $form.find("select[name=es_fellowship]").val(),
+                es_fellowship: $form.find("[name=es_fellowship]").val(),
+                es_referral_source: $form.find("select[name=es_referral_source]").val(),
               };
               Object.assign(saved, formData);
               storage.set("es_attendance_form_data", formData);
@@ -307,7 +310,8 @@ jQuery(function ($) {
     $form.find("input[name=es_email]").val(saved.es_email || "");
     $form.find("select[name=es_phone_country_code]").val(saved.es_phone_country_code || "+61");
     $form.find("input[name=es_phone_number]").val(saved.es_phone_number || "");
-    $form.find("select[name=es_fellowship]").val(saved.es_fellowship || "");
+    $form.find("[name=es_fellowship]").val(saved.es_fellowship || "");
+    $form.find("select[name=es_referral_source]").val(saved.es_referral_source || "");
   }
 
   function getFormData($form) {
@@ -317,7 +321,8 @@ jQuery(function ($) {
       es_email: $form.find("input[name=es_email]").val() || "",
       es_phone_country_code: $form.find("select[name=es_phone_country_code]").val() || "+61",
       es_phone_number: $form.find("input[name=es_phone_number]").val() || "",
-      es_fellowship: $form.find("select[name=es_fellowship]").val() || "",
+      es_fellowship: $form.find("[name=es_fellowship]").val() || "",
+      es_referral_source: $form.find("select[name=es_referral_source]").val() || "",
     };
   }
 
@@ -328,7 +333,8 @@ jQuery(function ($) {
     $form.find("input[name=es_first_name]").val("");
     $form.find("input[name=es_last_name]").val("");
     $form.find("input[name=es_email]").val("");
-    $form.find("select[name=es_fellowship]").val("");
+    $form.find("[name=es_fellowship]").val("");
+    $form.find("select[name=es_referral_source]").val("");
     $form.find("#profile-cancel-edit").hide();
     $form.find("#profile-edit-other").hide();
     $(".es-message").remove();
@@ -360,7 +366,8 @@ jQuery(function ($) {
     $form.find("input[name=es_email]").val("");
     $form.find("select[name=es_phone_country_code]").val("+61"); // 如需默认国家码
     $form.find("input[name=es_phone_number]").val("");
-    $form.find("select[name=es_fellowship]").val("");
+    $form.find("[name=es_fellowship]").val("other");
+    $form.find("select[name=es_referral_source]").val("");
     $(".es-message").remove();
   }
 
@@ -426,7 +433,7 @@ jQuery(function ($) {
           $form.find("input[name=es_first_name]").val(data.first_name || "");
           $form.find("input[name=es_last_name]").val(data.last_name || "");
           $form.find("input[name=es_email]").val(data.email || "");
-          $form.find("select[name=es_fellowship]").val(data.fellowship || "");
+          $form.find("[name=es_fellowship]").val(data.fellowship || "");
 
           // 查找成功后再切换到"更新资料"区
           $check.hide();
@@ -1258,7 +1265,7 @@ jQuery(function ($) {
                     'data-last-name="' + ln + '" ' +
                     'data-phone="' + ph + '" ' +
                     'data-date="' + dt + '">' +
-                    '删除' +
+                    '移出新来宾名单' +
                     '</button>' +
                     '</div>';
                 }
@@ -1346,7 +1353,7 @@ jQuery(function ($) {
     const id = parseInt(btn.getAttribute('data-id') || '0', 10);
     if (!id || id <= 0) return;
 
-    if (!window.confirm('确定要删除这条首次登记记录吗？此操作仅删除“首次登记”日志，不会影响其他表。')) {
+    if (!window.confirm('确定要将此人移出新来宾名单吗？此操作仅移除新来宾记录，不会删除登记资料或签到记录。')) {
       return;
     }
 
@@ -1367,7 +1374,7 @@ jQuery(function ($) {
       const data = await res.json();
 
       if (!data || !data.success) {
-        const msg = (data && data.data && data.data.message) ? data.data.message : '删除失败';
+        const msg = (data && data.data && data.data.message) ? data.data.message : '移出失败';
         alert(msg);
         btn.disabled = false;
         return;

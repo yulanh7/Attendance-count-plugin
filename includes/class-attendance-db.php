@@ -31,6 +31,7 @@ class Attendance_DB
     $country_code = trim(sanitize_text_field($post['es_phone_country_code'] ?? ''));
     $phone_number = trim(sanitize_text_field($post['es_phone_number'] ?? ''));
     $fellowship   = trim(sanitize_text_field($post['es_fellowship'] ?? ''));
+    $referral_source = trim(sanitize_text_field($post['es_referral_source'] ?? ''));
     $email        = sanitize_email($post['es_email'] ?? '');
     $today        = current_time('Y-m-d');
 
@@ -48,19 +49,21 @@ class Attendance_DB
     // 原子 upsert（依赖 attendance.phone 唯一键）
     $upsert_sql = $wpdb->prepare(
       "INSERT INTO $attendance
-        (first_name, last_name, phone, email, fellowship, is_new, first_attendance_date)
-      VALUES (%s, %s, %s, %s, %s, 1, %s)
+        (first_name, last_name, phone, email, fellowship, referral_source, is_new, first_attendance_date)
+      VALUES (%s, %s, %s, %s, %s, %s, 1, %s)
       ON DUPLICATE KEY UPDATE
         first_name = IF(VALUES(first_name) IS NULL OR VALUES(first_name) = '', first_name, VALUES(first_name)),
         last_name  = IF(VALUES(last_name)  IS NULL OR VALUES(last_name)  = '', last_name,  VALUES(last_name)),
         email      = IF(VALUES(email)      IS NULL OR VALUES(email)      = '', email,      VALUES(email)),
         fellowship = IF(VALUES(fellowship) IS NULL OR VALUES(fellowship) = '', fellowship, VALUES(fellowship)),
+        referral_source = IF(VALUES(referral_source) IS NULL OR VALUES(referral_source) = '', referral_source, VALUES(referral_source)),
         is_new     = 0",
       $first_name,
       $last_name,
       $phone,
       $email,
       $fellowship,
+      $referral_source,
       $today
     );
 
@@ -287,6 +290,7 @@ class Attendance_DB
           $out[$phone]['last_name']  = $entry['last_name'];
           $out[$phone]['phone']      = $entry['phone'];
           $out[$phone]['fellowship'] = $entry['fellowship'];
+          $out[$phone]['referral_source'] = $entry['referral_source'] ?? '';
         }
       }
 
@@ -354,6 +358,7 @@ class Attendance_DB
     $lines[] = implode(',', array_map('\AP\csv_escape', [
       'No.',
       'Fellowships',
+      'Referral Source',
       'First Name',
       'Last Name',
       'Phone',
@@ -368,12 +373,14 @@ class Attendance_DB
     // 数据
     foreach ($rows as $r) {
       $f     = \AP\ap_translate_fellowship($r['fellowship']);
+      $source = \AP\ap_translate_referral_source($r['referral_source'] ?? '');
       $first = \AP\format_date_dmy($r['first_attendance_date'] ?? '');
       $last  = \AP\format_date_dmy($r['last_attended'] ?? '');
 
       $lines[] = implode(',', array_map('\AP\csv_escape', [
         $r['row_num'],
         $f,
+        $source,
         $r['first_name'],
         $r['last_name'],
         $r['phone'],
@@ -427,7 +434,7 @@ class Attendance_DB
 
     // 直接读日志表；按日期区间筛选
     $sql = $wpdb->prepare(
-      "SELECT A.first_name, A.last_name, A.phone, D.date_attended AS first_attendance_date, D.id AS id
+      "SELECT A.first_name, A.last_name, A.phone, A.referral_source, D.date_attended AS first_attendance_date, D.id AS id
        FROM $attendance AS A
        INNER JOIN $first_dates AS D ON A.id = D.attendance_id
       WHERE D.date_attended BETWEEN %s AND %s
