@@ -309,7 +309,7 @@ class Ajax
         \AP\format_date_dmy($r['first_attendance_date'] ?? ''),
         \AP\ap_translate_referral_source($r['referral_source'] ?? ''),
       ];
-      if ($can_view_phone) $cols[] = $r['phone'] ?? '';
+      if ($can_view_phone) $cols[] = \AP\csv_excel_text($r['phone'] ?? '');
       $lines[] = implode(',', array_map('\AP\csv_escape', $cols));
     }
 
@@ -553,7 +553,7 @@ class Ajax
       fputcsv($out, [
         $r['first_name'] ?? '',
         $r['last_name'] ?? '',
-        $r['phone'] ?? '',
+        \AP\csv_excel_text($r['phone'] ?? ''),
         \AP\ap_translate_referral_source($r['referral_source'] ?? ''),
         $r['first_attendance_date'] ?? '',
       ]);
@@ -625,7 +625,7 @@ class Ajax
       fputcsv($out, [
         $r['first_name'] ?? '',
         $r['last_name'] ?? '',
-        $r['phone'] ?? '',
+        \AP\csv_excel_text($r['phone'] ?? ''),
         \AP\ap_translate_referral_source($r['referral_source'] ?? ''),
         $r['first_attendance_date'] ?? '',
       ]);

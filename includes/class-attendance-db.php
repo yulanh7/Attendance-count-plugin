@@ -383,7 +383,7 @@ class Attendance_DB
         $source,
         $r['first_name'],
         $r['last_name'],
-        $r['phone'],
+        \AP\csv_excel_text($r['phone'] ?? ''),
         $r['email'],
         $r['times'],
         $r['percentage'] . '%',

@@ -1090,18 +1090,6 @@ jQuery(function ($) {
     }
 
     function feExportCSV($c) {
-      const s = $c.find("#fe_start_date_filter").val();
-      const e = $c.find("#fe_end_date_filter").val();
-
-      function dmyLoose(iso) {
-        const d = iso ? new Date(iso) : new Date();
-        const day = d.getDate();
-        const mon = d.getMonth() + 1;
-        const yr = d.getFullYear();
-        return `${day}/${mon}/${yr}`;
-      }
-      const titleLine = `Date Range,${dmyLoose(s)} to ${dmyLoose(e)}`;
-
       $.ajax({
         url: esAjax.ajaxurl,
         type: "POST",
@@ -1110,7 +1098,7 @@ jQuery(function ($) {
         if (csv && csv.charCodeAt && csv.charCodeAt(0) === 0xFEFF) {
           csv = csv.slice(1);
         }
-        const finalCsv = "\uFEFF" + titleLine + "\n" + csv;
+        const finalCsv = "\uFEFF" + csv;
 
         const blob = new Blob([finalCsv], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
