@@ -100,6 +100,7 @@ class Ajax
     $csv = Attendance_DB::build_csv($_POST);
     header('Content-Type: text/csv; charset=utf-8');
     header('X-Content-Type-Options: nosniff');
+    echo "\xEF\xBB\xBF";
     echo $csv;
     wp_die();
   }
@@ -543,6 +544,7 @@ class Ajax
     }
 
     $out = fopen('php://output', 'w');
+    echo "\xEF\xBB\xBF";
 
     // 表头（保持与原来的导出列一致）
     fputcsv($out, ['First Name', 'Last Name', 'Phone', 'Referral Source', 'First Attendance Date']);
@@ -614,6 +616,7 @@ class Ajax
     }
 
     $out = fopen('php://output', 'w');
+    echo "\xEF\xBB\xBF";
 
     // 表头（保持与原来的导出列一致）
     fputcsv($out, ['First Name', 'Last Name', 'Phone', 'Referral Source', 'First Attendance Date']);
