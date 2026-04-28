@@ -67,11 +67,11 @@ class Frontend_Page
           <input type="date" id="fe_end_date_filter" value="<?php echo esc_attr($end); ?>">
         </span>
 
-        <div>
-          <span class="checkbox-container">
-            <input type="checkbox" id="fe_is_new_filter" checked>
+        <!-- <div> -->
+          <!-- <span class="checkbox-container">
+            <input type="checkbox" id="fe_is_new_filter">
             <label for="fe_is_new_filter">New Attendance</label>
-          </span>
+          </span> -->
           <span class="checkbox-container">
             <input type="checkbox" id="fe_percentage_filter">
             <label for="fe_percentage_filter">&ge; 50%</label>
@@ -81,7 +81,7 @@ class Frontend_Page
           <button id="fe-export-csv-button" type="button" class="export-csv">Export to CSV</button>
         </div>
 
-      </div>
+      <!-- </div> -->
 
       <?php if (current_user_can('manage_options')): ?>
         <div class="bulk-action-bar" style="margin-top:8px;">
