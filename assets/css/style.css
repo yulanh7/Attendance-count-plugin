@@ -409,6 +409,7 @@
 /* ========== 3) Frontend Dashboard (filters + table) ========== */
 .wrap.ap-frontend-dashboard {
   font-size: 14px;
+  padding: 10px
 }
 
 .ap-frontend-dashboard .filter-form {
