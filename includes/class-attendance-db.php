@@ -189,7 +189,18 @@ class Attendance_DB
     if ($fellowship) $q .= $wpdb->prepare(" AND fellowship = %s", $fellowship);
     if ($first_name) $q .= $wpdb->prepare(" AND first_name LIKE %s", '%' . $wpdb->esc_like($first_name) . '%');
     if ($last_name)  $q .= $wpdb->prepare(" AND last_name  LIKE %s", '%' . $wpdb->esc_like($last_name)  . '%');
-    if ($phone)      $q .= $wpdb->prepare(" AND phone      LIKE %s", '%' . $wpdb->esc_like($phone)      . '%');
+    if ($phone) {
+      // 兼容本地格式（如 0468869556）与国际格式（如 +61468869556 / 61468869556）：
+      // 只比较数字，并去掉本地拨号前缀的那个 0，这样两种写法都能命中库里存的 +61... 号码
+      $phone_digits = preg_replace('/\D+/', '', $phone);
+      $phone_digits = preg_replace('/^0+/', '', $phone_digits);
+      if ($phone_digits !== '') {
+        $q .= $wpdb->prepare(
+          " AND REPLACE(phone, '+', '') LIKE %s",
+          '%' . $wpdb->esc_like($phone_digits) . '%'
+        );
+      }
+    }
     if ($email)      $q .= $wpdb->prepare(" AND email      LIKE %s", '%' . $wpdb->esc_like($email)      . '%');
 
     if ($is_member) {
