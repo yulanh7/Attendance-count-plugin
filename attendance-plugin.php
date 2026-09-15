@@ -77,6 +77,13 @@ add_action('template_redirect', function () {
 
   if (!$is_attendance_page) return;
 
+  // Elementor 编辑器 / 预览也是通过这个前台模板渲染 iframe 的；
+  // 如果在这里砍掉大部分脚本样式，会把 Elementor 编辑器自身需要的资源一起砍掉，
+  // 导致编辑器一直转圈打不开 —— 预览/编辑模式下直接跳过下面的裁剪逻辑
+  if (isset($_GET['elementor-preview']) || (is_admin() && isset($_GET['action']) && $_GET['action'] === 'elementor')) {
+    return;
+  }
+
   // ✅ 禁用主题和其他插件的非关键资源
   add_action('wp_print_styles', function () {
     global $wp_styles;
