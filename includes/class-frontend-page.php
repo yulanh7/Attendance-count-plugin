@@ -62,10 +62,10 @@ class Frontend_Page
         <input type="text" id="fe_phone_filter" placeholder="Phone">
         <input type="text" id="fe_email_filter" placeholder="Email">
 
-        <span style="display:inline-block;">
+        
           <input type="date" id="fe_start_date_filter" value="<?php echo esc_attr($start); ?>"> —
           <input type="date" id="fe_end_date_filter" value="<?php echo esc_attr($end); ?>">
-        </span>
+        
 
         <!-- <div> -->
           <!-- <span class="checkbox-container">
@@ -116,7 +116,7 @@ class Frontend_Page
     </div>
 
   <?php
-    return ob_get_clean();
+    return ap_compact_html(ob_get_clean());
   }
 
   public static function render_first_timers_shortcode($atts = []): string
@@ -210,7 +210,7 @@ class Frontend_Page
 
 
   <?php
-    return ob_get_clean();
+    return ap_compact_html(ob_get_clean());
   }
 
   /** 服务端渲染小卡片列表（姓名 + 首次来访日期；按权限可带电话） */
@@ -337,6 +337,6 @@ class Frontend_Page
 
 
 <?php
-    return ob_get_clean();
+    return ap_compact_html(ob_get_clean());
   }
 }

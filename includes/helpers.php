@@ -112,7 +112,7 @@ function ap_render_form_shortcode()
 {
   ob_start();
   include AP_PATH . 'templates/form.php';
-  return ob_get_clean();
+  return ap_compact_html(ob_get_clean());
 }
 
 function format_date_dmy(?string $s): string
@@ -160,6 +160,13 @@ function ap_translate_referral_source($key)
   return $map[$key] ?? $key;
 }
 
+
+// 压缩 shortcode 输出的空白：防止宿主编辑器（wpautop、Elementor 文本编辑器等）
+// 把标签间的空行/换行误判成段落，插入多余的 <p>/<br>，打乱 flex 布局
+function ap_compact_html(string $html): string
+{
+  return trim(preg_replace('/>\s+</', '><', $html));
+}
 
 if (!function_exists('ap_truthy')) {
   function ap_truthy($v): bool
