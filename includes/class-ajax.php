@@ -59,6 +59,15 @@ class Ajax
     check_ajax_referer('es_attendance_nonce', 'nonce');
   }
 
+  /** 后台类接口：nonce + 权限检查，不通过直接 403 */
+  private static function require_cap(bool $allowed)
+  {
+    self::verify_nonce();
+    if (!$allowed) {
+      wp_send_json_error(['message' => 'Permission denied'], 403);
+    }
+  }
+
   public static function handle_attendance()
   {
     self::verify_nonce();
@@ -69,7 +78,7 @@ class Ajax
 
   public static function filter_attendance()
   {
-    self::verify_nonce();
+    self::require_cap(ap_user_can_view());
     $rows = \AP\Attendance_DB::query_filtered($_POST);
 
     $is_frontend = !empty($_POST['fe']) && $_POST['fe'] == '1';
@@ -96,7 +105,7 @@ class Ajax
 
   public static function export_csv()
   {
-    self::verify_nonce();
+    self::require_cap(ap_user_can_view());
     $csv = Attendance_DB::build_csv($_POST);
     header('Content-Type: text/csv; charset=utf-8');
     header('X-Content-Type-Options: nosniff');
@@ -107,14 +116,14 @@ class Ajax
 
   public static function update_member()
   {
-    self::verify_nonce();
+    self::require_cap(ap_user_can_manage());
     $msg = Attendance_DB::bulk_update_member($_POST);
     wp_send_json_success(['message' => $msg]);
   }
 
   public static function get_attendance_info()
   {
-    self::verify_nonce();
+    self::require_cap(ap_user_can_view());
     $id   = absint($_POST['attendance_id'] ?? 0);
     $start = sanitize_text_field($_POST['start_date_filter'] ?? '');
     $end  = sanitize_text_field($_POST['end_date_filter'] ?? '');
@@ -409,7 +418,8 @@ class Ajax
     wp_send_json_success([
       'first_name' => $user->first_name,
       'last_name' => $user->last_name,
-      'email' => $user->email,
+      // 只返回打码后的邮箱，不暴露完整地址
+      'email_masked' => ap_mask_email($user->email),
       'fellowship' => $user->fellowship,
       'country_code' => $phone_parts['country_code'],
       'phone_number' => $phone_parts['phone_number'],
@@ -454,17 +464,20 @@ class Ajax
       wp_send_json_error(['message' => '该电话号码不存在，请先进行首次登记']);
     }
 
-    // 更新资料
+    // 更新资料；前台只看到打码邮箱，所以邮箱留空 = 不修改
+    $data = [
+      'first_name' => $first_name,
+      'last_name' => $last_name,
+      'fellowship' => $fellowship,
+    ];
+    if ($email !== '') {
+      $data['email'] = $email;
+    }
     $result = $wpdb->update(
       $attendance,
-      [
-        'first_name' => $first_name,
-        'last_name' => $last_name,
-        'email' => $email,
-        'fellowship' => $fellowship,
-      ],
+      $data,
       ['id' => $user_id],
-      ['%s', '%s', '%s', '%s'],
+      array_fill(0, count($data), '%s'),
       ['%d']
     );
 

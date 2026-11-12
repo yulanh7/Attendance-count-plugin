@@ -240,7 +240,7 @@ class Admin_Page
 
   public static function render_table_simple(array $rows)
   {
-    $is_admin = current_user_can('manage_options');
+    $is_admin = ap_user_can_manage();
   ?>
     <?php if ($is_admin): ?>
       <form method="post" id="attendance-bulk-form">
@@ -293,6 +293,9 @@ class Admin_Page
           endif; ?>
         </tbody>
       </table>
+    <?php if ($is_admin): ?>
+      </form>
+    <?php endif; ?>
 
   <?php
   }

@@ -168,6 +168,31 @@ function ap_compact_html(string $html): string
   return trim(preg_replace('/>\s+</', '><', $html));
 }
 
+// 权限：查看签到数据（Dashboard / 导出 / 出席详情）
+// 默认 read（登录用户即可）；如需提高门槛可用 add_filter('ap_view_capability', ...) 覆盖
+function ap_user_can_view(): bool
+{
+  return is_user_logged_in() && current_user_can(apply_filters('ap_view_capability', 'read'));
+}
+
+// 权限：修改数据（批量设置会员）
+// 默认 read（同工用 Subscriber 账号即可操作）；如需提高门槛可用 add_filter('ap_manage_capability', ...) 覆盖
+function ap_user_can_manage(): bool
+{
+  return is_user_logged_in() && current_user_can(apply_filters('ap_manage_capability', 'read'));
+}
+
+// 邮箱打码：john.doe@gmail.com → j***@gmail.com
+function ap_mask_email(?string $email): string
+{
+  $email = trim((string) $email);
+  if ($email === '' || strpos($email, '@') === false) {
+    return '';
+  }
+  [$local, $domain] = explode('@', $email, 2);
+  return mb_substr($local, 0, 1) . '***@' . $domain;
+}
+
 if (!function_exists('ap_truthy')) {
   function ap_truthy($v): bool
   {

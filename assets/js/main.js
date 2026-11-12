@@ -432,7 +432,12 @@ jQuery(function ($) {
           // 填入资料
           $form.find("input[name=es_first_name]").val(data.first_name || "");
           $form.find("input[name=es_last_name]").val(data.last_name || "");
-          $form.find("input[name=es_email]").val(data.email || "");
+          // 邮箱只显示打码版本作为提示；留空提交 = 不修改原邮箱
+          $form.find("input[name=es_email]")
+            .val("")
+            .attr("placeholder", data.email_masked
+              ? `邮箱：${data.email_masked}（留空不修改）`
+              : "邮箱（选填）");
           $form.find("[name=es_fellowship]").val(data.fellowship || "");
 
           // 查找成功后再切换到"更新资料"区

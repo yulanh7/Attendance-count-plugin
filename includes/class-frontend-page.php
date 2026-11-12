@@ -84,7 +84,7 @@ class Frontend_Page
 
       <!-- </div> -->
 
-      <?php if (current_user_can('manage_options')): ?>
+      <?php if (ap_user_can_manage()): ?>
         <div class="bulk-action-bar" style="margin-top:8px;">
           <select id="fe-bulk-action-selector">
             <option value=""><?php esc_html_e('Bulk actions', 'attendance-plugin'); ?></option>
