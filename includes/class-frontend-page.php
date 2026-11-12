@@ -62,10 +62,11 @@ class Frontend_Page
         <input type="text" id="fe_phone_filter" placeholder="Phone">
         <input type="text" id="fe_email_filter" placeholder="Email">
 
-        
-          <input type="date" id="fe_start_date_filter" value="<?php echo esc_attr($start); ?>"> —
+        <div class="date-range-group">
+          <input type="date" id="fe_start_date_filter" value="<?php echo esc_attr($start); ?>">
+          <span class="date-range-sep">—</span>
           <input type="date" id="fe_end_date_filter" value="<?php echo esc_attr($end); ?>">
-        
+        </div>
 
         <!-- <div> -->
           <!-- <span class="checkbox-container">

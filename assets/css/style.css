@@ -436,6 +436,17 @@
   width: auto;
 }
 
+.ap-frontend-dashboard .filter-form .date-range-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.ap-frontend-dashboard .filter-form .date-range-sep {
+  color: #666;
+}
+
 .ap-frontend-dashboard .filter-form .checkbox-container {
   display: inline-flex;
   align-items: center;
@@ -910,6 +921,11 @@ button.ap-btn-outline-gold[aria-busy="true"] {
   .ap-frontend-dashboard .filter-form input[type="date"],
   .ap-frontend-dashboard .filter-form select {
     width: 100%;
+  }
+
+  .ap-frontend-dashboard .filter-form .date-range-group {
+    width: 100%;
+    flex-wrap: wrap;
   }
 
   .ap-frontend-dashboard .filter-form .checkbox-container {
