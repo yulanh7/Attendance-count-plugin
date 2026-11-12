@@ -12,7 +12,7 @@ class Install
    * 每次结构有变更时，更新这个版本号（用于 maybe_upgrade 判定）
    * 建议用日期版本，便于回顾
    */
-  private const SCHEMA_VERSION = '2026.04.28';
+  private const SCHEMA_VERSION = '2026.11.12';
   private const OPTION_KEY     = 'ap_attendance_schema_ver';
 
   /**
@@ -66,11 +66,13 @@ class Install
             is_new     TINYINT(1)   NOT NULL DEFAULT 1,
             is_member  TINYINT(1)   NOT NULL DEFAULT 0,
             first_attendance_date DATE NOT NULL,
+            home_congregation VARCHAR(16) NOT NULL DEFAULT 'mandarin',
             PRIMARY KEY  (id),
             UNIQUE KEY uniq_phone (phone),
             KEY idx_fellowship (fellowship),
             KEY idx_is_member (is_member),
-            KEY idx_first_attendance_date (first_attendance_date)
+            KEY idx_first_attendance_date (first_attendance_date),
+            KEY idx_home_congregation (home_congregation)
         ) {$charset};";
 
     // 2) 出席日期明细：attendance_dates
@@ -79,9 +81,11 @@ class Install
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             attendance_id BIGINT(20) UNSIGNED NOT NULL,
             date_attended DATE NOT NULL,
+            congregation VARCHAR(16) NOT NULL DEFAULT 'mandarin',
             PRIMARY KEY  (id),
             KEY idx_attendance_id (attendance_id),
             KEY idx_date_attended (date_attended),
+            KEY idx_congregation_date (congregation, date_attended),
             UNIQUE KEY uniq_attendance_date (attendance_id, date_attended)
         ) {$charset};";
 
@@ -91,9 +95,11 @@ class Install
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             attendance_id BIGINT(20) UNSIGNED NOT NULL,
             date_attended DATE NOT NULL,
+            congregation VARCHAR(16) NOT NULL DEFAULT 'mandarin',
             PRIMARY KEY  (id),
             KEY idx_attendance_id (attendance_id),
             KEY idx_date_attended (date_attended),
+            KEY idx_congregation_date (congregation, date_attended),
             UNIQUE KEY uniq_attendance_date (attendance_id, date_attended)
         ) {$charset};";
 
@@ -102,8 +108,36 @@ class Install
     dbDelta($sql_dates);
     dbDelta($sql_first_dates);
 
-    // —— 兜底：如果历史版本没有 idx_first_attendance_date，则补上（INFO_SCHEMA 检查一次即可）
+    // —— 兜底：如果历史版本没有这些索引，则补上（INFO_SCHEMA 检查一次即可）
     self::ensure_index_first_attendance_date($attendance);
+    self::ensure_index($attendance, 'idx_home_congregation', '(home_congregation)');
+    self::ensure_index($dates, 'idx_congregation_date', '(congregation, date_attended)');
+    self::ensure_index($first_dates, 'idx_congregation_date', '(congregation, date_attended)');
+  }
+
+  /**
+   * 兜底补索引（通用）：索引不存在时 ALTER TABLE 补上
+   * 参数都是代码里写死的常量，不含用户输入
+   */
+  private static function ensure_index(string $table, string $index, string $columns): void
+  {
+    global $wpdb;
+    $has_index = $wpdb->get_var(
+      $wpdb->prepare(
+        "SELECT 1
+                 FROM INFORMATION_SCHEMA.STATISTICS
+                 WHERE TABLE_SCHEMA = %s
+                   AND TABLE_NAME   = %s
+                   AND INDEX_NAME   = %s
+                 LIMIT 1",
+        DB_NAME,
+        $table,
+        $index
+      )
+    );
+    if (!$has_index) {
+      $wpdb->query("ALTER TABLE {$table} ADD KEY {$index} {$columns}");
+    }
   }
 
   /**
