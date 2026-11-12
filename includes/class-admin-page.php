@@ -291,7 +291,7 @@ class Admin_Page
                         ? Attendance_DB::format_congregation_counts($item['congregation_counts'] ?? [], $lang)
                         : Congregation::label($scope, $lang)); ?></td>
                 <?php endif; ?>
-                <td><?php echo esc_html(Congregation::fellowship_label((string) $item['fellowship'], ap_ui_lang())); ?></td>
+                <td><?php echo esc_html(Congregation::fellowship_with_home((string) $item['fellowship'], (string) ($item['home_congregation'] ?? Congregation::DEFAULT), $scope, ap_ui_lang())); ?></td>
                 <td><?php echo esc_html($item['first_name']); ?></td>
                 <td><?php echo esc_html($item['last_name']); ?></td>
                 <td><?php echo esc_html($item['phone']); ?></td>

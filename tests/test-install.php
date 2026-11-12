@@ -38,7 +38,7 @@ return [
     global $wpdb;
     $p = $wpdb->prefix;
     $cut = '2026-11-12';
-    assert_same('0', $wpdb->get_var("SELECT COUNT(*) FROM {$p}attendance WHERE home_congregation <> 'mandarin' AND first_attendance_date < '$cut'"));
+    // 所属堂可以由本人转堂修改，所以不检查人员表；只检查迁移前的出席和新来宾记录
     assert_same('0', $wpdb->get_var("SELECT COUNT(*) FROM {$p}attendance_dates WHERE congregation <> 'mandarin' AND date_attended < '$cut'"));
     assert_same('0', $wpdb->get_var("SELECT COUNT(*) FROM {$p}attendance_first_time_attendance_dates WHERE congregation <> 'mandarin' AND date_attended < '$cut'"));
   },

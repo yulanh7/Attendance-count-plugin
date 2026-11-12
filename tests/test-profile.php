@@ -19,7 +19,60 @@ function ap_pf_post(int $id, array $over = []): array
   ], $over);
 }
 
+function ap_pf_newcomers(int $id, string $date): array
+{
+  global $wpdb;
+  return $wpdb->get_col($wpdb->prepare("SELECT congregation FROM {$wpdb->prefix}attendance_first_time_attendance_dates WHERE attendance_id = %d AND date_attended = %s", $id, $date));
+}
+
 return [
+  'test_profile_transfer_with_join_adds_newcomer_today' => function () {
+    \AP\Tests\force_check_in_day('2026-11-15');
+    $id = make_person(['fellowship' => 'daniel']);
+    $res = Attendance_DB::update_profile(ap_pf_post($id, ['es_home_congregation' => 'cantonese', 'es_fellowship' => 'eden', 'es_join_newcomer' => '1']), 'cantonese');
+    assert_same('ok', $res['code']);
+    assert_same('cantonese', ap_pf_row($id)['home_congregation']);
+    assert_same(['cantonese'], ap_pf_newcomers($id, '2026-11-15'));
+  },
+  'test_profile_join_ignored_when_attended_there_before' => function () {
+    \AP\Tests\force_check_in_day('2026-11-15');
+    $id = make_person(['fellowship' => 'daniel']);
+    \AP\Tests\add_attendance($id, '2026-11-08', 'cantonese');
+    Attendance_DB::update_profile(ap_pf_post($id, ['es_home_congregation' => 'cantonese', 'es_fellowship' => 'eden', 'es_join_newcomer' => '1']), 'cantonese');
+    assert_same('cantonese', ap_pf_row($id)['home_congregation']);
+    assert_same([], ap_pf_newcomers($id, '2026-11-15'));
+  },
+  'test_profile_join_allowed_when_only_today_there' => function () {
+    \AP\Tests\force_check_in_day('2026-11-15');
+    $id = make_person(['fellowship' => 'daniel']);
+    \AP\Tests\add_attendance($id, '2026-11-08', 'mandarin');
+    \AP\Tests\add_attendance($id, '2026-11-15', 'cantonese');
+    Attendance_DB::update_profile(ap_pf_post($id, ['es_home_congregation' => 'cantonese', 'es_fellowship' => 'eden', 'es_join_newcomer' => '1']), 'cantonese');
+    assert_same(['cantonese'], ap_pf_newcomers($id, '2026-11-15'));
+  },
+  'test_profile_get_lists_congregations_attended_before_today' => function () {
+    \AP\Tests\force_check_in_day('2026-11-15');
+    $id = make_person();
+    \AP\Tests\add_attendance($id, '2026-11-01', 'mandarin');
+    \AP\Tests\add_attendance($id, '2026-11-08', 'english');
+    \AP\Tests\add_attendance($id, '2026-11-15', 'cantonese');
+    $p = Attendance_DB::get_profile(ap_pf_row($id)['phone']);
+    $got = $p['attended_before'];
+    sort($got);
+    assert_same(['english', 'mandarin'], $got);
+  },
+  'test_profile_transfer_without_join_no_newcomer' => function () {
+    \AP\Tests\force_check_in_day('2026-11-15');
+    $id = make_person(['fellowship' => 'daniel']);
+    Attendance_DB::update_profile(ap_pf_post($id, ['es_home_congregation' => 'cantonese', 'es_fellowship' => 'eden']), 'cantonese');
+    assert_same([], ap_pf_newcomers($id, '2026-11-15'));
+  },
+  'test_profile_join_ignored_when_home_unchanged' => function () {
+    \AP\Tests\force_check_in_day('2026-11-15');
+    $id = make_person(['fellowship' => 'daniel']);
+    Attendance_DB::update_profile(ap_pf_post($id, ['es_home_congregation' => 'mandarin', 'es_join_newcomer' => '1']), 'mandarin');
+    assert_same([], ap_pf_newcomers($id, '2026-11-15'));
+  },
   'test_profile_get_includes_home' => function () {
     $id = make_person(['home_congregation' => 'english', 'fellowship' => 'bereans', 'email' => 'amy@example.com']);
     $p = Attendance_DB::get_profile(ap_pf_row($id)['phone']);

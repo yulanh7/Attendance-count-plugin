@@ -130,6 +130,18 @@ class Congregation
     return $key;
   }
 
+  /**
+   * 签到统计里的团契栏：不是本堂所属的人（或管理员看全部堂时）在团契后面注明所属堂
+   * 例：但以理团契（国语堂） / 但以理团契 (Mandarin)
+   */
+  public static function fellowship_with_home(string $fellowship, string $home, ?string $scope, string $display_lang): string
+  {
+    $label = self::fellowship_label($fellowship, $display_lang);
+    if ($scope !== null && $home === $scope) return $label;
+    $h = self::prompt_label($home, $display_lang);
+    return $display_lang === 'en' ? "{$label} ({$h})" : "{$label}（{$h}）";
+  }
+
   /** 团契属于哪个堂；other 不属于任何堂 → null */
   public static function fellowship_owner(string $key): ?string
   {

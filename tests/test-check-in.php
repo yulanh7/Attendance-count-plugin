@@ -64,10 +64,11 @@ return [
     assert_same(true, $res['first_at_congregation']);
     assert_same(true, $res['suggest_switch']);
     assert_same('mandarin', $res['home_congregation']);
-    assert_same(1, ap_ci_newcomers($id, 'cantonese'));
+    // 不再自动加入新来宾名单（转堂时本人在修改资料里选择）
+    assert_same(0, ap_ci_newcomers($id));
     assert_true(strpos($res['msg'], '粵語堂') !== false, 'welcome mentions 粵語堂: ' . $res['msg']);
   },
-  'test_check_in_second_visit_same_congregation_no_prompt' => function () {
+  'test_check_in_every_visit_outside_home_suggests_switch' => function () {
     force_check_in_day('2026-11-15');
     $id = make_person();
     add_attendance($id, '2026-11-08', 'mandarin');
@@ -77,8 +78,15 @@ return [
     $res = Attendance_DB::quick_check_in(ap_ci_phone($id), 'cantonese');
     assert_same('ok', $res['code']);
     assert_same(false, $res['first_at_congregation']);
+    assert_same(true, $res['suggest_switch']);
+    assert_same(0, ap_ci_newcomers($id));
+  },
+  'test_check_in_at_home_never_suggests_switch' => function () {
+    force_check_in_day('2026-11-15');
+    $id = make_person();
+    add_attendance($id, '2026-11-08', 'mandarin');
+    $res = Attendance_DB::quick_check_in(ap_ci_phone($id), 'mandarin');
     assert_same(false, $res['suggest_switch']);
-    assert_same(1, ap_ci_newcomers($id, 'cantonese'));
   },
   'test_check_in_first_time_at_home_congregation_no_switch' => function () {
     force_check_in_day('2026-11-15');
@@ -109,6 +117,26 @@ return [
     $res = Attendance_DB::quick_check_in($p, 'english');
     assert_same('Already checked in at Mandarin today. Switch to English?', $res['msg']);
   },
+  'test_signed_elsewhere_offers_transfer_only_when_useful' => function () {
+    force_check_in_day('2026-11-15');
+    // 老会友（国语堂）今天先在国语堂签到，再去粤语堂 → 可以「以后都在粤语堂」
+    $id = make_person();
+    add_attendance($id, '2026-11-08', 'mandarin');
+    Attendance_DB::quick_check_in(ap_ci_phone($id), 'mandarin');
+    $res = Attendance_DB::quick_check_in(ap_ci_phone($id), 'cantonese');
+    assert_same('mandarin', $res['home_congregation']);
+    assert_same(true, $res['can_transfer']);
+
+    // 所属堂就是粤语堂 → 不需要转堂选项
+    $id2 = make_person(['home_congregation' => 'cantonese']);
+    add_attendance($id2, '2026-11-08', 'cantonese');
+    Attendance_DB::quick_check_in(ap_ci_phone($id2), 'mandarin');
+    assert_same(false, Attendance_DB::quick_check_in(ap_ci_phone($id2), 'cantonese')['can_transfer']);
+
+    // 今天才登记的人也一样要问：只是这次，还是以后都在这里
+    $reg = ap_ci_register('mandarin', false);
+    assert_same(true, Attendance_DB::quick_check_in($reg['_phone'], 'cantonese')['can_transfer']);
+  },
   'test_second_check_in_same_day_other_congregation_asks' => function () {
     force_check_in_day('2026-11-15');
     $id = make_person();
@@ -121,7 +149,7 @@ return [
     assert_same(['mandarin'], ap_ci_today_rows($id, '2026-11-15'));
     assert_same(0, ap_ci_newcomers($id, 'cantonese'));
   },
-  'test_move_today_removes_auto_newcomer' => function () {
+  'test_move_today_existing_person_no_auto_newcomer' => function () {
     force_check_in_day('2026-11-15');
     $id = make_person();
     add_attendance($id, '2026-11-08', 'mandarin');
@@ -129,8 +157,26 @@ return [
     $res = Attendance_DB::move_today(ap_ci_phone($id), 'mandarin');
     assert_same('ok', $res['code']);
     assert_same(['mandarin'], ap_ci_today_rows($id, '2026-11-15'));
-    assert_same(0, ap_ci_newcomers($id, 'cantonese'));
+    assert_same(0, ap_ci_newcomers($id));
     assert_same(false, $res['suggest_switch']);
+  },
+  'test_move_today_carries_ticked_newcomer_row' => function () {
+    force_check_in_day('2026-11-15');
+    $id = make_person();
+    add_attendance($id, '2026-11-08', 'mandarin');
+    $num = substr(ap_ci_phone($id), 4);
+    ap_ci_register('cantonese', true, $num); // 已登记的人在首次登记勾了新来宾
+    assert_same(1, ap_ci_newcomers($id, 'cantonese'));
+    Attendance_DB::move_today(ap_ci_phone($id), 'english');
+    assert_same(0, ap_ci_newcomers($id, 'cantonese'));
+    assert_same(1, ap_ci_newcomers($id, 'english'));
+  },
+  'test_first_time_form_existing_person_keeps_fellowship_and_referral' => function () {
+    force_check_in_day('2026-11-15');
+    $id = make_person(['fellowship' => 'daniel', 'referral_source' => 'family']);
+    ap_ci_register('mandarin', false, substr(ap_ci_phone($id), 4));
+    assert_same('daniel', ap_ci_person($id)['fellowship']);
+    assert_same('family', ap_ci_person($id)['referral_source']);
   },
   'test_move_today_brand_new_person' => function () {
     force_check_in_day('2026-11-15');
@@ -138,10 +184,10 @@ return [
     $id = ap_ci_id_by_phone($reg['_phone']);
     $res = Attendance_DB::move_today($reg['_phone'], 'cantonese');
     assert_same('ok', $res['code']);
-    assert_same('cantonese', ap_ci_person($id)['home_congregation']);
+    // 改签到不会自动转堂（转堂只在修改资料里做）；勾选过的新来宾记录跟着签到走
+    assert_same('mandarin', ap_ci_person($id)['home_congregation']);
     assert_same(1, ap_ci_newcomers($id, 'cantonese'));
     assert_same(0, ap_ci_newcomers($id, 'mandarin'));
-    assert_same(false, $res['suggest_switch']);
   },
   'test_move_today_brand_new_not_newcomer_stays_off_list' => function () {
     force_check_in_day('2026-11-15');
@@ -149,9 +195,8 @@ return [
     $id = ap_ci_id_by_phone($reg['_phone']);
     $res = Attendance_DB::move_today($reg['_phone'], 'cantonese');
     assert_same('ok', $res['code']);
-    assert_same('cantonese', ap_ci_person($id)['home_congregation']);
+    assert_same('mandarin', ap_ci_person($id)['home_congregation']);
     assert_same(0, ap_ci_newcomers($id));
-    assert_same(false, $res['suggest_switch']);
   },
   'test_move_twice_back_and_forth' => function () {
     force_check_in_day('2026-11-15');
@@ -162,8 +207,7 @@ return [
     Attendance_DB::move_today($p, 'mandarin');
     $res = Attendance_DB::move_today($p, 'cantonese');
     assert_same(['cantonese'], ap_ci_today_rows($id, '2026-11-15'));
-    assert_same(1, ap_ci_newcomers($id, 'cantonese'));
-    assert_same(1, ap_ci_newcomers($id));
+    assert_same(0, ap_ci_newcomers($id));
     assert_same(true, $res['suggest_switch']);
   },
   'test_move_today_nothing_to_move' => function () {

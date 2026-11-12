@@ -127,6 +127,12 @@ $phone_box = function () use ($country_codes, $c) {
           <?php endforeach; ?>
         </select>
 
+        <!-- 转堂时才显示（JS 控制）：是否加入新堂的新来宾名单，默认勾选 -->
+        <label class="es-checkbox es-join-newcomer" style="display:none;">
+          <input type="checkbox" name="es_join_newcomer" value="1" checked>
+          <span></span>
+        </label>
+
         <!-- 团契选项由 JS 按所属堂切换；首屏为本堂的团契 -->
         <select name="es_fellowship" required>
           <option value="" disabled><?php echo esc_html(t('fellowship_placeholder', $c)); ?></option>

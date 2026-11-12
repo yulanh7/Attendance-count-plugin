@@ -53,9 +53,9 @@ class Attendance_DB
   }
 
   /** 今天已经签过到 → 返回对应的结果；还没签 → null */
-  private static function already_signed_result(int $aid, string $today, string $congregation): ?array
+  private static function already_signed_result(object $person, string $today, string $congregation): ?array
   {
-    $rec = self::today_record($aid, $today);
+    $rec = self::today_record((int) $person->id, $today);
     if (!$rec) return null;
     if ($rec->congregation === $congregation) {
       return self::result(false, 'already_signed', t('already_signed', $congregation));
@@ -64,13 +64,19 @@ class Attendance_DB
     return self::result(false, 'signed_elsewhere_today', t('signed_elsewhere_prompt', $congregation, [
       'existing' => Congregation::prompt_label($rec->congregation, $lang),
       'here'     => Congregation::prompt_label($congregation, $lang),
-    ]), ['existing_congregation' => $rec->congregation]);
+    ]), [
+      'existing_congregation' => $rec->congregation,
+      'home_congregation'     => $person->home_congregation,
+      // 这里不是他的所属堂 → 让他选「只是这次」还是「以后都在这里」（包括今天才登记的人）
+      'can_transfer'          => $person->home_congregation !== $congregation,
+    ]);
   }
 
   /**
-   * 「第一次在这个堂签到」规则（今天的记录已写入之后调用）
-   * - 除今天以外，这个堂没有他的出席记录 → 自动加入这个堂的新来宾名单
-   * - 同时这个堂不是他的所属堂 → 建议转堂
+   * 在某个堂签到后的提示（今天的记录已写入之后调用）
+   * - first_at_congregation：除今天以外这个堂没有他的出席记录（只用于欢迎语）
+   * - suggest_switch：不是所属堂就每次都问要不要转堂；不再自动加入新来宾名单
+   *   （转堂时由本人在修改资料里选择是否加入新来宾名单）
    * @return array{0:bool,1:bool} [first_at_congregation, suggest_switch]
    */
   private static function apply_first_visit_rule(int $aid, string $congregation, string $home, string $today): array
@@ -82,15 +88,7 @@ class Attendance_DB
       $congregation,
       $today
     ));
-    if ($before > 0) return [false, false];
-
-    $wpdb->query($wpdb->prepare(
-      "INSERT IGNORE INTO {$wpdb->prefix}attendance_first_time_attendance_dates (attendance_id, date_attended, congregation) VALUES (%d, %s, %s)",
-      $aid,
-      $today,
-      $congregation
-    ));
-    return [true, $home !== $congregation];
+    return [$before === 0, $home !== $congregation];
   }
 
   private static function insert_today(int $aid, string $today, string $congregation)
@@ -144,11 +142,12 @@ class Attendance_DB
     $phone           = self::normalize_phone($country_code, $phone_number);
 
     $existing = self::find_person($phone);
-    if ($existing && ($signed = self::already_signed_result((int) $existing->id, $today, $congregation))) {
+    if ($existing && ($signed = self::already_signed_result($existing, $today, $congregation))) {
       return $signed;
     }
 
     // 原子 upsert（依赖 attendance.phone 唯一键）；所属堂只在新建时写入
+    // 已登记的人用首次登记签到：团契、认识途径保持原样（首次登记表单的团契固定是 other）
     $ok = $wpdb->query($wpdb->prepare(
       "INSERT INTO $attendance
         (first_name, last_name, phone, email, fellowship, referral_source, is_new, first_attendance_date, home_congregation)
@@ -157,8 +156,6 @@ class Attendance_DB
         first_name = IF(VALUES(first_name) IS NULL OR VALUES(first_name) = '', first_name, VALUES(first_name)),
         last_name  = IF(VALUES(last_name)  IS NULL OR VALUES(last_name)  = '', last_name,  VALUES(last_name)),
         email      = IF(VALUES(email)      IS NULL OR VALUES(email)      = '', email,      VALUES(email)),
-        fellowship = IF(VALUES(fellowship) IS NULL OR VALUES(fellowship) = '', fellowship, VALUES(fellowship)),
-        referral_source = IF(VALUES(referral_source) IS NULL OR VALUES(referral_source) = '', referral_source, VALUES(referral_source)),
         is_new     = 0",
       $first_name,
       $last_name,
@@ -185,7 +182,7 @@ class Attendance_DB
     }
     if ($ins === 0) {
       // 并发情况下另一请求先写入了今天的记录
-      return self::already_signed_result($aid, $today, $congregation)
+      return self::already_signed_result($person, $today, $congregation)
         ?? self::result(false, 'already_signed', t('already_signed', $congregation));
     }
 
@@ -248,7 +245,7 @@ class Attendance_DB
 
     $aid = (int) $person->id;
     $today = ap_today();
-    if ($signed = self::already_signed_result($aid, $today, $congregation)) {
+    if ($signed = self::already_signed_result($person, $today, $congregation)) {
       return $signed;
     }
 
@@ -257,7 +254,7 @@ class Attendance_DB
       return self::result(false, 'db_error', t('check_in_failed', $congregation));
     }
     if ($ins === 0) {
-      return self::already_signed_result($aid, $today, $congregation)
+      return self::already_signed_result($person, $today, $congregation)
         ?? self::result(false, 'already_signed', t('already_signed', $congregation));
     }
     self::clear_attendance_cache();
@@ -272,14 +269,12 @@ class Attendance_DB
 
   /**
    * 把今天的签到记录移到另一个堂（同日换堂）
-   * - 全新登记（first_attendance_date = 今天）：所属堂和今天的新来宾记录一起移过去
-   * - 否则：删掉旧堂今天自动加的新来宾记录
-   * - 然后按新堂重新套用「第一次在这个堂签到」规则
+   * - 今天的新来宾记录（勾选新来宾时才有）跟着移过去
+   * - 不改所属堂：转堂只在修改资料里做（前端让本人选「只是这次 / 以后都在这里」）
    */
   public static function move_today(string $phone, string $to): array
   {
     global $wpdb;
-    $attendance  = $wpdb->prefix . 'attendance';
     $dates       = $wpdb->prefix . 'attendance_dates';
     $first_dates = $wpdb->prefix . 'attendance_first_time_attendance_dates';
 
@@ -300,18 +295,9 @@ class Attendance_DB
     $from = $rec->congregation;
 
     $wpdb->update($dates, ['congregation' => $to], ['id' => (int) $rec->id], ['%s'], ['%d']);
+    $wpdb->update($first_dates, ['congregation' => $to], ['attendance_id' => $aid, 'date_attended' => $today, 'congregation' => $from], ['%s'], ['%d', '%s', '%s']);
 
-    if ($person->first_attendance_date === $today) {
-      // 今天才登记：新来宾与否已由勾选框决定，记录跟着搬过去即可，不再套用首访规则
-      $wpdb->update($attendance, ['home_congregation' => $to], ['id' => $aid], ['%s'], ['%d']);
-      $wpdb->update($first_dates, ['congregation' => $to], ['attendance_id' => $aid, 'date_attended' => $today], ['%s'], ['%d', '%s']);
-      $person->home_congregation = $to;
-      $first_at = true;
-      $suggest  = false;
-    } else {
-      $wpdb->delete($first_dates, ['attendance_id' => $aid, 'date_attended' => $today, 'congregation' => $from], ['%d', '%s', '%s']);
-      [$first_at, $suggest] = self::apply_first_visit_rule($aid, $to, $person->home_congregation, $today);
-    }
+    [$first_at, $suggest] = self::apply_first_visit_rule($aid, $to, $person->home_congregation, $today);
     self::clear_attendance_cache();
 
     return self::result(true, 'ok', self::welcome_msg($person, $to, $first_at), [
@@ -340,17 +326,30 @@ class Attendance_DB
     global $wpdb;
     if ($phone === '') return null;
     $row = $wpdb->get_row($wpdb->prepare(
-      "SELECT first_name, last_name, phone, email, fellowship, home_congregation FROM {$wpdb->prefix}attendance WHERE phone = %s",
+      "SELECT id, first_name, last_name, phone, email, fellowship, home_congregation FROM {$wpdb->prefix}attendance WHERE phone = %s",
       $phone
     ));
     if (!$row) return null;
     return [
+      // 今天以前签到过的堂：转到这些堂时不显示「加入新来宾名单」
+      'attended_before'   => self::congregations_attended_before((int) $row->id, ap_today()),
       'first_name'        => $row->first_name,
       'last_name'         => $row->last_name,
       'email_masked'      => ap_mask_email($row->email),
       'fellowship'        => $row->fellowship,
       'home_congregation' => $row->home_congregation,
     ] + self::split_phone($row->phone);
+  }
+
+  /** @return string[] 这个人在 $before 之前签到过的堂 */
+  private static function congregations_attended_before(int $aid, string $before): array
+  {
+    global $wpdb;
+    return $wpdb->get_col($wpdb->prepare(
+      "SELECT DISTINCT congregation FROM {$wpdb->prefix}attendance_dates WHERE attendance_id = %d AND date_attended < %s",
+      $aid,
+      $before
+    ));
   }
 
   /**
@@ -416,8 +415,26 @@ class Attendance_DB
       return ['ok' => false, 'code' => 'db_error', 'msg' => t('profile_update_failed', $c)];
     }
 
+    // 转堂时本人选择加入新堂的新来宾名单（今天一条；今天已有别堂的新来宾记录则改到新堂）
+    // 只给第一次出现在新堂的人：今天以前在新堂签到过的不加
+    $joined = false;
+    if (
+      $home !== $current->home_congregation
+      && (string) ($post['es_join_newcomer'] ?? '') === '1'
+      && !in_array($home, self::congregations_attended_before((int) $current->id, ap_today()), true)
+    ) {
+      $wpdb->query($wpdb->prepare(
+        "INSERT INTO {$wpdb->prefix}attendance_first_time_attendance_dates (attendance_id, date_attended, congregation)
+         VALUES (%d, %s, %s) ON DUPLICATE KEY UPDATE congregation = VALUES(congregation)",
+        (int) $current->id,
+        ap_today(),
+        $home
+      ));
+      $joined = true;
+    }
+
     self::clear_attendance_cache();
-    return ['ok' => true, 'code' => 'ok', 'msg' => t('profile_update_ok', $c, ['name' => "{$first_name} {$last_name}"])];
+    return ['ok' => true, 'code' => 'ok', 'joined_newcomer' => $joined, 'msg' => t('profile_update_ok', $c, ['name' => "{$first_name} {$last_name}"])];
   }
 
   private const CACHE_VER_OPTION = 'ap_filtered_cache_ver';
@@ -477,8 +494,12 @@ class Attendance_DB
     $last_expr = $congregation !== null
       ? $wpdb->prepare('MAX(IF(congregation = %s, date_attended, NULL))', $congregation)
       : 'MAX(date_attended)';
+    // 本堂出席率从这个人第一次在本堂签到那天算起（转堂的人不会被之前的主日拉低）
+    $first_here_expr = $congregation !== null
+      ? $wpdb->prepare('MIN(IF(congregation = %s, date_attended, NULL))', $congregation)
+      : 'NULL';
     $q = $wpdb->prepare(
-      "SELECT A.*, R.times, S.times_all, S.last_attended
+      "SELECT A.*, R.times, S.times_all, S.last_attended, S.first_here
          FROM $attendance AS A
          INNER JOIN (
            SELECT attendance_id, COUNT(*) AS times
@@ -487,7 +508,7 @@ class Attendance_DB
             GROUP BY attendance_id
          ) AS R ON R.attendance_id = A.id
          INNER JOIN (
-           SELECT attendance_id, COUNT(*) AS times_all, {$last_expr} AS last_attended
+           SELECT attendance_id, COUNT(*) AS times_all, {$last_expr} AS last_attended, {$first_here_expr} AS first_here
              FROM $dates
             GROUP BY attendance_id
          ) AS S ON S.attendance_id = A.id
@@ -566,7 +587,9 @@ class Attendance_DB
     $out    = [];
 
     foreach ($rows as $row) {
-      $effective_start = max($start_date, (string) $row['first_attendance_date']); // Y-m-d 可直接字符串比较
+      // Y-m-d 可直接字符串比较；按堂查看时还要从第一次在本堂签到算起
+      $effective_start = max($start_date, (string) $row['first_attendance_date'], (string) ($row['first_here'] ?? ''));
+      unset($row['first_here']);
       $den   = count_weekday_between($effective_start, $end_date, $target);
       $times = (int) $row['times'];
 
@@ -694,7 +717,7 @@ class Attendance_DB
 
     // 数据
     foreach ($rows as $r) {
-      $f     = Congregation::fellowship_label((string) $r['fellowship'], $lang);
+      $f     = Congregation::fellowship_with_home((string) $r['fellowship'], (string) ($r['home_congregation'] ?? Congregation::DEFAULT), $congregation, $lang);
       $source = \AP\ap_translate_referral_source($r['referral_source'] ?? '', $lang);
       $first = \AP\format_date_dmy($r['first_attendance_date'] ?? '');
       $last  = \AP\format_date_dmy($r['last_attended'] ?? '');

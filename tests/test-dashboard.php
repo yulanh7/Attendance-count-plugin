@@ -33,7 +33,8 @@ return [
     [$a] = ap_db_fixture();
     $post = ap_db_post();
     assert_same('50.00', ap_db_row(Attendance_DB::query_filtered($post, 'mandarin'), $a)['percentage']);
-    assert_same('50.00', ap_db_row(Attendance_DB::query_filtered($post, 'cantonese'), $a)['percentage']);
+    // 本堂出席率从第一次在本堂签到算起：粤语堂 11-01、11-08 两个主日都来 → 100%
+    assert_same('100.00', ap_db_row(Attendance_DB::query_filtered($post, 'cantonese'), $a)['percentage']);
     assert_same('100.00', ap_db_row(Attendance_DB::query_filtered($post, null), $a)['percentage']);
     assert_same(2, ap_db_row(Attendance_DB::query_filtered($post, 'cantonese'), $a)['times']);
     assert_same('2026-11-08', ap_db_row(Attendance_DB::query_filtered($post, null), $a)['last_attended']);
@@ -89,6 +90,23 @@ return [
     $csv_admin = Attendance_DB::build_csv(ap_db_post(['first_name' => 'Alice']), null, true);
     assert_true(strpos($csv_admin, '"堂"') !== false, 'admin csv has congregation column');
     assert_true(strpos($csv_admin, '国语 2、粤语 2') !== false, 'admin csv shows breakdown');
+  },
+  'test_fellowship_shows_home_when_not_this_congregation' => function () {
+    assert_same('但以理团契（国语堂）', \AP\Congregation::fellowship_with_home('daniel', 'mandarin', 'cantonese', 'zh_CN'));
+    assert_same('但以理团契', \AP\Congregation::fellowship_with_home('daniel', 'mandarin', 'mandarin', 'zh_CN'));
+    assert_same('但以理团契（国语堂）', \AP\Congregation::fellowship_with_home('daniel', 'mandarin', null, 'zh_CN'));
+    assert_same('其他（國語堂）', \AP\Congregation::fellowship_with_home('other', 'mandarin', 'cantonese', 'zh_HK'));
+    assert_same('但以理团契 (Mandarin)', \AP\Congregation::fellowship_with_home('daniel', 'mandarin', 'english', 'en'));
+  },
+  'test_dashboard_table_shows_visitor_home_fellowship' => function () {
+    \AP\Tests\make_user('subscriber', 'cantonese');
+    $a = make_person(['first_attendance_date' => '2026-10-18', 'first_name' => 'Visitor', 'fellowship' => 'daniel']);
+    add_attendance($a, '2026-11-08', 'cantonese');
+    $rows = Attendance_DB::query_filtered(ap_db_post(['first_name' => 'Visitor']), 'cantonese');
+    ob_start();
+    \AP\Admin_Page::render_table_simple($rows, 'cantonese');
+    $html = ob_get_clean();
+    assert_true(strpos($html, '但以理团契（國語堂）') !== false, 'visitor fellowship + home shown');
   },
   'test_dashboard_fellowship_label_by_owner' => function () {
     assert_same('伊甸團契', \AP\Congregation::fellowship_label('eden', 'zh_CN'));

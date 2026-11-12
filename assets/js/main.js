@@ -378,6 +378,8 @@ jQuery(function ($) {
     };
     const $home = $form.find("select[name=es_home_congregation]");
     if ($home.length) data.es_home_congregation = $home.val() || CTX.congregation;
+    const $join = $form.find(".es-join-newcomer");
+    if ($join.length && $join.is(":visible") && $join.find("input").is(":checked")) data.es_join_newcomer = "1";
     return data;
   }
 
@@ -417,6 +419,21 @@ jQuery(function ($) {
       $("<option>", { value: origF, text: fellowshipText(origF) }).appendTo($sel);
     }
     $sel.val(keepOriginal && sameHome && origF ? origF : "");
+    updateJoinNewcomer($form);
+  }
+
+  // 所属堂改成「今天以前没去过」的堂时，显示「加入X新来宾名单」（默认勾选）；
+  // 改回原来的堂、或以前在那个堂签到过，就不显示
+  function updateJoinNewcomer($form) {
+    const $wrap = $form.find(".es-join-newcomer");
+    if (!$wrap.length) return;
+    const home = $form.find("select[name=es_home_congregation]").val() || CTX.congregation;
+    const origHome = $form.data("orig-home");
+    const before = $form.data("attended-before") || [];
+    const changed = !!origHome && home !== origHome && before.indexOf(home) === -1;
+    if (changed && !$wrap.is(":visible")) $wrap.find("input").prop("checked", true);
+    $wrap.find("span").text(T("join_newcomer_label", { congregation: cLabel(home) }));
+    $wrap.toggle(changed);
   }
 
   // 邮箱只显示打码版本：写在输入框下方（可换行），输入框本身留空 = 不修改原邮箱
@@ -436,7 +453,7 @@ jQuery(function ($) {
     $form.find("input[name=es_first_name]").val("");
     $form.find("input[name=es_last_name]").val("");
     setEmailHint($form, "");
-    $form.removeData("orig-home").removeData("orig-fellowship");
+    $form.removeData("orig-home").removeData("orig-fellowship").removeData("attended-before");
     $form.find("select[name=es_home_congregation]").val(CTX.congregation);
     rebuildProfileFellowships($form, false);
     $form.find("select[name=es_referral_source]").val("");
@@ -533,7 +550,8 @@ jQuery(function ($) {
           setEmailHint($form, data.email_masked);
 
           const home = data.home_congregation || CTX.congregation;
-          $form.data("orig-home", home).data("orig-fellowship", data.fellowship || "");
+          $form.data("orig-home", home).data("orig-fellowship", data.fellowship || "")
+            .data("attended-before", Array.isArray(data.attended_before) ? data.attended_before : []);
           $form.find("select[name=es_home_congregation]").val(home);
           rebuildProfileFellowships($form, true);
 
@@ -569,35 +587,52 @@ jQuery(function ($) {
     const msg = d.msg || d.message || T(ok ? ctx.okKey : ctx.failKey);
     displayMessage($form, msg, ok ? "green" : "red");
     if (ok && typeof ctx.onSuccess === "function") ctx.onSuccess(d);
-    // 需要提示转堂时：先显示签到结果，按「好的」后再弹出转堂询问
-    notify(msg, ok, ok && d.suggest_switch ? () => showSwitchPrompt($form, d, ctx) : null);
+    // 在非所属堂签到：签到结果和「要不要转堂」放在同一个弹框里
+    if (ok && d.suggest_switch) showSwitchPrompt($form, d, ctx, msg);
+    else notify(msg, ok);
   }
 
+  // 今天已在别的堂签到：只是这次改过来 / 以后都在这里（转堂，去修改资料）/ 保留原来的堂
   function showMovePrompt($form, d, ctx) {
     const pl = (c) => (CTX.promptLabels && CTX.promptLabels[c]) || cLabel(c);
     const here = pl(CTX.congregation);
     const existing = pl(d.existing_congregation);
-    dialog(d.msg || d.message || "", [
-      {
-        label: T("move_yes", { here }),
-        cls: "is-ok",
-        onClick: (close, $btn, $all) => {
-          $all.prop("disabled", true);
-          $btn.text(T("js_processing"));
-          api.post("es_move_attendance", { phone: ctx.phone, congregation: CTX.congregation })
-            .done((resp2) => { close(); handleCheckInResult(resp2, $form, ctx); })
-            .fail(() => { close(); notify(T("js_check_in_failed_retry"), false); });
-        },
-      },
-      { label: T("move_no", { existing }), cls: "is-secondary" },
-    ]);
+
+    function doMove($btn, $all, close, transfer) {
+      $all.prop("disabled", true);
+      $btn.text(T("js_processing"));
+      api.post("es_move_attendance", { phone: ctx.phone, congregation: CTX.congregation })
+        .done((resp2) => {
+          close();
+          const ok = !!(resp2 && resp2.success);
+          const d2 = (resp2 && resp2.data) || {};
+          if (!ok) { handleCheckInResult(resp2, $form, ctx); return; }
+          const msg = d2.msg || d2.message || T(ctx.okKey);
+          displayMessage($form, msg, "green");
+          if (typeof ctx.onSuccess === "function") ctx.onSuccess(d2);
+          // 已经选过「只是这次 / 以后都在」，不再问转堂
+          notify(msg, true, transfer ? () => goToSwitchProfile(ctx) : null);
+        })
+        .fail(() => { close(); notify(T("js_check_in_failed_retry"), false); });
+    }
+
+    const buttons = d.can_transfer
+      ? [
+          { label: T("move_once", { here }), cls: "is-ok", onClick: (close, $b, $all) => doMove($b, $all, close, false) },
+          { label: T("move_transfer", { here }), cls: "is-ok", onClick: (close, $b, $all) => doMove($b, $all, close, true) },
+        ]
+      : [
+          { label: T("move_yes", { here }), cls: "is-ok", onClick: (close, $b, $all) => doMove($b, $all, close, false) },
+        ];
+    buttons.push({ label: T("move_no", { existing }), cls: "is-secondary" });
+    dialog(d.msg || d.message || "", buttons);
   }
 
-  function showSwitchPrompt($form, d, ctx) {
-    const here = cLabel(CTX.congregation);
-    const home = cLabel(d.home_congregation);
-    dialog(T("switch_prompt", { home, here }), [
-      { label: T("switch_yes", { here }), cls: "is-ok", onClick: (close) => { close(); goToSwitchProfile(ctx); } },
+  function showSwitchPrompt($form, d, ctx, okMsg) {
+    const pl = (c) => (CTX.promptLabels && CTX.promptLabels[c]) || cLabel(c);
+    const question = T("switch_prompt", { home: pl(d.home_congregation), here: pl(CTX.congregation) });
+    dialog((okMsg ? okMsg + "\n\n" : "") + question, [
+      { label: T("switch_yes"), cls: "is-ok", onClick: (close) => { close(); goToSwitchProfile(ctx); } },
       { label: T("switch_no"), cls: "is-secondary" },
     ]);
   }
@@ -723,6 +758,7 @@ jQuery(function ($) {
           // 保存后以新资料为准（再改所属堂时，团契下拉按新的原始值计算）
           $form.data("orig-home", formData.es_home_congregation || $form.data("orig-home"))
             .data("orig-fellowship", formData.es_fellowship);
+          updateJoinNewcomer($form);
 
           // 更新成功后显示"修改其他号码"，隐藏"取消"
           ensureProfileActionButtons($form);

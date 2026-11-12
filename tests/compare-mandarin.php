@@ -28,7 +28,8 @@ unlink($tmp);
 
 $dates = $wpdb->prefix . 'attendance_dates';
 $min = $wpdb->get_var("SELECT MIN(date_attended) FROM $dates");
-$max = $wpdb->get_var("SELECT MAX(date_attended) FROM $dates");
+// 只比迁移前的数据（2026-11-12 起在各堂测试签到的记录旧版无法区分）
+$max = $wpdb->get_var("SELECT MAX(date_attended) FROM $dates WHERE date_attended < '2026-11-12'");
 $d90 = date('Y-m-d', strtotime($max . ' -90 days'));
 
 $sets = [
