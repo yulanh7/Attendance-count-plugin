@@ -70,6 +70,14 @@ function ap_enqueue_assets()
   }
 }
 
+// Y-m-d 校验：有效返回原值，否则 null
+function ap_valid_ymd(?string $s): ?string
+{
+  $s = (string) $s;
+  $dt = \DateTime::createFromFormat('!Y-m-d', $s);
+  return ($dt && $dt->format('Y-m-d') === $s) ? $s : null;
+}
+
 // 今天（站点时区）；测试可用 filter ap_today 覆盖
 function ap_today(): string
 {

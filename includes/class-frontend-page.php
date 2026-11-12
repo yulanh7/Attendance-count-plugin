@@ -160,21 +160,9 @@ class Frontend_Page
     $can_view_phone = (is_user_logged_in() && current_user_can('read'));
 
     // —— 服务器端首屏渲染一份（避免首屏空白），后续用 AJAX 刷新 ——
-    global $wpdb;
-    $attendance = $wpdb->prefix . 'attendance';
-    $rows = $wpdb->get_results(
-      $wpdb->prepare(
-        "SELECT first_name, last_name, phone, first_attendance_date
-         FROM {$attendance}
-        WHERE first_attendance_date BETWEEN %s AND %s
-        ORDER BY first_attendance_date DESC, last_name, first_name",
-        $start,
-        $end
-      ),
-      ARRAY_A
-    );
+    $rows = Attendance_DB::query_first_timers($start, $end, Access::scope(null));
 
-    $list_html = self::render_first_timers_list_html($rows, $can_view_phone);
+    $list_html = self::render_first_timers_list_html($rows, $can_view_phone, false, false, ap_ui_lang(), false);
 
     // UI：筛选 + 按钮 + 列表容器（列表有服务端首屏，按钮点了走 AJAX 替换）
     ob_start(); ?>
@@ -214,37 +202,45 @@ class Frontend_Page
     return ap_compact_html(ob_get_clean());
   }
 
-  /** 服务端渲染小卡片列表（姓名 + 首次来访日期；按权限可带电话） */
-  public static function render_first_timers_list_html(array $rows, bool $can_view_phone, bool $deletable = false, bool $show_referral_source = false): string
+  /**
+   * 服务端渲染小卡片列表（姓名 + 首次来访日期；按需带电话、认识途径、曾在别堂出席、堂名、移出按钮）
+   */
+  public static function render_first_timers_list_html(array $rows, bool $can_view_phone, bool $deletable, bool $show_referral_source, string $display_lang, bool $show_congregation): string
   {
     if (empty($rows)) {
-      return '<div class="ap-ft-empty">所选日期内暂无第一次来访的朋友。</div>';
+      return '<div class="ap-ft-empty">' . esc_html(I18n::t('ft_empty_first_timers', $display_lang)) . '</div>';
     }
     $cards = '';
     foreach ($rows as $r) {
-      // 这里假设 Attendance_DB::query_first_timers_log() 返回包含主键 id
       $id   = isset($r['id']) ? (int) $r['id'] : 0;
       $name = trim(($r['last_name'] ?? '') . ' ' . ($r['first_name'] ?? ''));
-      $date = \AP\format_date_dmy($r['first_attendance_date'] ?? '');
-      $phone = $can_view_phone ? esc_html($r['phone'] ?? '') : '';
-      $phoneHtml = $phone ? '<div class="ap-ft-meta">📞 ' . $phone . '</div>' : '';
-      $referralHtml = '';
-      if ($show_referral_source) {
-        $referral = \AP\ap_translate_referral_source($r['referral_source'] ?? '');
-        $referralHtml = '<div class="ap-ft-meta">认识途径：' . esc_html($referral) . '</div>';
-      }
+      $date = format_date_dmy($r['first_attendance_date'] ?? '');
 
-      $deleteBtn = '';
+      $meta = '<div class="ap-ft-meta">' . esc_html(I18n::t('ft_first_visit', $display_lang, ['date' => $date])) . '</div>';
+      if ($show_congregation && !empty($r['congregation'])) {
+        $meta .= '<div class="ap-ft-meta ap-ft-congregation">' . esc_html(Congregation::label($r['congregation'], $display_lang)) . '</div>';
+      }
+      if (!empty($r['seen_elsewhere'])) {
+        $meta .= '<div class="ap-ft-meta ap-ft-seen-elsewhere">' . esc_html(I18n::t('seen_elsewhere', $display_lang, [
+          'congregation' => Congregation::label($r['seen_elsewhere'], $display_lang),
+        ])) . '</div>';
+      }
+      if ($show_referral_source) {
+        $meta .= '<div class="ap-ft-meta">' . esc_html(I18n::t('ft_referral', $display_lang, [
+          'source' => ap_translate_referral_source($r['referral_source'] ?? '', $display_lang),
+        ])) . '</div>';
+      }
+      if ($can_view_phone && !empty($r['phone'])) {
+        $meta .= '<div class="ap-ft-meta">📞 ' . esc_html($r['phone']) . '</div>';
+      }
       if ($deletable && $id > 0) {
-        $deleteBtn = '<button type="button" class="button-link ap-ft-delete" data-id="' . esc_attr($id) . '">移出新来宾名单</button>';
+        $meta .= '<div class="ap-ft-actions" style="margin-top:6px;"><button type="button" class="button-link ap-ft-delete" data-id="' . esc_attr($id) . '">'
+          . esc_html(I18n::t('ft_remove', $display_lang)) . '</button></div>';
       }
 
       $cards .= '<div class="ap-ft-card" data-card-id="' . esc_attr($id) . '">'
-        .   '<div class="ap-ft-name">' . esc_html($name) . '</div>'
-        .   '<div class="ap-ft-meta">首次来访：' . esc_html($date) . '</div>'
-        .    $referralHtml
-        .    $phoneHtml
-        .   ($deleteBtn ? '<div class="ap-ft-actions" style="margin-top:6px;">' . $deleteBtn . '</div>' : '')
+        . '<div class="ap-ft-name">' . esc_html($name) . '</div>'
+        . $meta
         . '</div>';
     }
     return '<div class="ap-ft-grid">' . $cards . '</div>';
@@ -293,9 +289,9 @@ class Frontend_Page
     $can_view_phone = (is_user_logged_in() && current_user_can('read'));
 
     // 首屏数据直接来自 attendance_first_time_attendance_dates 表
-    $rows = Attendance_DB::query_first_timers_log($start, $end);
+    $rows = Attendance_DB::query_first_timers_log($start, $end, Access::scope(null));
 
-    $list_html = self::render_first_timers_list_html($rows, $can_view_phone, true, true);
+    $list_html = self::render_first_timers_list_html($rows, $can_view_phone, true, true, ap_ui_lang(), Access::is_admin());
     $nonce = wp_create_nonce('ap_ft_delete_newcomer');
 
     // UI：与 first_timers 一样，但容器标记为 data-source="newcomers"

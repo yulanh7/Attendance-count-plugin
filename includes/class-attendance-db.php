@@ -759,25 +759,81 @@ class Attendance_DB
   }
 
   /**
-   * 查询首访日志（从 attendance_first_time_attendance_dates 表）
+   * 新来宾名单（attendance_first_time_attendance_dates）
+   * - $congregation 不为 null：只返回该堂的记录
+   * - seen_elsewhere：这条记录日期之前，此人最早在「其他」堂出席的堂代号（没有则 null）
    */
-  public static function query_first_timers_log(string $start, string $end): array
+  public static function query_first_timers_log(string $start, string $end, ?string $congregation): array
   {
     global $wpdb;
     $attendance  = $wpdb->prefix . 'attendance';
+    $dates       = $wpdb->prefix . 'attendance_dates';
     $first_dates = $wpdb->prefix . 'attendance_first_time_attendance_dates';
 
-    // 直接读日志表；按日期区间筛选
+    $today = ap_today();
+    $start = ap_valid_ymd($start) ?? $today;
+    $end   = ap_valid_ymd($end) ?? $today;
+    $scope = $congregation !== null ? $wpdb->prepare(' AND D.congregation = %s', $congregation) : '';
+
     $sql = $wpdb->prepare(
-      "SELECT A.first_name, A.last_name, A.phone, A.referral_source, D.date_attended AS first_attendance_date, D.id AS id
-       FROM $attendance AS A
-       INNER JOIN $first_dates AS D ON A.id = D.attendance_id
-      WHERE D.date_attended BETWEEN %s AND %s
-      ORDER BY D.date_attended DESC, A.last_name ASC, A.first_name ASC",
+      "SELECT A.first_name, A.last_name, A.phone, A.referral_source,
+              D.date_attended AS first_attendance_date, D.id AS id, D.attendance_id, D.congregation,
+              (SELECT D2.congregation FROM $dates AS D2
+                WHERE D2.attendance_id = D.attendance_id
+                  AND D2.congregation <> D.congregation
+                  AND D2.date_attended < D.date_attended
+                ORDER BY D2.date_attended ASC
+                LIMIT 1) AS seen_elsewhere
+         FROM $attendance AS A
+         INNER JOIN $first_dates AS D ON A.id = D.attendance_id
+        WHERE D.date_attended BETWEEN %s AND %s{$scope}
+        ORDER BY D.date_attended DESC, A.last_name ASC, A.first_name ASC",
       $start,
       $end
     );
 
     return $wpdb->get_results($sql, ARRAY_A) ?: [];
+  }
+
+  /**
+   * 首访名单（按全教会第一次出席日期）
+   * - $congregation 不为 null：只返回第一次出席是在该堂的人
+   */
+  public static function query_first_timers(string $start, string $end, ?string $congregation): array
+  {
+    global $wpdb;
+    $attendance = $wpdb->prefix . 'attendance';
+    $dates      = $wpdb->prefix . 'attendance_dates';
+
+    $today = ap_today();
+    $start = ap_valid_ymd($start) ?? $today;
+    $end   = ap_valid_ymd($end) ?? $today;
+    $scope = $congregation !== null
+      ? $wpdb->prepare(" AND EXISTS (SELECT 1 FROM $dates AS D WHERE D.attendance_id = A.id AND D.date_attended = A.first_attendance_date AND D.congregation = %s)", $congregation)
+      : '';
+
+    return $wpdb->get_results($wpdb->prepare(
+      "SELECT A.first_name, A.last_name, A.phone, A.referral_source, A.first_attendance_date
+         FROM $attendance AS A
+        WHERE A.first_attendance_date BETWEEN %s AND %s{$scope}
+        ORDER BY A.first_attendance_date DESC, A.last_name, A.first_name",
+      $start,
+      $end
+    ), ARRAY_A) ?: [];
+  }
+
+  /**
+   * 移出新来宾名单；同工只能删自己堂的记录
+   */
+  public static function delete_newcomer(int $id, ?string $congregation): bool
+  {
+    global $wpdb;
+    $where = ['id' => $id];
+    $fmt = ['%d'];
+    if ($congregation !== null) {
+      $where['congregation'] = $congregation;
+      $fmt[] = '%s';
+    }
+    return (int) $wpdb->delete($wpdb->prefix . 'attendance_first_time_attendance_dates', $where, $fmt) > 0;
   }
 }
