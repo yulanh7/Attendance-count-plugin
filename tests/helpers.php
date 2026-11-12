@@ -85,3 +85,9 @@ function force_check_in_day(?string $today): void
     add_filter('ap_today', fn() => $today);
   }
 }
+
+function ap_person_first_name(int $id): string
+{
+  global $wpdb;
+  return (string) $wpdb->get_var($wpdb->prepare("SELECT first_name FROM {$wpdb->prefix}attendance WHERE id = %d", $id));
+}

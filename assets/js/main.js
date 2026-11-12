@@ -1300,6 +1300,25 @@ jQuery(function ($) {
       const $c = feContainer();
       if (!$c) return;
 
+      // 日期快捷按钮：设好日期后直接筛选
+      $c.on("click", ".ap-range-btn", function (e) {
+        e.preventDefault();
+        const $b = $(this);
+        $c.find("#fe_start_date_filter").val($b.data("start"));
+        $c.find("#fe_end_date_filter").val($b.data("end"));
+        $c.find(".ap-range-btn").removeClass("is-active");
+        $b.addClass("is-active");
+        feRenderTable($c, { ...feGetFilters($c), paged: 1 });
+      });
+      // 手动改日期：只有和某个快捷按钮完全一样时才高亮它
+      $c.on("change", "#fe_start_date_filter, #fe_end_date_filter", function () {
+        const s = $c.find("#fe_start_date_filter").val();
+        const e = $c.find("#fe_end_date_filter").val();
+        $c.find(".ap-range-btn").each(function () {
+          $(this).toggleClass("is-active", $(this).data("start") === s && $(this).data("end") === e);
+        });
+      });
+
       $c.on("click", "#fe-filter-button", function (e) {
         e.preventDefault();
         const params = { ...feGetFilters($c), paged: 1 };

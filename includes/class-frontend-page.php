@@ -60,9 +60,27 @@ class Frontend_Page
   }
 
   /**
+   * 日期快捷按钮：key（同时是界面文字的 key）=> [开始, 结束]
+   * @return array<string, array{0:string,1:string}>
+   */
+  private static function quick_ranges(string $today): array
+  {
+    $ts = strtotime($today);
+    $back = ((int) date('w', $ts) - get_target_dow() + 7) % 7; // 往前几天是最近一个主日（今天就是主日则为 0）
+    $last_sunday = date('Y-m-d', strtotime("-{$back} days", $ts));
+    return [
+      'range_last_sunday' => [$last_sunday, $last_sunday],
+      'range_1m'          => [date('Y-m-d', strtotime('-1 month', $ts)), $today],
+      'range_3m'          => [date('Y-m-d', strtotime('-3 months', $ts)), $today],
+      'range_this_year'   => [date('Y', $ts) . '-01-01', $today],
+    ];
+  }
+
+  /**
    * 短代码：[attendance_dashboard]
    * - 管理员：全部堂 + 按堂筛选；同工：只看所属堂
-   * - 默认筛选：今天～今天，且 is_new = true
+   * - 默认日期：最近 3 个月（出席率需要较长时间才有意义）；打开时列出所有人（与按 Filter 的结果一致）
+   * - 日期旁有快捷按钮：最近一个主日 / 最近 1 个月 / 最近 3 个月 / 今年
    */
   public static function render_shortcode(): string
   {
@@ -74,20 +92,24 @@ class Frontend_Page
     $admin = Access::is_admin();
     provide_js_strings($ui_c);
 
-    $start = current_time('Y-m-d');
-    $end   = current_time('Y-m-d');
+    $ranges = self::quick_ranges(ap_today());
+    [$start, $end] = $ranges['range_3m'];
 
     // 首次渲染预取数据（后续筛选用 AJAX）
     $rows = Attendance_DB::query_filtered([
       'start_date_filter' => $start,
       'end_date_filter'   => $end,
-      'is_new'            => 'true',
     ], $scope);
 
     [$rows_page, $page, $pages] = Admin_Page::paginate_array($rows, 1, AP_FRONT_PER_PAGE);
 
     ob_start(); ?>
     <div class="wrap ap-frontend-dashboard">
+      <div class="ap-quick-ranges" role="group">
+        <?php foreach ($ranges as $key => [$rs, $re]): ?>
+          <button type="button" class="ap-range-btn<?php echo $key === 'range_3m' ? ' is-active' : ''; ?>" data-start="<?php echo esc_attr($rs); ?>" data-end="<?php echo esc_attr($re); ?>"><?php echo esc_html(I18n::t($key, $lang)); ?></button>
+        <?php endforeach; ?>
+      </div>
       <div class="filter-form">
         <?php if ($admin) echo self::congregation_filter('fe_congregation_filter', $lang); ?>
 

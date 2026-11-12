@@ -1043,3 +1043,38 @@ button.ap-btn-outline-gold[aria-busy="true"] {
 }
 #es_profile_form .es-join-newcomer input { margin-top: 3px; flex: 0 0 auto; }
 .ap-dialog-ok.is-transfer { background: #FFD700; color: #333; font-weight: 600; }
+
+/* 签到统计：日期快捷按钮 */
+.ap-frontend-dashboard .ap-quick-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+.ap-frontend-dashboard .ap-range-btn {
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid #d6b40c;
+  border-radius: 18px;
+  background: #fff;
+  color: #333;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.2;
+  text-transform: none;
+  cursor: pointer;
+}
+.ap-frontend-dashboard .ap-range-btn:hover { background: #fff8d6; }
+.ap-frontend-dashboard .ap-range-btn.is-active {
+  background: #ffd400;
+  border-color: #ffd400;
+  font-weight: 600;
+}
+/* 手机：两个一行、按钮够大好点 */
+@media (max-width: 768px) {
+  .ap-frontend-dashboard .ap-quick-ranges .ap-range-btn {
+    flex: 1 1 calc(50% - 4px);
+    min-height: 44px;
+    font-size: 15px;
+  }
+}
