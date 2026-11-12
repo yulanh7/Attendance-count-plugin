@@ -96,21 +96,18 @@ return [
     assert_same('already_signed', $res['code']);
     assert_same(false, $res['ok']);
   },
-  'test_signed_elsewhere_prompt_is_bilingual' => function () {
+  'test_signed_elsewhere_prompt_uses_page_language_only' => function () {
     force_check_in_day('2026-11-15');
     $id = make_person();
     $p = ap_ci_phone($id);
     Attendance_DB::quick_check_in($p, 'mandarin');
 
     $res = Attendance_DB::quick_check_in($p, 'cantonese');
-    assert_true(strpos($res['msg'], '國語堂') !== false && strpos($res['msg'], 'Mandarin Congregation') !== false, $res['msg']);
-    assert_same('改為粵語堂 / Check in at the Cantonese Congregation', $res['move_yes_label']);
-    assert_same('保留國語堂 / Keep the Mandarin Congregation', $res['move_no_label']);
+    assert_same('今天已在國語堂簽到，要改到粵語堂嗎？', $res['msg']);
+    assert_true(!isset($res['move_yes_label']), 'no bilingual button labels');
 
     $res = Attendance_DB::quick_check_in($p, 'english');
-    assert_true(strpos($res['msg'], 'Mandarin Congregation') !== false && strpos($res['msg'], '您今天已在国语堂签到') !== false, $res['msg']);
-    assert_same('Check in at the English Congregation / 改为英文堂', $res['move_yes_label']);
-    assert_same('Keep the Mandarin Congregation / 保留国语堂', $res['move_no_label']);
+    assert_same('Already checked in at Mandarin today. Switch to English?', $res['msg']);
   },
   'test_second_check_in_same_day_other_congregation_asks' => function () {
     force_check_in_day('2026-11-15');

@@ -22,7 +22,7 @@ return [
     }
   },
   'test_i18n_placeholder' => function () {
-    assert_same('您今天已在國語堂簽到。要改為在粵語堂簽到嗎？', \AP\t('signed_elsewhere_prompt', 'cantonese', ['existing' => '國語堂', 'here' => '粵語堂']));
+    assert_same('今天已在國語堂簽到，要改到粵語堂嗎？', \AP\t('signed_elsewhere_prompt', 'cantonese', ['existing' => '國語堂', 'here' => '粵語堂']));
   },
   'test_i18n_mandarin_keeps_existing_text' => function () {
     assert_same('快速签到', \AP\t('quick_title', 'mandarin'));

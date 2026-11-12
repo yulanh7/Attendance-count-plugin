@@ -392,9 +392,20 @@
   justify-content: center;
 }
 
+/* 取消 / 修改其他号码 / 更新资料：可见的按钮等宽平分整行 */
 #es_profile_form .profile-action-row>* {
+  flex: 1 1 0;
   width: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 8px;
+  box-sizing: border-box;
   white-space: nowrap;
+  text-align: center;
+  font-size: 16px;
+  line-height: 1.2 !important;
+  height: auto;
+  align-self: stretch;
 }
 
 #es_profile_form .profile-action-row+.submit-hint {
@@ -962,3 +973,59 @@ button.ap-btn-outline-gold[aria-busy="true"] {
     user-select: none;
   }
 }
+/* 当前邮箱提示（修改资料） */
+.es-attendance-container .es-email-hint {
+  font-size: 13px;
+  color: #666;
+  margin: -6px 0 10px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+/* 页面内提示框（代替 alert） */
+.ap-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.45);
+}
+.ap-dialog {
+  width: 100%;
+  max-width: 360px;
+  box-sizing: border-box;
+  padding: 22px 18px 16px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+.ap-dialog-msg {
+  margin-bottom: 18px;
+  color: #222;
+  font-size: 17px;
+  line-height: 1.55;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.ap-dialog-ok {
+  width: 100%;
+  padding: 11px 0;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}
+.ap-dialog-ok.is-ok { background: #2e7d32; }
+.ap-dialog-ok.is-error { background: #c62828; }
+.ap-dialog-ok.is-neutral { background: #1f6feb; }
+.ap-dialog-actions { display: flex; flex-direction: column; gap: 10px; }
+.ap-dialog-ok { white-space: normal; line-height: 1.35; }
+.ap-dialog-ok.is-secondary { background: #eceff1; color: #333; }
+.ap-dialog-ok:disabled { opacity: 0.6; cursor: default; }

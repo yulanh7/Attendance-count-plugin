@@ -61,6 +61,44 @@ jQuery(function ($) {
     $("<div>", { class: "es-message", text: message, css: { background: color, color: "#fff", padding: "8px", "margin-top": "10px", "border-radius": "5px" } }).insertAfter($after);
   }
 
+  // 页面内提示框（代替浏览器 alert：手机上居中、自动换行）
+  // 页面内弹框（代替浏览器 alert/confirm：手机上居中、自动换行）
+  // buttons: [{ label, cls, onClick(close, $btn) }]；dismissable = 点背景 / Esc / Enter 可关闭
+  function dialog(message, buttons, opts = {}) {
+    $(".ap-dialog-overlay").remove();
+    $(document).off("keydown.apDialog");
+    const $ov = $("<div>", { class: "ap-dialog-overlay", role: "presentation" });
+    const $dlg = $("<div>", { class: "ap-dialog", role: "alertdialog", "aria-modal": "true" }).appendTo($ov);
+    $("<div>", { class: "ap-dialog-msg", text: String(message || "") }).appendTo($dlg);
+    const $actions = $("<div>", { class: "ap-dialog-actions" }).appendTo($dlg);
+    const close = () => {
+      $ov.remove();
+      $(document).off("keydown.apDialog");
+      if (typeof opts.onClose === "function") opts.onClose();
+    };
+    const $btns = buttons.map((b) =>
+      $("<button>", { type: "button", class: "ap-dialog-ok " + (b.cls || "is-neutral"), text: b.label })
+        .on("click", function () { b.onClick ? b.onClick(close, $(this), $actions.find("button")) : close(); })
+        .appendTo($actions)
+    );
+    if (opts.dismissable) {
+      $ov.on("click", (e) => { if (e.target === $ov[0]) close(); });
+      $(document).on("keydown.apDialog", (e) => { if (e.key === "Escape" || e.key === "Enter") { e.preventDefault(); close(); } });
+    }
+    $ov.appendTo(document.body);
+    $btns[0] && $btns[0].trigger("focus");
+    return close;
+  }
+
+  function notify(message, ok, onClose) {
+    return dialog(message, [{
+      label: T("js_ok"),
+      cls: ok === true ? "is-ok" : ok === false ? "is-error" : "is-neutral",
+    }], { dismissable: true, onClose });
+  }
+  AP.notify = notify;
+  AP.dialog = dialog;
+
   function normalizePhone(cc, num) {
     let n = (num || "").replace(/[\s\-()]/g, "");
     if (cc === "+61" && n.charAt(0) === "0") n = n.slice(1);
@@ -245,7 +283,7 @@ jQuery(function ($) {
             const ok = !!(resp && resp.success);
             const msg = (resp && resp.data && (resp.data.msg || resp.data.message)) || (ok ? "Success" : "Error");
             displayMessage($form, msg, ok ? "green" : "red");
-            alert(msg);
+            notify(msg, ok);
             if (shouldAdoptCurrentPhone(resp)) {
               savedPhone = normalizePhone($cc.val(), $num.val());
               const formData = {
@@ -381,13 +419,23 @@ jQuery(function ($) {
     $sel.val(keepOriginal && sameHome && origF ? origF : "");
   }
 
+  // 邮箱只显示打码版本：写在输入框下方（可换行），输入框本身留空 = 不修改原邮箱
+  function setEmailHint($form, masked) {
+    const $email = $form.find("input[name=es_email]");
+    $email.val("").attr("placeholder", T("email_placeholder"));
+    let $hint = $email.next(".es-email-hint");
+    if (!masked) { $hint.remove(); return; }
+    if (!$hint.length) $hint = $("<div>", { class: "es-email-hint" }).insertAfter($email);
+    $hint.text(T("js_email_current", { email: masked }));
+  }
+
   function resetProfileForm() {
     const $form = $(S.profileForm);
     $form.find("#profile-user-info").hide();
     $form.find("#profile-check-section").show();
     $form.find("input[name=es_first_name]").val("");
     $form.find("input[name=es_last_name]").val("");
-    $form.find("input[name=es_email]").val("").attr("placeholder", T("email_placeholder"));
+    setEmailHint($form, "");
     $form.removeData("orig-home").removeData("orig-fellowship");
     $form.find("select[name=es_home_congregation]").val(CTX.congregation);
     rebuildProfileFellowships($form, false);
@@ -482,11 +530,7 @@ jQuery(function ($) {
           $form.find("input[name=es_first_name]").val(data.first_name || "");
           $form.find("input[name=es_last_name]").val(data.last_name || "");
           // 邮箱只显示打码版本作为提示；留空提交 = 不修改原邮箱
-          $form.find("input[name=es_email]")
-            .val("")
-            .attr("placeholder", data.email_masked
-              ? T("js_email_masked_placeholder", { email: data.email_masked })
-              : T("email_placeholder"));
+          setEmailHint($form, data.email_masked);
 
           const home = data.home_congregation || CTX.congregation;
           $form.data("orig-home", home).data("orig-fellowship", data.fellowship || "");
@@ -511,20 +555,6 @@ jQuery(function ($) {
   }
 
   /* ---------- 签到结果：同日换堂 / 转堂提示 ---------- */
-  function showPrompt($form, text, buttons) {
-    $(".es-prompt").remove();
-    const $box = $("<div>", { class: "es-message es-prompt", css: { background: "#fff7e6", color: "#333", border: "1px solid #f99522", padding: "10px", "margin-top": "10px", "border-radius": "5px" } });
-    $("<div>", { class: "es-prompt-text", text: text, css: { "margin-bottom": "8px", "white-space": "pre-line" } }).appendTo($box);
-    const $row = $("<div>", { class: "es-prompt-actions", css: { display: "flex", gap: "8px", "flex-wrap": "wrap" } }).appendTo($box);
-    buttons.forEach((b) => {
-      $("<button>", { type: "button", class: "switch-btn " + (b.cls || ""), text: b.label })
-        .on("click", function () { $(this).closest(".es-prompt").find("button").prop("disabled", true); b.onClick($box); })
-        .appendTo($row);
-    });
-    $box.insertAfter($form);
-    return $box;
-  }
-
   // 统一处理签到类接口的返回
   function handleCheckInResult(resp, $form, ctx) {
     const ok = !!(resp && resp.success);
@@ -538,37 +568,38 @@ jQuery(function ($) {
 
     const msg = d.msg || d.message || T(ok ? ctx.okKey : ctx.failKey);
     displayMessage($form, msg, ok ? "green" : "red");
-    alert(msg);
     if (ok && typeof ctx.onSuccess === "function") ctx.onSuccess(d);
-    if (ok && d.suggest_switch) showSwitchPrompt($form, d, ctx);
+    // 需要提示转堂时：先显示签到结果，按「好的」后再弹出转堂询问
+    notify(msg, ok, ok && d.suggest_switch ? () => showSwitchPrompt($form, d, ctx) : null);
   }
 
   function showMovePrompt($form, d, ctx) {
-    const here = cLabel(CTX.congregation);
-    const existing = cLabel(d.existing_congregation);
-    showPrompt($form, d.msg || d.message || "", [
+    const pl = (c) => (CTX.promptLabels && CTX.promptLabels[c]) || cLabel(c);
+    const here = pl(CTX.congregation);
+    const existing = pl(d.existing_congregation);
+    dialog(d.msg || d.message || "", [
       {
-        label: d.move_yes_label || T("move_yes", { here }),
-        onClick: ($box) => {
+        label: T("move_yes", { here }),
+        cls: "is-ok",
+        onClick: (close, $btn, $all) => {
+          $all.prop("disabled", true);
+          $btn.text(T("js_processing"));
           api.post("es_move_attendance", { phone: ctx.phone, congregation: CTX.congregation })
-            .done((resp2) => { $box.remove(); handleCheckInResult(resp2, $form, ctx); })
-            .fail(() => { $box.remove(); displayMessage($form, T("js_check_in_failed_retry"), "red"); });
+            .done((resp2) => { close(); handleCheckInResult(resp2, $form, ctx); })
+            .fail(() => { close(); notify(T("js_check_in_failed_retry"), false); });
         },
       },
-      { label: d.move_no_label || T("move_no", { existing }), onClick: ($box) => { $box.remove(); } },
+      { label: T("move_no", { existing }), cls: "is-secondary" },
     ]);
   }
 
   function showSwitchPrompt($form, d, ctx) {
     const here = cLabel(CTX.congregation);
     const home = cLabel(d.home_congregation);
-    // 不能用 displayMessage（会把成功提示清掉），直接放在成功提示后面
-    const $box = showPrompt($form, T("switch_prompt", { home, here }), [
-      { label: T("switch_yes", { here }), onClick: ($b) => { $b.remove(); goToSwitchProfile(ctx); } },
-      { label: T("switch_no"), onClick: ($b) => { $b.remove(); } },
+    dialog(T("switch_prompt", { home, here }), [
+      { label: T("switch_yes", { here }), cls: "is-ok", onClick: (close) => { close(); goToSwitchProfile(ctx); } },
+      { label: T("switch_no"), cls: "is-secondary" },
     ]);
-    const $msg = $form.nextAll(".es-message").not(".es-prompt").first();
-    if ($msg.length) $box.insertAfter($msg);
   }
 
   // 转堂：打开修改资料，所属堂改成本堂，团契必须重新选择
@@ -673,7 +704,7 @@ jQuery(function ($) {
         const d = (resp && resp.data) || {};
         const msg = d.msg || d.message || T(ok ? "js_profile_update_ok" : "js_profile_update_failed");
         displayMessage($form, msg, ok ? "green" : "red");
-        alert(msg);
+        notify(msg, ok);
 
         if (ok) {
           const saved = storage.get("es_attendance_form_data", {});
@@ -748,7 +779,7 @@ jQuery(function ($) {
       const phone = normalizePhone(cc, num);
 
       if (!phone) {
-        alert(T("js_phone_required"));
+        notify(T("js_phone_required"), false);
         return;
       }
 
@@ -769,7 +800,7 @@ jQuery(function ($) {
       const phone = normalizePhone(cc, num);
 
       if (!phone) {
-        alert(T("js_phone_required"));
+        notify(T("js_phone_required"), false);
         return;
       }
 
@@ -812,7 +843,7 @@ jQuery(function ($) {
           .fail(() => {
             // 请求失败也要关掉 loading
             setSubmitting($submit, false);
-            alert(T("js_check_phone_failed"));
+            notify(T("js_check_phone_failed"), false);
           });
       });
 
@@ -975,7 +1006,7 @@ jQuery(function ($) {
         renderTableHTML(resp.data.table_html);
         storage.set("filter_params", params);
       } else {
-        alert(T("js_load_failed"));
+        notify(T("js_load_failed"));
       }
     }).always(() => showLoader(false));
   }
@@ -1000,11 +1031,11 @@ jQuery(function ($) {
     api.post("handle_member_status_update", { ids, member_action: action })
       .done((resp) => {
         const msg = (resp && resp.data && resp.data.message) || "Member status updated.";
-        alert(msg);
+        notify(msg);
         const params = storage.get("filter_params") || getFilters();
         fetchFilteredResults(params.paged || 1);
       })
-      .fail(() => { alert(T('js_update_failed')); })
+      .fail(() => { notify(T('js_update_failed')); })
       .always(() => { showLoader(false); });
   }
 
@@ -1166,10 +1197,10 @@ jQuery(function ($) {
             });
             requestAnimationFrame(function () { feScrollToContainerTop($c, 10); });
           } else {
-            alert(T("js_load_failed"));
+            notify(T("js_load_failed"));
           }
         })
-        .fail(function () { alert(T("js_load_failed")); })
+        .fail(function () { notify(T("js_load_failed")); })
         .always(function () { feShowLoader($c, false); });
     }
 
@@ -1215,7 +1246,7 @@ jQuery(function ($) {
         data: { action: "handle_member_status_update", nonce: esAjax.nonce, ids, member_action: action, congregation: $c.find("#fe_congregation_filter").val() || "" },
       })
         .done(function (resp) {
-          alert((resp && resp.data && resp.data.message) || "Member status updated.");
+          notify((resp && resp.data && resp.data.message) || "Member status updated.");
           const params = { ...feGetFilters($c), paged: feCurrentPage($c) };
           feRenderTable($c, params).always(function () {
             $btn.prop("disabled", false).removeAttr("aria-busy").text(oldText);
@@ -1225,7 +1256,7 @@ jQuery(function ($) {
         .fail(function () {
           feShowLoader($c, false);
           $btn.prop("disabled", false).removeAttr("aria-busy").text(oldText);
-          alert(T("js_update_failed"));
+          notify(T("js_update_failed"));
         });
     }
 
@@ -1389,11 +1420,11 @@ jQuery(function ($) {
           $c.find("#ap-ft-note").text(t ? T("js_generated_at", { time: t }) : '');
 
         } else {
-          alert(T("js_load_failed"));
+          notify(T("js_load_failed"));
         }
       }).fail(function (xhr) {
         console.error('AJAX fail', xhr && xhr.status, xhr && xhr.responseText);
-        alert(T("js_load_failed"));
+        notify(T("js_load_failed"));
       }).always(function () {
         showLoader($c, false);
       });
@@ -1403,7 +1434,7 @@ jQuery(function ($) {
     function exportExcel($c) {
       const cnt = parseInt($c.attr('data-count') || '0', 10);
       if (!Number.isFinite(cnt) || cnt <= 0) {
-        alert(T('js_export_empty'));
+        notify(T('js_export_empty'));
         return;
       }
       const rng = getRange($c);
@@ -1455,6 +1486,7 @@ jQuery(function ($) {
     if (!id || id <= 0) return;
 
     const T = (window.AP && window.AP.T) || ((k) => k);
+    const notify = (window.AP && window.AP.notify) || ((m) => window.alert(m));
     if (!window.confirm(T('js_confirm_remove_newcomer'))) {
       return;
     }
@@ -1478,7 +1510,7 @@ jQuery(function ($) {
 
       if (!data || !data.success) {
         const msg = (data && data.data && data.data.message) ? data.data.message : T('js_remove_failed');
-        alert(msg);
+        notify(msg);
         btn.disabled = false;
         return;
       }
@@ -1494,7 +1526,7 @@ jQuery(function ($) {
 
     } catch (err) {
       console.error(err);
-      alert(T('js_network_error'));
+      notify(T('js_network_error'));
       btn.disabled = false;
     }
   });

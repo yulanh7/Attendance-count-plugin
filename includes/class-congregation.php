@@ -105,6 +105,12 @@ class Congregation
     return self::SHORT_LABELS[$display_lang][$c] ?? $c;
   }
 
+  /** 简短提示里用的堂名：中文用全称（本来就短），英文用简称（Mandarin / Cantonese / English） */
+  public static function prompt_label(string $c, string $display_lang): string
+  {
+    return $display_lang === 'en' ? self::short_label($c, $display_lang) : self::label($c, $display_lang);
+  }
+
   /** @return array<string,string> 代号 => 该堂语言的文字，other 在最后 */
   public static function fellowships(string $c): array
   {

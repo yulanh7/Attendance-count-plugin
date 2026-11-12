@@ -116,15 +116,18 @@ function provide_js_strings(string $congregation): void
 
   $fellowships = [];
   $labels = [];
+  $prompt_labels = [];
   foreach (Congregation::all() as $c) {
     $fellowships[$c] = Congregation::fellowships($c);
     $labels[$c] = Congregation::label($c, $lang);
+    $prompt_labels[$c] = Congregation::prompt_label($c, $lang);
   }
   $ctx = [
     'congregation' => $congregation,
     'isAdmin'      => Access::is_admin(),
     'fellowships'  => $fellowships,
     'labels'       => $labels,
+    'promptLabels' => $prompt_labels,
   ];
   $flags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP;
   wp_add_inline_script(

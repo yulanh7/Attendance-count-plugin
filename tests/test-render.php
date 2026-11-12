@@ -71,5 +71,6 @@ return [
     $js = is_array($data) ? implode("\n", $data) : (string) $data;
     assert_true(ap_rd_has($js, 'window.apI18n') && ap_rd_has($js, 'window.apCtx'), 'inline js');
     assert_true(ap_rd_has($js, '"congregation":"cantonese"'), 'ctx congregation');
+    assert_true(ap_rd_has($js, '"promptLabels":{'), 'ctx prompt labels');
   },
 ];

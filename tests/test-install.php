@@ -33,11 +33,13 @@ return [
     assert_true(ap_test_has_index('attendance_first_time_attendance_dates', 'idx_congregation_date'), 'first idx_congregation_date');
     assert_true(ap_test_has_index('attendance_first_time_attendance_dates', 'uniq_attendance_date'), 'uniq_attendance_date kept');
   },
+  // 迁移前（2026-11-12 之前）的数据全部归国语堂；之后在本地测试签到产生的别堂数据不算
   'test_ddl_existing_rows_are_mandarin' => function () {
     global $wpdb;
     $p = $wpdb->prefix;
-    assert_same('0', $wpdb->get_var("SELECT COUNT(*) FROM {$p}attendance WHERE home_congregation <> 'mandarin'"));
-    assert_same('0', $wpdb->get_var("SELECT COUNT(*) FROM {$p}attendance_dates WHERE congregation <> 'mandarin'"));
-    assert_same('0', $wpdb->get_var("SELECT COUNT(*) FROM {$p}attendance_first_time_attendance_dates WHERE congregation <> 'mandarin'"));
+    $cut = '2026-11-12';
+    assert_same('0', $wpdb->get_var("SELECT COUNT(*) FROM {$p}attendance WHERE home_congregation <> 'mandarin' AND first_attendance_date < '$cut'"));
+    assert_same('0', $wpdb->get_var("SELECT COUNT(*) FROM {$p}attendance_dates WHERE congregation <> 'mandarin' AND date_attended < '$cut'"));
+    assert_same('0', $wpdb->get_var("SELECT COUNT(*) FROM {$p}attendance_first_time_attendance_dates WHERE congregation <> 'mandarin' AND date_attended < '$cut'"));
   },
 ];
