@@ -70,6 +70,18 @@ function ap_enqueue_assets()
   }
 }
 
+// 今天（站点时区）；测试可用 filter ap_today 覆盖
+function ap_today(): string
+{
+  return (string) apply_filters('ap_today', current_time('Y-m-d'));
+}
+
+// 今天是否开放签到；测试可用 filter ap_is_check_in_day 覆盖
+function ap_is_check_in_day(): bool
+{
+  return (bool) apply_filters('ap_is_check_in_day', (int) current_time('w') === get_target_dow());
+}
+
 // 通用：统计区间内指定星期几的次数
 // 直接按公式计算，不逐日循环（区间再长也是 O(1)）
 function count_weekday_between(string $start_date, string $end_date, int $targetDow): int

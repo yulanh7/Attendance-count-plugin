@@ -31,6 +31,10 @@ class Ajax
     add_action('wp_ajax_es_quick_attendance', [__CLASS__, 'quick_attendance']);
     add_action('wp_ajax_nopriv_es_quick_attendance', [__CLASS__, 'quick_attendance']);
 
+    // 同日换堂：把今天的签到移到另一个堂
+    add_action('wp_ajax_es_move_attendance', [__CLASS__, 'move_attendance']);
+    add_action('wp_ajax_nopriv_es_move_attendance', [__CLASS__, 'move_attendance']);
+
     add_action('wp_ajax_ap_get_user_profile', [__CLASS__, 'get_user_profile']);
     add_action('wp_ajax_nopriv_ap_get_user_profile', [__CLASS__, 'get_user_profile']);
 
@@ -68,12 +72,37 @@ class Ajax
     }
   }
 
+  /** 从请求取堂：带了无效的堂代号 → 400 */
+  private static function request_congregation(): string
+  {
+    $c = Congregation::from_request($_POST);
+    if ($c === false) {
+      wp_send_json_error(['code' => 'invalid_congregation', 'message' => t('invalid_congregation', Congregation::DEFAULT)], 400);
+    }
+    return $c;
+  }
+
+  /** 签到类结果：message 字段保留给旧版前端 */
+  private static function send_check_in_result(array $res): void
+  {
+    $res['message'] = $res['msg'];
+    if ($res['ok']) wp_send_json_success($res);
+    wp_send_json_error($res);
+  }
+
   public static function handle_attendance()
   {
     self::verify_nonce();
-    $res = Attendance_DB::handle_submit($_POST);
-    if ($res['ok']) wp_send_json_success(['message' => $res['msg']]);
-    wp_send_json_error(['message' => $res['msg']]);
+    $c = self::request_congregation();
+    self::send_check_in_result(Attendance_DB::handle_submit($_POST, $c));
+  }
+
+  public static function move_attendance()
+  {
+    self::verify_nonce();
+    $c = self::request_congregation();
+    $phone = sanitize_text_field($_POST['phone'] ?? '');
+    self::send_check_in_result(Attendance_DB::move_today($phone, $c));
   }
 
   public static function filter_attendance()
@@ -338,51 +367,9 @@ class Ajax
   public static function quick_attendance()
   {
     self::verify_nonce();
-
+    $c = self::request_congregation();
     $phone = sanitize_text_field($_POST['phone'] ?? '');
-    if (!$phone) {
-      wp_send_json_error(['message' => '电话号码不能为空']);
-    }
-
-    global $wpdb;
-    $attendance = $wpdb->prefix . 'attendance';
-    $dates = $wpdb->prefix . 'attendance_dates';
-
-    // 检查用户是否存在
-    $user = $wpdb->get_row($wpdb->prepare(
-      "SELECT id, first_name, last_name FROM $attendance WHERE phone = %s",
-      $phone
-    ));
-
-    if (!$user) {
-      wp_send_json_error(['message' => '该电话号码未注册，请先进行首次登记']);
-    }
-
-    // 仅允许目标星期签到
-    if ((int) current_time('w') !== get_target_dow()) {
-      wp_send_json_error(['message' => '今天不是允许的签到日，不能签到。']);
-    }
-
-    $today = current_time('Y-m-d');
-
-    // 写入当日出勤（依赖 dates 唯一键）
-    $ins = $wpdb->query($wpdb->prepare(
-      "INSERT IGNORE INTO $dates (attendance_id, date_attended) VALUES (%d, %s)",
-      $user->id,
-      $today
-    ));
-
-    if ($ins === false) {
-      wp_send_json_error(['message' => '记录签到失败，请稍后再试。']);
-    }
-
-    if ($ins === 0) {
-      wp_send_json_error(['message' => '您今天已经签到过了，请勿重复签到!']);
-    }
-
-    Attendance_DB::clear_attendance_cache();
-
-    wp_send_json_success(['message' => "签到成功！欢迎 {$user->first_name} {$user->last_name}"]);
+    self::send_check_in_result(Attendance_DB::quick_check_in($phone, $c));
   }
 
   /**

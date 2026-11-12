@@ -6,51 +6,153 @@ defined('ABSPATH') || exit;
 
 class Attendance_DB
 {
-  /**
-   * 前台提交签到
-   * - 仅允许在目标星期签到
-   * - 以 phone 为唯一键：首插 is_new=1，之后更新 is_new=0
-   * - 出勤表对同人同日使用 INSERT IGNORE（依赖唯一键）
-   * - 如果是新来宾（es_is_newcomer），同时记录到 attendance_first_time_attendance_dates
-   */
-  public static function handle_submit(array $post): array
+  /** 统一的签到结果结构 */
+  private static function result(bool $ok, string $code, string $msg, array $extra = []): array
+  {
+    return array_merge([
+      'ok'                    => $ok,
+      'code'                  => $code,
+      'msg'                   => $msg,
+      'first_at_congregation' => false,
+      'suggest_switch'        => false,
+      'home_congregation'     => '',
+      'existing_congregation' => null,
+    ], $extra);
+  }
+
+  /** 电话号码归一化（与前端 normalizePhone 一致） */
+  public static function normalize_phone(string $country_code, string $number): string
+  {
+    $number = preg_replace('/[\s\-\(\)]/', '', $number);
+    // AU 本地格式：+61 去掉开头 0
+    if ($country_code === '+61' && substr($number, 0, 1) === '0') {
+      $number = substr($number, 1);
+    }
+    return $country_code . $number;
+  }
+
+  private static function find_person(string $phone): ?object
   {
     global $wpdb;
-    $attendance = $wpdb->prefix . 'attendance';
-    $dates      = $wpdb->prefix . 'attendance_dates';
+    if ($phone === '') return null;
+    return $wpdb->get_row($wpdb->prepare(
+      "SELECT id, first_name, last_name, home_congregation, first_attendance_date FROM {$wpdb->prefix}attendance WHERE phone = %s",
+      $phone
+    )) ?: null;
+  }
+
+  /** 今天的签到记录（一天最多一条，不分堂） */
+  private static function today_record(int $aid, string $today): ?object
+  {
+    global $wpdb;
+    return $wpdb->get_row($wpdb->prepare(
+      "SELECT id, congregation FROM {$wpdb->prefix}attendance_dates WHERE attendance_id = %d AND date_attended = %s",
+      $aid,
+      $today
+    )) ?: null;
+  }
+
+  /** 今天已经签过到 → 返回对应的结果；还没签 → null */
+  private static function already_signed_result(int $aid, string $today, string $congregation): ?array
+  {
+    $rec = self::today_record($aid, $today);
+    if (!$rec) return null;
+    if ($rec->congregation === $congregation) {
+      return self::result(false, 'already_signed', t('already_signed', $congregation));
+    }
+    $lang = Congregation::lang($congregation);
+    return self::result(false, 'signed_elsewhere_today', t('signed_elsewhere_prompt', $congregation, [
+      'existing' => Congregation::label($rec->congregation, $lang),
+      'here'     => Congregation::label($congregation, $lang),
+    ]), ['existing_congregation' => $rec->congregation]);
+  }
+
+  /**
+   * 「第一次在这个堂签到」规则（今天的记录已写入之后调用）
+   * - 除今天以外，这个堂没有他的出席记录 → 自动加入这个堂的新来宾名单
+   * - 同时这个堂不是他的所属堂 → 建议转堂
+   * @return array{0:bool,1:bool} [first_at_congregation, suggest_switch]
+   */
+  private static function apply_first_visit_rule(int $aid, string $congregation, string $home, string $today): array
+  {
+    global $wpdb;
+    $before = (int) $wpdb->get_var($wpdb->prepare(
+      "SELECT COUNT(*) FROM {$wpdb->prefix}attendance_dates WHERE attendance_id = %d AND congregation = %s AND date_attended <> %s",
+      $aid,
+      $congregation,
+      $today
+    ));
+    if ($before > 0) return [false, false];
+
+    $wpdb->query($wpdb->prepare(
+      "INSERT IGNORE INTO {$wpdb->prefix}attendance_first_time_attendance_dates (attendance_id, date_attended, congregation) VALUES (%d, %s, %s)",
+      $aid,
+      $today,
+      $congregation
+    ));
+    return [true, $home !== $congregation];
+  }
+
+  private static function insert_today(int $aid, string $today, string $congregation)
+  {
+    global $wpdb;
+    return $wpdb->query($wpdb->prepare(
+      "INSERT IGNORE INTO {$wpdb->prefix}attendance_dates (attendance_id, date_attended, congregation) VALUES (%d, %s, %s)",
+      $aid,
+      $today,
+      $congregation
+    ));
+  }
+
+  private static function welcome_msg(object $person, string $congregation, bool $first_at): string
+  {
+    $msg = t('check_in_ok_welcome', $congregation, ['name' => trim($person->first_name . ' ' . $person->last_name)]);
+    if ($first_at) {
+      $msg .= ' ' . t('welcome_first_time_here', $congregation, [
+        'congregation' => Congregation::label($congregation, Congregation::lang($congregation)),
+      ]);
+    }
+    return $msg;
+  }
+
+  /**
+   * 首次登记表单提交
+   * - 新号码：所属堂 = 当前签到页的堂；是否进新来宾名单由勾选框决定
+   * - 已有号码：更新资料（不改所属堂），并套用「第一次在这个堂签到」规则
+   * - 一天只有一条签到记录（不分堂）；今天已在别的堂签到 → signed_elsewhere_today，不写入任何东西
+   */
+  public static function handle_submit(array $post, string $congregation): array
+  {
+    global $wpdb;
+    $attendance  = $wpdb->prefix . 'attendance';
     $first_dates = $wpdb->prefix . 'attendance_first_time_attendance_dates';
 
-    // 仅允许目标星期签到
-    if ((int) current_time('w') !== get_target_dow()) {
-      return ['ok' => false, 'msg' => '今天不是允许的签到日，不能签到。'];
+    if (!ap_is_check_in_day()) {
+      return self::result(false, 'not_check_in_day', t('not_check_in_day', $congregation));
     }
 
     // 输入清洗 & 归一化
-    $first_name   = trim(sanitize_text_field($post['es_first_name'] ?? ''));
-    $last_name    = trim(sanitize_text_field($post['es_last_name'] ?? ''));
-    $country_code = trim(sanitize_text_field($post['es_phone_country_code'] ?? ''));
-    $phone_number = trim(sanitize_text_field($post['es_phone_number'] ?? ''));
-    $fellowship   = trim(sanitize_text_field($post['es_fellowship'] ?? ''));
+    $first_name      = trim(sanitize_text_field($post['es_first_name'] ?? ''));
+    $last_name       = trim(sanitize_text_field($post['es_last_name'] ?? ''));
+    $country_code    = trim(sanitize_text_field($post['es_phone_country_code'] ?? ''));
+    $phone_number    = trim(sanitize_text_field($post['es_phone_number'] ?? ''));
+    $fellowship      = trim(sanitize_text_field($post['es_fellowship'] ?? ''));
     $referral_source = trim(sanitize_text_field($post['es_referral_source'] ?? ''));
-    $email        = sanitize_email($post['es_email'] ?? '');
-    $today        = current_time('Y-m-d');
+    $email           = sanitize_email($post['es_email'] ?? '');
+    $is_newcomer     = isset($post['es_is_newcomer']) && (string) $post['es_is_newcomer'] === '1';
+    $today           = ap_today();
+    $phone           = self::normalize_phone($country_code, $phone_number);
 
-    // 检查是否为新来宾
-    $is_newcomer = isset($post['es_is_newcomer']) && (string)$post['es_is_newcomer'] === '1';
-
-    // 去除空格/连字符/括号
-    $phone_number = preg_replace('/[\s\-\(\)]/', '', $phone_number);
-    // AU 本地格式：+61 去掉开头 0
-    if ($country_code === '+61' && substr($phone_number, 0, 1) === '0') {
-      $phone_number = substr($phone_number, 1);
+    $existing = self::find_person($phone);
+    if ($existing && ($signed = self::already_signed_result((int) $existing->id, $today, $congregation))) {
+      return $signed;
     }
-    $phone = $country_code . $phone_number;
 
-    // 原子 upsert（依赖 attendance.phone 唯一键）
-    $upsert_sql = $wpdb->prepare(
+    // 原子 upsert（依赖 attendance.phone 唯一键）；所属堂只在新建时写入
+    $ok = $wpdb->query($wpdb->prepare(
       "INSERT INTO $attendance
-        (first_name, last_name, phone, email, fellowship, referral_source, is_new, first_attendance_date)
-      VALUES (%s, %s, %s, %s, %s, %s, 1, %s)
+        (first_name, last_name, phone, email, fellowship, referral_source, is_new, first_attendance_date, home_congregation)
+      VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s)
       ON DUPLICATE KEY UPDATE
         first_name = IF(VALUES(first_name) IS NULL OR VALUES(first_name) = '', first_name, VALUES(first_name)),
         last_name  = IF(VALUES(last_name)  IS NULL OR VALUES(last_name)  = '', last_name,  VALUES(last_name)),
@@ -64,75 +166,156 @@ class Attendance_DB
       $email,
       $fellowship,
       $referral_source,
-      $today
-    );
-
-
-    $ok = $wpdb->query($upsert_sql);
-    if ($ok === false) {
-      return ['ok' => false, 'msg' => '创建/更新用户失败，请稍后再试。'];
-    }
-
-    // 拿到人员 id（无论新建或更新）
-    $aid = (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM $attendance WHERE phone = %s", $phone));
-    if (!$aid) {
-      return ['ok' => false, 'msg' => '创建/更新用户失败（未找到记录）。'];
-    }
-
-    // 写入当日出勤（依赖 dates 唯一键 (attendance_id, date_attended)）
-    $ins = $wpdb->query($wpdb->prepare(
-      "INSERT IGNORE INTO $dates (attendance_id, date_attended) VALUES (%d, %s)",
-      $aid,
-      $today
+      $today,
+      $congregation
     ));
+    if ($ok === false) {
+      return self::result(false, 'db_error', t('user_save_failed', $congregation));
+    }
+
+    $person = self::find_person($phone);
+    if (!$person) {
+      return self::result(false, 'db_error', t('user_save_failed_missing', $congregation));
+    }
+    $aid = (int) $person->id;
+
+    $ins = self::insert_today($aid, $today, $congregation);
     if ($ins === false) {
-      return ['ok' => false, 'msg' => '记录签到失败，请稍后再试。'];
+      return self::result(false, 'db_error', t('check_in_failed', $congregation));
     }
     if ($ins === 0) {
-      return ['ok' => false, 'msg' => '您今天已经签到过了，请勿重复签到!'];
+      // 并发情况下另一请求先写入了今天的记录
+      return self::already_signed_result($aid, $today, $congregation)
+        ?? self::result(false, 'already_signed', t('already_signed', $congregation));
     }
 
-    // 已写入新出勤：让 Dashboard 缓存失效（放在这里才能覆盖下面所有 return 分支）
+    // 已写入新出勤：让 Dashboard 缓存失效
     self::clear_attendance_cache();
 
-    $times_all = (int) $wpdb->get_var(
-      $wpdb->prepare("SELECT COUNT(*) FROM $dates WHERE attendance_id = %d", $aid)
-    );
-    $force_new = isset($post['es_force_newcomer']) && (string)$post['es_force_newcomer'] === '1';
+    $extra = ['home_congregation' => $person->home_congregation];
 
-    if ($is_newcomer && $times_all > 1 && !$force_new) {
-      // 老号码但勾选了新来宾：不再要求确认，直接按“强制”处理，同时返回 warn
-      $wpdb->query($wpdb->prepare(
-        "INSERT IGNORE INTO $first_dates (attendance_id, date_attended) VALUES (%d, %s)",
-        $aid,
-        $today
-      ));
-      $affected = (int) $wpdb->rows_affected;
-      return [
-        'ok'       => true,
-        'inserted' => ($affected > 0),
-        'warn'     => 'existing_phone_checked_new',
-        'last_date' => self::get_last_attended_date($phone) ?: '',
-        'msg'      => ($affected > 0)
-          ? '签到成功！已登记为新来宾（该号码此前已有出席记录）。'
-          : '签到成功！今日已登记过为新来宾（该号码此前已有出席记录）。'
-      ];
+    if (!$existing) {
+      // 全新登记：新来宾由勾选框决定
+      $extra['first_at_congregation'] = true;
+      if ($is_newcomer) {
+        $wpdb->query($wpdb->prepare(
+          "INSERT IGNORE INTO $first_dates (attendance_id, date_attended, congregation) VALUES (%d, %s, %s)",
+          $aid,
+          $today,
+          $congregation
+        ));
+        return self::result(true, 'ok', t('check_in_ok_newcomer', $congregation), $extra);
+      }
+      return self::result(true, 'ok', t('check_in_ok', $congregation), $extra);
     }
 
-
-    // ============ 轻确认：二次提交 或 本就不冲突 的写入 ============
-    if ($is_newcomer && ($force_new || $times_all <= 1)) {
+    // 已有号码：勾选了新来宾 → 照旧直接登记为新来宾
+    $msg = t('check_in_ok', $congregation);
+    if ($is_newcomer) {
       $wpdb->query($wpdb->prepare(
-        "INSERT IGNORE INTO $first_dates (attendance_id, date_attended) VALUES (%d, %s)",
+        "INSERT IGNORE INTO $first_dates (attendance_id, date_attended, congregation) VALUES (%d, %s, %s)",
         $aid,
-        $today
+        $today,
+        $congregation
       ));
-      // IGNORE 保证幂等，无需检查返回值
-      return ['ok' => true, 'msg' => '签到成功！已登记为新来宾。'];
+      $msg = t((int) $wpdb->rows_affected > 0 ? 'check_in_ok_newcomer_existing' : 'check_in_ok_newcomer_existing_dup', $congregation);
     }
 
-    // 不勾选或选择了“不记录”
-    return ['ok' => true, 'msg' => '签到成功！'];
+    [$first_at, $suggest] = self::apply_first_visit_rule($aid, $congregation, $person->home_congregation, $today);
+    $extra['first_at_congregation'] = $first_at;
+    $extra['suggest_switch'] = $suggest;
+    if ($first_at && !$is_newcomer) {
+      $msg = self::welcome_msg($person, $congregation, true);
+    }
+    return self::result(true, 'ok', $msg, $extra);
+  }
+
+  /**
+   * 快速签到（仅凭电话号码）
+   */
+  public static function quick_check_in(string $phone, string $congregation): array
+  {
+    if ($phone === '') {
+      return self::result(false, 'phone_required', t('phone_required', $congregation));
+    }
+    $person = self::find_person($phone);
+    if (!$person) {
+      return self::result(false, 'not_registered', t('phone_not_registered', $congregation));
+    }
+    if (!ap_is_check_in_day()) {
+      return self::result(false, 'not_check_in_day', t('not_check_in_day', $congregation));
+    }
+
+    $aid = (int) $person->id;
+    $today = ap_today();
+    if ($signed = self::already_signed_result($aid, $today, $congregation)) {
+      return $signed;
+    }
+
+    $ins = self::insert_today($aid, $today, $congregation);
+    if ($ins === false) {
+      return self::result(false, 'db_error', t('check_in_failed', $congregation));
+    }
+    if ($ins === 0) {
+      return self::already_signed_result($aid, $today, $congregation)
+        ?? self::result(false, 'already_signed', t('already_signed', $congregation));
+    }
+    self::clear_attendance_cache();
+
+    [$first_at, $suggest] = self::apply_first_visit_rule($aid, $congregation, $person->home_congregation, $today);
+    return self::result(true, 'ok', self::welcome_msg($person, $congregation, $first_at), [
+      'first_at_congregation' => $first_at,
+      'suggest_switch'        => $suggest,
+      'home_congregation'     => $person->home_congregation,
+    ]);
+  }
+
+  /**
+   * 把今天的签到记录移到另一个堂（同日换堂）
+   * - 全新登记（first_attendance_date = 今天）：所属堂和今天的新来宾记录一起移过去
+   * - 否则：删掉旧堂今天自动加的新来宾记录
+   * - 然后按新堂重新套用「第一次在这个堂签到」规则
+   */
+  public static function move_today(string $phone, string $to): array
+  {
+    global $wpdb;
+    $attendance  = $wpdb->prefix . 'attendance';
+    $dates       = $wpdb->prefix . 'attendance_dates';
+    $first_dates = $wpdb->prefix . 'attendance_first_time_attendance_dates';
+
+    $person = self::find_person($phone);
+    if (!$person) {
+      return self::result(false, 'not_registered', t('phone_not_registered', $to));
+    }
+    if (!ap_is_check_in_day()) {
+      return self::result(false, 'not_check_in_day', t('not_check_in_day', $to));
+    }
+
+    $aid = (int) $person->id;
+    $today = ap_today();
+    $rec = self::today_record($aid, $today);
+    if (!$rec || $rec->congregation === $to) {
+      return self::result(false, 'nothing_to_move', t('nothing_to_move', $to));
+    }
+    $from = $rec->congregation;
+
+    $wpdb->update($dates, ['congregation' => $to], ['id' => (int) $rec->id], ['%s'], ['%d']);
+
+    if ($person->first_attendance_date === $today) {
+      $wpdb->update($attendance, ['home_congregation' => $to], ['id' => $aid], ['%s'], ['%d']);
+      $wpdb->update($first_dates, ['congregation' => $to], ['attendance_id' => $aid, 'date_attended' => $today], ['%s'], ['%d', '%s']);
+      $person->home_congregation = $to;
+    } else {
+      $wpdb->delete($first_dates, ['attendance_id' => $aid, 'date_attended' => $today, 'congregation' => $from], ['%d', '%s', '%s']);
+    }
+    self::clear_attendance_cache();
+
+    [$first_at, $suggest] = self::apply_first_visit_rule($aid, $to, $person->home_congregation, $today);
+    return self::result(true, 'ok', self::welcome_msg($person, $to, $first_at), [
+      'first_at_congregation' => $first_at,
+      'suggest_switch'        => $suggest,
+      'home_congregation'     => $person->home_congregation,
+    ]);
   }
 
   private const CACHE_VER_OPTION = 'ap_filtered_cache_ver';
