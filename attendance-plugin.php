@@ -29,6 +29,7 @@ if (!defined('AP_FRONT_PER_PAGE')) {
 require_once AP_PATH . 'includes/constants.php';
 require_once AP_PATH . 'includes/class-congregation.php';
 require_once AP_PATH . 'includes/class-i18n.php';
+require_once AP_PATH . 'includes/class-access.php';
 require_once AP_PATH . 'includes/helpers.php';
 require_once AP_PATH . 'includes/class-attendance-db.php';
 require_once AP_PATH . 'includes/class-admin-page.php';
@@ -52,6 +53,9 @@ add_action('plugins_loaded', function () {
   // add_action('admin_menu', ['AP\\Admin_Page', 'register']);
   // AJAX
   AP\Ajax::register();
+
+  // 用户编辑页「所属堂」字段
+  AP\Access::register();
 
   // 短代码
   add_action('init', function () {
