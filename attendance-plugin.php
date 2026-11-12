@@ -27,6 +27,7 @@ if (!defined('AP_FRONT_PER_PAGE')) {
 
 // 加载模块
 require_once AP_PATH . 'includes/constants.php';
+require_once AP_PATH . 'includes/class-congregation.php';
 require_once AP_PATH . 'includes/helpers.php';
 require_once AP_PATH . 'includes/class-attendance-db.php';
 require_once AP_PATH . 'includes/class-admin-page.php';
