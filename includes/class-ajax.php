@@ -72,6 +72,16 @@ class Ajax
     }
   }
 
+  /**
+   * 管理类接口的堂范围：管理员可用 POST congregation 筛选（空 = 全部堂）；
+   * 同工一律是自己的所属堂（忽略 POST）。调用前须已通过 require_cap。
+   */
+  private static function request_scope(): ?string
+  {
+    $requested = isset($_POST['congregation']) ? sanitize_text_field(wp_unslash($_POST['congregation'])) : null;
+    return Access::scope($requested);
+  }
+
   /** 从请求取堂：带了无效的堂代号 → 400 */
   private static function request_congregation(): string
   {
@@ -108,7 +118,7 @@ class Ajax
   public static function filter_attendance()
   {
     self::require_cap(ap_user_can_view());
-    $rows = \AP\Attendance_DB::query_filtered($_POST);
+    $rows = \AP\Attendance_DB::query_filtered($_POST, self::request_scope());
 
     $is_frontend = !empty($_POST['fe']) && $_POST['fe'] == '1';
 
@@ -130,7 +140,7 @@ class Ajax
   public static function export_csv()
   {
     self::require_cap(ap_user_can_view());
-    $csv = Attendance_DB::build_csv($_POST);
+    $csv = Attendance_DB::build_csv($_POST, self::request_scope(), Access::is_admin());
     header('Content-Type: text/csv; charset=utf-8');
     header('X-Content-Type-Options: nosniff');
     echo "\xEF\xBB\xBF";
@@ -141,7 +151,7 @@ class Ajax
   public static function update_member()
   {
     self::require_cap(ap_user_can_manage());
-    $msg = Attendance_DB::bulk_update_member($_POST);
+    $msg = Attendance_DB::bulk_update_member($_POST, self::request_scope());
     wp_send_json_success(['message' => $msg]);
   }
 
@@ -151,7 +161,9 @@ class Ajax
     $id   = absint($_POST['attendance_id'] ?? 0);
     $start = sanitize_text_field($_POST['start_date_filter'] ?? '');
     $end  = sanitize_text_field($_POST['end_date_filter'] ?? '');
-    $data = Attendance_DB::get_detail($id, $start, $end);
+    $data = Attendance_DB::get_detail($id, $start, $end, self::request_scope());
+    $show_c = Access::is_admin();
+    $lang = ap_ui_lang();
 
     ob_start(); ?>
     <div class="ap-modal-header">
@@ -165,6 +177,9 @@ class Ajax
         <thead style="position:sticky; top:0; background:#f9f9f9;">
           <tr>
             <th style="border:1px solid #ccc; padding:6px;">Date Attended</th>
+            <?php if ($show_c): ?>
+              <th style="border:1px solid #ccc; padding:6px;"><?php echo esc_html(I18n::t('column_congregation', $lang)); ?></th>
+            <?php endif; ?>
           </tr>
         </thead>
         <tbody>
@@ -173,6 +188,9 @@ class Ajax
               <td style="border:1px solid #ccc; padding:6px;">
                 <?php echo esc_html(\AP\format_date_dmy($row['date_attended'])); ?>
               </td>
+              <?php if ($show_c): ?>
+                <td style="border:1px solid #ccc; padding:6px;"><?php echo esc_html(Congregation::label($row['congregation'], $lang)); ?></td>
+              <?php endif; ?>
             </tr>
           <?php endforeach; ?>
         </tbody>

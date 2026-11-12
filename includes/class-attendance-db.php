@@ -434,8 +434,10 @@ class Attendance_DB
    * - 每人一行：times = 区间内出席次数；times_all / last_attended = 全历史
    * - is_new 过滤按"全历史仅 1 次"判断（与日期区间无关）
    * - 所有统计都在一条 SQL 里完成，避免逐行查询
+   * - $congregation：只统计该堂的签到（times / last_attended / 出席率）；null = 全部堂，
+   *   并额外给每行 congregation_counts（区间内各堂次数）。范围由调用方经 Access::scope() 解析。
    */
-  public static function query_filtered(array $post): array
+  public static function query_filtered(array $post, ?string $congregation): array
   {
     global $wpdb;
     $attendance = $wpdb->prefix . 'attendance';
@@ -443,7 +445,7 @@ class Attendance_DB
 
     // ✅ 缓存键：版本号 + 查询参数（签到/改资料/改会员后版本号会 +1）
     $cache_ver = (int) get_option(self::CACHE_VER_OPTION, 0);
-    $cache_key = 'ap_filtered_' . $cache_ver . '_' . md5(serialize($post));
+    $cache_key = 'ap_filtered_' . $cache_ver . '_' . ($congregation ?? 'all') . '_' . md5(serialize($post));
     $cached = get_transient($cache_key);
     if ($cached !== false) {
       return $cached;
@@ -466,19 +468,23 @@ class Attendance_DB
     $start = $start_raw ? date('Y-m-d', strtotime($start_raw)) : current_time('Y-m-d');
     $end   = $end_raw   ? date('Y-m-d', strtotime($end_raw))   : current_time('Y-m-d');
 
-    // R：区间内次数（INNER JOIN => 只保留区间内出席过的人）
-    // S：全历史次数 + 最后出席日
+    // R：区间内（本堂）次数（INNER JOIN => 只保留区间内在本堂出席过的人）
+    // S：全历史次数（判断 is_new，不分堂）+ 最后出席日（本堂范围内）
+    $r_scope = $congregation !== null ? $wpdb->prepare(' AND congregation = %s', $congregation) : '';
+    $last_expr = $congregation !== null
+      ? $wpdb->prepare('MAX(IF(congregation = %s, date_attended, NULL))', $congregation)
+      : 'MAX(date_attended)';
     $q = $wpdb->prepare(
       "SELECT A.*, R.times, S.times_all, S.last_attended
          FROM $attendance AS A
          INNER JOIN (
            SELECT attendance_id, COUNT(*) AS times
              FROM $dates
-            WHERE date_attended BETWEEN %s AND %s
+            WHERE date_attended BETWEEN %s AND %s{$r_scope}
             GROUP BY attendance_id
          ) AS R ON R.attendance_id = A.id
          INNER JOIN (
-           SELECT attendance_id, COUNT(*) AS times_all, MAX(date_attended) AS last_attended
+           SELECT attendance_id, COUNT(*) AS times_all, {$last_expr} AS last_attended
              FROM $dates
             GROUP BY attendance_id
          ) AS S ON S.attendance_id = A.id
@@ -517,6 +523,9 @@ class Attendance_DB
 
     $rows = $wpdb->get_results($q, ARRAY_A) ?: [];
     $rows = self::decorate_rows($rows, $start, $end, $pct_filter);
+    if ($congregation === null) {
+      $rows = self::attach_congregation_counts($rows, $start, $end);
+    }
 
     // ✅ 缓存结果 5 分钟
     set_transient($cache_key, $rows, 5 * MINUTE_IN_SECONDS);
@@ -572,15 +581,61 @@ class Attendance_DB
     return $out;
   }
 
-  /**
-   * 批量更新 member
-   */
-  public static function bulk_update_member(array $post): string
+  /** 全部堂视图：每行加 congregation_counts（区间内各堂次数，按 Congregation::all() 顺序，只列非 0） */
+  private static function attach_congregation_counts(array $rows, string $start, string $end): array
   {
     global $wpdb;
-    $ids       = isset($post['ids']) ? (array)$post['ids'] : [];
+    $ids = array_map('intval', array_column($rows, 'id'));
+    if (!$ids) return $rows;
+
+    $in = implode(',', $ids);
+    $res = $wpdb->get_results($wpdb->prepare(
+      "SELECT attendance_id, congregation, COUNT(*) AS n
+         FROM {$wpdb->prefix}attendance_dates
+        WHERE date_attended BETWEEN %s AND %s AND attendance_id IN ($in)
+        GROUP BY attendance_id, congregation",
+      $start,
+      $end
+    ), ARRAY_A);
+
+    $map = [];
+    foreach ($res as $r) $map[(int) $r['attendance_id']][$r['congregation']] = (int) $r['n'];
+    foreach ($rows as $i => $row) {
+      $counts = [];
+      foreach (Congregation::all() as $c) {
+        if (!empty($map[(int) $row['id']][$c])) $counts[$c] = $map[(int) $row['id']][$c];
+      }
+      $rows[$i]['congregation_counts'] = $counts;
+    }
+    return $rows;
+  }
+
+  /** 「国语 2、粤语 1」 */
+  public static function format_congregation_counts(array $counts, string $display_lang): string
+  {
+    $parts = [];
+    foreach ($counts as $c => $n) $parts[] = Congregation::short_label($c, $display_lang) . ' ' . $n;
+    return implode('、', $parts);
+  }
+
+  /**
+   * 批量更新 member
+   * - $congregation 不为 null（同工）：只更新在该堂有出席记录的人，其余 id 跳过
+   */
+  public static function bulk_update_member(array $post, ?string $congregation): string
+  {
+    global $wpdb;
+    $ids       = isset($post['ids']) ? array_filter(array_map('intval', (array) $post['ids'])) : [];
     $action    = sanitize_text_field($post['member_action'] ?? '');
     $is_member = ($action === 'make_member') ? 1 : 0;
+
+    if ($congregation !== null && $ids) {
+      $in = implode(',', $ids);
+      $ids = array_map('intval', $wpdb->get_col($wpdb->prepare(
+        "SELECT DISTINCT attendance_id FROM {$wpdb->prefix}attendance_dates WHERE congregation = %s AND attendance_id IN ($in)",
+        $congregation
+      )));
+    }
 
     foreach ($ids as $id) {
       $wpdb->update(
@@ -597,8 +652,9 @@ class Attendance_DB
 
   /**
    * CSV 构建（首行加入日期区间标题）
+   * - $with_congregation_column：仅管理员导出带「堂」列
    */
-  public static function build_csv(array $post): string
+  public static function build_csv(array $post, ?string $congregation, bool $with_congregation_column): string
   {
     // 与 query_filtered 一致的日期默认
     $start_raw = sanitize_text_field($post['start_date_filter'] ?? '');
@@ -607,7 +663,8 @@ class Attendance_DB
     $start = $start_raw ? date('Y-m-d', strtotime($start_raw)) : current_time('Y-m-d');
     $end   = $end_raw   ? date('Y-m-d', strtotime($end_raw))   : current_time('Y-m-d');
 
-    $rows = self::query_filtered($post);
+    $rows = self::query_filtered($post, $congregation);
+    $lang = Congregation::lang(Access::ui_congregation());
 
     // 标题：日期区间
     $lines      = [];
@@ -616,8 +673,9 @@ class Attendance_DB
     $lines[]    = '';
 
     // 表头
-    $lines[] = implode(',', array_map('\AP\csv_escape', [
-      'No.',
+    $head = ['No.'];
+    if ($with_congregation_column) $head[] = I18n::t('column_congregation', $lang);
+    $lines[] = implode(',', array_map('\AP\csv_escape', array_merge($head, [
       'Fellowships',
       'Referral Source',
       'First Name',
@@ -629,17 +687,22 @@ class Attendance_DB
       'First attended Date',
       'Last Attended Date',
       'Member'
-    ]));
+    ])));
 
     // 数据
     foreach ($rows as $r) {
-      $f     = \AP\ap_translate_fellowship($r['fellowship']);
-      $source = \AP\ap_translate_referral_source($r['referral_source'] ?? '');
+      $f     = Congregation::fellowship_label((string) $r['fellowship'], $lang);
+      $source = \AP\ap_translate_referral_source($r['referral_source'] ?? '', $lang);
       $first = \AP\format_date_dmy($r['first_attendance_date'] ?? '');
       $last  = \AP\format_date_dmy($r['last_attended'] ?? '');
 
-      $lines[] = implode(',', array_map('\AP\csv_escape', [
-        $r['row_num'],
+      $cols = [$r['row_num']];
+      if ($with_congregation_column) {
+        $cols[] = $congregation === null
+          ? self::format_congregation_counts($r['congregation_counts'] ?? [], $lang)
+          : Congregation::label($congregation, $lang);
+      }
+      $lines[] = implode(',', array_map('\AP\csv_escape', array_merge($cols, [
         $f,
         $source,
         $r['first_name'],
@@ -651,7 +714,7 @@ class Attendance_DB
         $first,
         $last,
         ($r['is_member'] == '1' ? 'Yes' : 'No')
-      ]));
+      ])));
     }
 
     return implode("\n", $lines);
@@ -660,22 +723,33 @@ class Attendance_DB
   /**
    * 详情（返回渲染用数据）
    */
-  public static function get_detail(int $attendance_id, string $start, string $end): array
+  public static function get_detail(int $attendance_id, string $start, string $end, ?string $congregation): array
   {
     global $wpdb;
     $attendance = $wpdb->prefix . 'attendance';
     $dates      = $wpdb->prefix . 'attendance_dates';
+
+    // 同工：这个人在本堂从未出席过 → 不返回任何资料
+    if ($congregation !== null && !$wpdb->get_var($wpdb->prepare(
+      "SELECT 1 FROM $dates WHERE attendance_id = %d AND congregation = %s LIMIT 1",
+      $attendance_id,
+      $congregation
+    ))) {
+      return ['user' => null, 'list' => []];
+    }
 
     $user = $wpdb->get_row($wpdb->prepare(
       "SELECT first_name, last_name, phone FROM $attendance WHERE id = %d",
       $attendance_id
     ));
 
+    $scope = $congregation !== null ? $wpdb->prepare(' AND congregation = %s', $congregation) : '';
     $list = $wpdb->get_results($wpdb->prepare(
-      "SELECT date_attended
+      "SELECT date_attended, congregation
          FROM $dates
         WHERE attendance_id = %d
-          AND date_attended BETWEEN %s AND %s",
+          AND date_attended BETWEEN %s AND %s{$scope}
+        ORDER BY date_attended ASC",
       $attendance_id,
       $start,
       $end

@@ -28,6 +28,11 @@ return [
     assert_same('伊甸團契', Congregation::fellowship_label('eden', 'zh_CN'));
     assert_same('unknownKey', Congregation::fellowship_label('unknownKey', 'zh_CN'));
   },
+  'test_short_label' => function () {
+    assert_same('国语', Congregation::short_label('mandarin', 'zh_CN'));
+    assert_same('粵語', Congregation::short_label('cantonese', 'zh_HK'));
+    assert_same('English', Congregation::short_label('english', 'en'));
+  },
   'test_lang_and_label' => function () {
     assert_same('zh_HK', Congregation::lang('cantonese'));
     assert_same('粵語堂', Congregation::label('cantonese', 'zh_HK'));

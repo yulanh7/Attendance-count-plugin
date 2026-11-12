@@ -28,6 +28,12 @@ class Congregation
     'en'    => [self::MANDARIN => 'Mandarin Congregation', self::CANTONESE => 'Cantonese Congregation', self::ENGLISH => 'English Congregation'],
   ];
 
+  private const SHORT_LABELS = [
+    'zh_CN' => [self::MANDARIN => '国语', self::CANTONESE => '粤语', self::ENGLISH => '英文'],
+    'zh_HK' => [self::MANDARIN => '國語', self::CANTONESE => '粵語', self::ENGLISH => '英文'],
+    'en'    => [self::MANDARIN => 'Mandarin', self::CANTONESE => 'Cantonese', self::ENGLISH => 'English'],
+  ];
+
   // 「其他」各语言共用代号 other，放在每个堂名单的最后
   private const OTHER = ['zh_CN' => '其他', 'zh_HK' => '其他', 'en' => 'Other'];
 
@@ -91,6 +97,12 @@ class Congregation
   public static function label(string $c, string $display_lang): string
   {
     return self::LABELS[$display_lang][$c] ?? $c;
+  }
+
+  /** 简称（用于「国语 3、粤语 1」这样的分布显示） */
+  public static function short_label(string $c, string $display_lang): string
+  {
+    return self::SHORT_LABELS[$display_lang][$c] ?? $c;
   }
 
   /** @return array<string,string> 代号 => 该堂语言的文字，other 在最后 */

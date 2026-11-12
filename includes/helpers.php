@@ -143,33 +143,23 @@ function format_date_dmy(?string $s): string
   return '';
 }
 
-function ap_translate_fellowship($key)
-{
-  $map = [
-    'daniel'        => '但以理团契',
-    'trueLove'      => '真爱团团契',
-    'faithHopeLove' => '信望爱团契',
-    'peaceJoyPrayer' => '平安喜乐祷告会',
-    'other'         => '其他'
-  ];
-  return $map[$key] ?? $key;
-}
-
-function ap_translate_referral_source($key)
+// 认识途径的显示文字（按界面语言）
+function ap_translate_referral_source($key, string $lang = 'zh_CN'): string
 {
   $key = trim((string) $key);
   if ($key === '') {
-    return '无';
+    return I18n::t('referral_none', $lang);
   }
+  if (in_array($key, ['family', 'friends', 'internet', 'walk_in', 'other'], true)) {
+    return I18n::t('referral_' . $key, $lang);
+  }
+  return $key;
+}
 
-  $map = [
-    'family'   => '家人',
-    'friends'  => '朋友',
-    'internet' => '网路',
-    'walk_in'  => '路过',
-    'other'    => '其他',
-  ];
-  return $map[$key] ?? $key;
+// 管理页的界面语言（管理员中文；同工按所属堂）
+function ap_ui_lang(): string
+{
+  return Congregation::lang(Access::ui_congregation());
 }
 
 

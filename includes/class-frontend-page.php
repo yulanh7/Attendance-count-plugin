@@ -35,7 +35,7 @@ class Frontend_Page
       'start_date_filter' => $start,
       'end_date_filter'   => $end,
       'is_new'            => 'true',
-    ]);
+    ], Access::scope(null));
 
     [$rows_page, $page, $pages] = \AP\Admin_Page::paginate_array($rows, 1, AP_FRONT_PER_PAGE);
 

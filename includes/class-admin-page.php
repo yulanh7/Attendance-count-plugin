@@ -79,7 +79,7 @@ class Admin_List_Table extends \WP_List_Table
 
       case 'fellowship':
         // 建议用 helper，避免多处维护映射
-        return \AP\ap_translate_fellowship($item[$col] ?? '');
+        return Congregation::fellowship_label((string) ($item[$col] ?? ''), ap_ui_lang());
 
       case 'is_member':
         return !empty($item[$col]) ? 'Yes' : 'No';
@@ -167,7 +167,7 @@ class Admin_Page
     $rows = Attendance_DB::query_filtered([
       'start_date_filter' => $start,
       'end_date_filter' => $end
-    ]);
+    ], null);
 
     $table = new Admin_List_Table();
     $table->prepare_items($rows);
@@ -277,7 +277,7 @@ class Admin_Page
                   <td><input type="checkbox" class="fe-check-item" name="bulk-select[]" value="<?php echo esc_attr($item['id']); ?>"></td>
                 <?php endif; ?>
                 <td><?php echo esc_html($item['row_num']); ?></td>
-                <td><?php echo esc_html(ap_translate_fellowship($item['fellowship'])); ?></td>
+                <td><?php echo esc_html(Congregation::fellowship_label((string) $item['fellowship'], ap_ui_lang())); ?></td>
                 <td><?php echo esc_html($item['first_name']); ?></td>
                 <td><?php echo esc_html($item['last_name']); ?></td>
                 <td><?php echo esc_html($item['phone']); ?></td>
