@@ -17,6 +17,17 @@ jQuery(function ($) {
     profileForm: "#es_profile_form",
   };
 
+  // 界面文字（由 PHP 按堂注入 window.apI18n）；缺 key 时返回 key 本身，方便发现遗漏
+  const I18N = window.apI18n || {};
+  const CTX = window.apCtx || { congregation: "mandarin", isAdmin: false, fellowships: {}, labels: {} };
+  function T(key, args) {
+    let s = Object.prototype.hasOwnProperty.call(I18N, key) ? String(I18N[key]) : key;
+    if (args) Object.keys(args).forEach((k) => { s = s.split("{" + k + "}").join(String(args[k])); });
+    return s;
+  }
+  function cLabel(c) { return (CTX.labels && CTX.labels[c]) || c || ""; }
+  AP.T = T;
+
   const storage = {
     get(k, d = null) { try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) : d; } catch { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { } },
@@ -98,13 +109,13 @@ jQuery(function ($) {
 
       if ($btn.data('orig-label') === undefined) {
         let original = $btn.is('input') ? $btn.val() : $btn.html();
-        if (/提交中/.test(original)) original = $btn.data('init-label');
+        if (original === T('js_submitting')) original = $btn.data('init-label');
         $btn.data('orig-label', original);
       }
 
-      if ($btn.is('input')) $btn.val('提交中…'); else $btn.text('提交中…');
+      if ($btn.is('input')) $btn.val(T('js_submitting')); else $btn.text(T('js_submitting'));
       $btn.prop('disabled', true).attr('aria-busy', 'true');
-      $hint.text('在处理中，请勿关闭窗口').show();
+      $hint.text(T('js_processing')).show();
 
     } else {
       if ($btn.data('submitting') !== true) return;
@@ -142,22 +153,23 @@ jQuery(function ($) {
     // 取消
     let $cancel = $row.find('#profile-cancel-edit');
     if (!$cancel.length) {
-      $cancel = $('<button type="button" id="profile-cancel-edit" class="switch-btn">取消</button>');
+      $cancel = $('<button type="button" id="profile-cancel-edit" class="switch-btn"></button>').text(T('btn_cancel'));
       $row.append($cancel);
     }
 
     // 修改其他号码
     let $editOther = $row.find('#profile-edit-other');
     if (!$editOther.length) {
-      $editOther = $('<button type="button" id="profile-edit-other" class="switch-btn" style="display:none;">修改其他号码</button>');
+      $editOther = $('<button type="button" id="profile-edit-other" class="switch-btn" style="display:none;"></button>').text(T('btn_edit_other_number'));
       $row.append($editOther);
     }
   }
 
-  function shouldAdoptCurrentPhone(resp, msg) {
+  // 签到成功或「今天已签过」都说明号码是本人的 → 记住这个号码
+  function shouldAdoptCurrentPhone(resp) {
     if (resp && resp.success) return true;
-    const s = String(msg || '').toLowerCase();
-    return /已经签到|已签到|重复|already\s*(checked\s*in|signed)|duplicate/.test(s);
+    const code = resp && resp.data && resp.data.code;
+    return code === 'already_signed' || code === 'signed_elsewhere_today';
   }
 
   /* ========== 原有前台表单（保持不变） ========== */
@@ -188,7 +200,7 @@ jQuery(function ($) {
 
       const $box = $form.find(".phone-box");
       if ($box.next(".phone-hint").length === 0) {
-        const text = "提示：除非需要为他人签到，否则请勿更换电话号码（用于唯一身份识别）";
+        const text = T("js_phone_change_hint");
         $("<div/>", {
           class: "phone-hint",
           text,
@@ -217,6 +229,7 @@ jQuery(function ($) {
       function doSubmit() {
         setSubmitting($submit, true);
         const formData = {
+          congregation: CTX.congregation,
           es_first_name: $form.find("input[name=es_first_name]").val(),
           es_last_name: $form.find("input[name=es_last_name]").val(),
           es_email: $form.find("input[name=es_email]").val(),
@@ -230,10 +243,10 @@ jQuery(function ($) {
           .done((resp) => {
             $(".es-message").remove();
             const ok = !!(resp && resp.success);
-            const msg = (resp && resp.data && resp.data.message) || (ok ? "Success" : "Error");
+            const msg = (resp && resp.data && (resp.data.msg || resp.data.message)) || (ok ? "Success" : "Error");
             displayMessage($form, msg, ok ? "green" : "red");
             alert(msg);
-            if (shouldAdoptCurrentPhone(resp, msg)) {
+            if (shouldAdoptCurrentPhone(resp)) {
               savedPhone = normalizePhone($cc.val(), $num.val());
               const formData = {
                 es_first_name: $form.find("input[name=es_first_name]").val(),
@@ -265,14 +278,14 @@ jQuery(function ($) {
           const exists = !!(resp && resp.success && resp.data && resp.data.exists);
           if (!exists) {
             const ok = window.confirm(
-              "确认手机号：系统将以此新号码作为你以后签到的身份识别。\n请确认无误后提交。\n确定提交吗？"
+              T("js_confirm_new_phone")
             );
             if (!ok) { setTimeout(() => { $num.focus(); $num.select && $num.select(); }, 0); return; }
           }
           doSubmit();
         }).fail(function () {
           const ok = window.confirm(
-            "无法确认该号码是否已有记录。\n如这是新号码，将作为今后签到的身份识别。\n确定提交吗？"
+            T("js_confirm_unknown_phone")
           );
           if (!ok) { setTimeout(() => { $num.focus(); $num.select && $num.select(); }, 0); return; }
           doSubmit();
@@ -283,7 +296,7 @@ jQuery(function ($) {
       // 情况 B：本机有保存号码
       if (curPhone && curPhone !== savedPhone) {
         const ok = window.confirm(
-          "检测到你更改了电话号码。\n除非在帮他人签到，否则请不要更改号码。\n确定要用新号码提交吗？"
+          T("js_confirm_phone_changed")
         );
         if (!ok) { setTimeout(() => { $num.focus(); $num.select && $num.select(); }, 0); return; }
       }
@@ -315,7 +328,8 @@ jQuery(function ($) {
   }
 
   function getFormData($form) {
-    return {
+    const data = {
+      congregation: CTX.congregation,
       es_first_name: $form.find("input[name=es_first_name]").val() || "",
       es_last_name: $form.find("input[name=es_last_name]").val() || "",
       es_email: $form.find("input[name=es_email]").val() || "",
@@ -324,6 +338,47 @@ jQuery(function ($) {
       es_fellowship: $form.find("[name=es_fellowship]").val() || "",
       es_referral_source: $form.find("select[name=es_referral_source]").val() || "",
     };
+    const $home = $form.find("select[name=es_home_congregation]");
+    if ($home.length) data.es_home_congregation = $home.val() || CTX.congregation;
+    return data;
+  }
+
+  /* ---------- 所属堂 / 团契下拉 ---------- */
+  function fellowshipOwner(key) {
+    if (!key || key === "other") return null;
+    const all = CTX.fellowships || {};
+    for (const c of Object.keys(all)) {
+      if (Object.prototype.hasOwnProperty.call(all[c], key)) return c;
+    }
+    return null;
+  }
+
+  function fellowshipText(key) {
+    const owner = fellowshipOwner(key);
+    if (!owner) return key;
+    const name = CTX.fellowships[owner][key];
+    return CTX.congregation === "english" ? `${name} (${cLabel(owner)})` : `${name}（${cLabel(owner)}）`;
+  }
+
+  // 按「所属堂」重建团契下拉：
+  // 所属堂没改、而原来的团契属于别的堂时，保留原团契作为一个额外选项（显示「团契名（堂名）」）
+  function rebuildProfileFellowships($form, keepOriginal) {
+    const $sel = $form.find("select[name=es_fellowship]");
+    if (!$sel.length) return;
+    const home = $form.find("select[name=es_home_congregation]").val() || CTX.congregation;
+    const origHome = $form.data("orig-home");
+    const origF = $form.data("orig-fellowship") || "";
+    const list = (CTX.fellowships && CTX.fellowships[home]) || {};
+
+    $sel.empty();
+    $("<option>", { value: "", disabled: true, text: T("fellowship_placeholder") }).appendTo($sel);
+    Object.keys(list).forEach((k) => $("<option>", { value: k, text: list[k] }).appendTo($sel));
+
+    const sameHome = home === origHome;
+    if (sameHome && origF && !Object.prototype.hasOwnProperty.call(list, origF) && fellowshipOwner(origF)) {
+      $("<option>", { value: origF, text: fellowshipText(origF) }).appendTo($sel);
+    }
+    $sel.val(keepOriginal && sameHome && origF ? origF : "");
   }
 
   function resetProfileForm() {
@@ -332,8 +387,10 @@ jQuery(function ($) {
     $form.find("#profile-check-section").show();
     $form.find("input[name=es_first_name]").val("");
     $form.find("input[name=es_last_name]").val("");
-    $form.find("input[name=es_email]").val("");
-    $form.find("[name=es_fellowship]").val("");
+    $form.find("input[name=es_email]").val("").attr("placeholder", T("email_placeholder"));
+    $form.removeData("orig-home").removeData("orig-fellowship");
+    $form.find("select[name=es_home_congregation]").val(CTX.congregation);
+    rebuildProfileFellowships($form, false);
     $form.find("select[name=es_referral_source]").val("");
     $form.find("#profile-cancel-edit").hide();
     $form.find("#profile-edit-other").hide();
@@ -375,7 +432,7 @@ jQuery(function ($) {
     const $checkBtn = $("#check-profile-phone");
     const originalText = $checkBtn.text();
 
-    $checkBtn.prop("disabled", true).text("查找中...");
+    $checkBtn.prop("disabled", true).text(T("js_searching"));
 
     api.post("ap_check_phone_exists", {
       cc: $form.find("select[name=es_phone_country_code]").val(),
@@ -385,16 +442,12 @@ jQuery(function ($) {
         const exists = !!(resp && resp.success && resp.data && resp.data.exists);
 
         if (!exists) {
-          const go = window.confirm(
-            "此电话号码尚未登记。\n\n 首次登记：点「确定」前往首次登记 \n\n 已登记过：点「取消」返回确认所输入的号码"
-          );
+          const go = window.confirm(T("js_confirm_not_registered"));
+          $checkBtn.prop("disabled", false).text(originalText);
           if (go) {
-            // 切到首次登记前就把按钮恢复
-            $checkBtn.prop("disabled", false).text(originalText);
-            resetFirstTimeForm && resetFirstTimeForm();
+            resetFirstTimeForm();
             switchToForm(S.firstTimeForm);
           } else {
-            $checkBtn.prop("disabled", false).text(originalText);
             setTimeout(() => {
               const $numInput = $form.find("input[name=es_phone_number]");
               $numInput.focus();
@@ -404,43 +457,42 @@ jQuery(function ($) {
           return;
         }
 
-        // ☆ 号码存在：进入"加载资料"第二阶段
-        //   等 loadUserProfileForEdit 完成后，再把按钮从"查找中..."恢复
+        // 号码存在：等资料加载完再恢复按钮
         loadUserProfileForEdit(phone, $form)
           .always(() => {
             $checkBtn.prop("disabled", false).text(originalText);
           });
       })
       .fail(() => {
-        displayMessage($form, "查找失败，请稍后再试", "red");
+        displayMessage($form, T("js_lookup_failed"), "red");
         $checkBtn.prop("disabled", false).text(originalText);
       });
-
   }
 
   function loadUserProfileForEdit(phone, $form) {
     const $info = $form.find("#profile-user-info");
     const $check = $form.find("#profile-check-section");
 
-    // 查找阶段：保持在"查找"区，不切换、不显示表格
     // 返回 jqXHR 让上层等待完成后再恢复按钮
-    return api.post("ap_get_user_profile", { phone: phone })
+    return api.post("ap_get_user_profile", { phone: phone, congregation: CTX.congregation })
       .done((resp) => {
         if (resp && resp.success && resp.data) {
           const data = resp.data;
 
-          // 填入资料
           $form.find("input[name=es_first_name]").val(data.first_name || "");
           $form.find("input[name=es_last_name]").val(data.last_name || "");
           // 邮箱只显示打码版本作为提示；留空提交 = 不修改原邮箱
           $form.find("input[name=es_email]")
             .val("")
             .attr("placeholder", data.email_masked
-              ? `邮箱：${data.email_masked}（留空不修改）`
-              : "邮箱（选填）");
-          $form.find("[name=es_fellowship]").val(data.fellowship || "");
+              ? T("js_email_masked_placeholder", { email: data.email_masked })
+              : T("email_placeholder"));
 
-          // 查找成功后再切换到"更新资料"区
+          const home = data.home_congregation || CTX.congregation;
+          $form.data("orig-home", home).data("orig-fellowship", data.fellowship || "");
+          $form.find("select[name=es_home_congregation]").val(home);
+          rebuildProfileFellowships($form, true);
+
           $check.hide();
           $info.show();
           ensureProfileActionButtons($form);
@@ -450,24 +502,107 @@ jQuery(function ($) {
           $form.find("#profile-edit-other").hide();
 
         } else {
-          displayMessage($form, "加载资料失败", "red");
+          displayMessage($form, T("js_load_profile_failed"), "red");
         }
       })
       .fail(() => {
-        displayMessage($form, "加载资料失败，请稍后再试", "red");
+        displayMessage($form, T("js_load_profile_failed_retry"), "red");
       });
+  }
+
+  /* ---------- 签到结果：同日换堂 / 转堂提示 ---------- */
+  function showPrompt($form, text, buttons) {
+    $(".es-prompt").remove();
+    const $box = $("<div>", { class: "es-message es-prompt", css: { background: "#fff7e6", color: "#333", border: "1px solid #f99522", padding: "10px", "margin-top": "10px", "border-radius": "5px" } });
+    $("<div>", { class: "es-prompt-text", text: text, css: { "margin-bottom": "8px" } }).appendTo($box);
+    const $row = $("<div>", { class: "es-prompt-actions", css: { display: "flex", gap: "8px", "flex-wrap": "wrap" } }).appendTo($box);
+    buttons.forEach((b) => {
+      $("<button>", { type: "button", class: "switch-btn " + (b.cls || ""), text: b.label })
+        .on("click", function () { $(this).closest(".es-prompt").find("button").prop("disabled", true); b.onClick($box); })
+        .appendTo($row);
+    });
+    $box.insertAfter($form);
+    return $box;
+  }
+
+  // 统一处理签到类接口的返回
+  function handleCheckInResult(resp, $form, ctx) {
+    const ok = !!(resp && resp.success);
+    const d = (resp && resp.data) || {};
+
+    if (!ok && d.code === "signed_elsewhere_today") {
+      $(".es-message").remove();
+      showMovePrompt($form, d, ctx);
+      return;
+    }
+
+    const msg = d.msg || d.message || T(ok ? ctx.okKey : ctx.failKey);
+    displayMessage($form, msg, ok ? "green" : "red");
+    alert(msg);
+    if (ok && typeof ctx.onSuccess === "function") ctx.onSuccess(d);
+    if (ok && d.suggest_switch) showSwitchPrompt($form, d, ctx);
+  }
+
+  function showMovePrompt($form, d, ctx) {
+    const here = cLabel(CTX.congregation);
+    const existing = cLabel(d.existing_congregation);
+    showPrompt($form, d.msg || d.message || "", [
+      {
+        label: T("move_yes", { here }),
+        onClick: ($box) => {
+          api.post("es_move_attendance", { phone: ctx.phone, congregation: CTX.congregation })
+            .done((resp2) => { $box.remove(); handleCheckInResult(resp2, $form, ctx); })
+            .fail(() => { $box.remove(); displayMessage($form, T("js_check_in_failed_retry"), "red"); });
+        },
+      },
+      { label: T("move_no", { existing }), onClick: ($box) => { $box.remove(); } },
+    ]);
+  }
+
+  function showSwitchPrompt($form, d, ctx) {
+    const here = cLabel(CTX.congregation);
+    const home = cLabel(d.home_congregation);
+    // 不能用 displayMessage（会把成功提示清掉），直接放在成功提示后面
+    const $box = showPrompt($form, T("switch_prompt", { home, here }), [
+      { label: T("switch_yes", { here }), onClick: ($b) => { $b.remove(); goToSwitchProfile(ctx); } },
+      { label: T("switch_no"), onClick: ($b) => { $b.remove(); } },
+    ]);
+    const $msg = $form.nextAll(".es-message").not(".es-prompt").first();
+    if ($msg.length) $box.insertAfter($msg);
+  }
+
+  // 转堂：打开修改资料，所属堂改成本堂，团契必须重新选择
+  function goToSwitchProfile(ctx) {
+    const $p = $(S.profileForm);
+    resetProfileForm();
+    $p.find("select[name=es_phone_country_code]").val(ctx.cc || "+61");
+    $p.find("input[name=es_phone_number]").val(ctx.num || "");
+    switchToForm(S.profileForm);
+    loadUserProfileForEdit(ctx.phone, $p).done((resp) => {
+      if (!(resp && resp.success)) return;
+      $p.find("select[name=es_home_congregation]").val(CTX.congregation);
+      rebuildProfileFellowships($p, false);
+      $p.find("select[name=es_fellowship]").trigger("focus");
+    });
+  }
+
+  function checkInCtx($form, phone, extra) {
+    return {
+      phone,
+      cc: $form.find("select[name=es_phone_country_code]").val(),
+      num: $form.find("input[name=es_phone_number]").val(),
+      okKey: "js_check_in_ok",
+      failKey: "js_check_in_failed",
+      ...(extra || {}),
+    };
   }
 
   function doQuickAttendance(phone, $form, $submit) {
     setSubmitting($submit, true);
 
-    api.post("es_quick_attendance", { phone: phone })
+    api.post("es_quick_attendance", { phone: phone, congregation: CTX.congregation })
       .done((resp) => {
-        $(".es-message").remove();
-        const ok = !!(resp && resp.success);
-        const msg = (resp && resp.data && resp.data.message) || (ok ? "签到成功" : "签到失败");
-        displayMessage($form, msg, ok ? "green" : "red");
-        alert(msg);
+        handleCheckInResult(resp, $form, checkInCtx($form, phone));
       })
       .always(() => {
         setSubmitting($submit, false);
@@ -477,97 +612,42 @@ jQuery(function ($) {
   function doQuickAttendanceFromFirstTime(phone, $form, $submit) {
     setSubmitting($submit, true);
 
-    api.post("es_quick_attendance", { phone: phone })
+    api.post("es_quick_attendance", { phone: phone, congregation: CTX.congregation })
       .done((resp) => {
-        $(".es-message").remove();
         const ok = !!(resp && resp.success);
-        let msg = "";
-        if (ok) {
-          msg = (resp && resp.data && resp.data.message) || "签到成功";
-          // 如果服务端返回的消息包含用户姓名，直接使用
-          if (msg.includes("欢迎")) {
-            msg = msg; // 保持原样，如"签到成功！欢迎 张三 李四"
-          } else {
-            msg = "您已在系统中登记，签到成功！";
-          }
-        } else {
-          // 检查是否是重复签到的情况
-          const originalMsg = (resp && resp.data && resp.data.message) || "";
-          if (originalMsg.includes("已经签到") || originalMsg.includes("重复签到")) {
-            msg = "您今天已经签到过了，请勿重复签到！";
-          } else {
-            msg = "签到失败，请稍后再试";
-          }
-        }
-        if (ok) {
-          const cc2 = $form.find("select[name=es_phone_country_code]").val();
-          const num2 = $form.find("input[name=es_phone_number]").val();
-          syncQuickFormPhone(cc2, num2);
-        }
-        displayMessage($form, msg, ok ? "green" : "red");
-        alert(msg);
+        const d = (resp && resp.data) || {};
+        // 首次登记页走快速签到：失败时给出更明确的提示
+        if (!ok && d.code === "already_signed") d.msg = T("js_already_signed");
+        else if (!ok && d.code === "db_error") d.msg = T("js_check_in_failed_retry");
+        handleCheckInResult(resp, $form, checkInCtx($form, phone, {
+          okKey: "js_already_registered_ok",
+          failKey: "js_check_in_failed_retry",
+          onSuccess: () => syncQuickFormPhone(
+            $form.find("select[name=es_phone_country_code]").val(),
+            $form.find("input[name=es_phone_number]").val()
+          ),
+        }));
       })
       .always(() => {
         setSubmitting($submit, false);
       });
   }
 
-  function doFullAttendance($form, $submit, opts = {}) {
+  function doFullAttendance($form, $submit) {
     setSubmitting($submit, true);
 
-    // 组装表单数据
     const formData = getFormData($form);
-
     // 复选框：教会新来宾（有勾选才发 1）
-    const isNewcomer = $form.find("input[name=es_is_newcomer]").is(':checked');
-    if (isNewcomer) formData.es_is_newcomer = '1';
+    if ($form.find("input[name=es_is_newcomer]").is(':checked')) formData.es_is_newcomer = '1';
+    const phone = normalizePhone(formData.es_phone_country_code, formData.es_phone_number);
 
-    // 可选：外部要求“强制登记为新来宾”，用于一次确认直达入库
-    const forceNewcomer = !!(opts && opts.forceNewcomer);
-    if (forceNewcomer) {
-      formData.es_is_newcomer = '1';     // 双保险：确保带上
-      formData.es_force_newcomer = '1';  // 关键：让后端直接写表，跳过 confirm
-    }
-
-    const ACTION = "es_handle_attendance";
-
-    function postOnce(extra = {}) {
-      return api.post(ACTION, { ...formData, ...extra }).then(resp => resp || {});
-    }
-
-    // 首次提交
-    postOnce()
+    api.post("es_handle_attendance", formData)
       .done((resp) => {
-        $(".es-message").remove();
-
-        // 如果没有强制，且后端要求确认（保留原逻辑给其它入口/兜底）
-        if (!forceNewcomer && resp && resp.success && resp.data && resp.data.ok === 'confirm') {
-          const last = resp.data.last_date ? `（最近 ${resp.data.last_date} 出席）` : '';
-          const go = window.confirm(
-            `系统检测到该号码已有出席记录${last}。\n`
-            + `您勾选了“新来宾”。是否仍要将 TA 登记为新来宾？\n\n`
-            + `确定：仍要记录   取消：不记录`
-          );
-          const forceFlag = go ? '1' : '0';
-          return postOnce({ es_force_newcomer: forceFlag }).done((resp2) => {
-            const ok2 = !!(resp2 && resp2.success);
-            const msg2 = (resp2 && resp2.data && resp2.data.message) || (ok2 ? "登记成功" : "登记失败");
-            displayMessage($form, msg2, ok2 ? "green" : "red");
-            alert(msg2);
-            if (ok2) {
-              storage.set("es_attendance_form_data", formData);
-              syncQuickFormPhone(formData.es_phone_country_code, formData.es_phone_number);
-            }
-          });
-        }
-
-        // 普通成功/失败路径（或已强制的一次提交成功）
-        const ok = !!(resp && resp.success);
-        const msg = (resp && resp.data && resp.data.message) || (ok ? "登记成功" : "登记失败");
-        displayMessage($form, msg, ok ? "green" : "red");
-        alert(msg);
-
-        if (shouldAdoptCurrentPhone(resp, msg)) {
+        handleCheckInResult(resp, $form, checkInCtx($form, phone, {
+          okKey: "js_register_ok",
+          failKey: "js_register_failed",
+        }));
+        if (shouldAdoptCurrentPhone(resp)) {
           storage.set("es_attendance_form_data", formData);
           syncQuickFormPhone(formData.es_phone_country_code, formData.es_phone_number);
         }
@@ -576,8 +656,6 @@ jQuery(function ($) {
         setSubmitting($submit, false);
       });
   }
-
-
 
   function doUpdateProfile($form, $submit) {
     // 提交期间需要禁用的按钮
@@ -592,24 +670,28 @@ jQuery(function ($) {
       .done((resp) => {
         $(".es-message").remove();
         const ok = !!(resp && resp.success);
-        const msg = (resp && resp.data && resp.data.message) || (ok ? "资料更新成功" : "资料更新失败");
+        const d = (resp && resp.data) || {};
+        const msg = d.msg || d.message || T(ok ? "js_profile_update_ok" : "js_profile_update_failed");
         displayMessage($form, msg, ok ? "green" : "red");
         alert(msg);
 
         if (ok) {
           const saved = storage.get("es_attendance_form_data", {});
-          const updated = {
+          storage.set("es_attendance_form_data", {
             ...saved,
             es_first_name: formData.es_first_name,
             es_last_name: formData.es_last_name,
             es_email: formData.es_email,
             es_fellowship: formData.es_fellowship,
-          };
-          storage.set("es_attendance_form_data", updated);
+          });
 
           const cc2 = $form.find("select[name=es_phone_country_code]").val();
           const num2 = $form.find("input[name=es_phone_number]").val();
           if (cc2 || num2) syncQuickFormPhone(cc2, num2);
+
+          // 保存后以新资料为准（再改所属堂时，团契下拉按新的原始值计算）
+          $form.data("orig-home", formData.es_home_congregation || $form.data("orig-home"))
+            .data("orig-fellowship", formData.es_fellowship);
 
           // 更新成功后显示"修改其他号码"，隐藏"取消"
           ensureProfileActionButtons($form);
@@ -666,7 +748,7 @@ jQuery(function ($) {
       const phone = normalizePhone(cc, num);
 
       if (!phone) {
-        alert("请填写电话号码");
+        alert(T("js_phone_required"));
         return;
       }
 
@@ -687,7 +769,7 @@ jQuery(function ($) {
       const phone = normalizePhone(cc, num);
 
       if (!phone) {
-        alert("请填写电话号码");
+        alert(T("js_phone_required"));
         return;
       }
 
@@ -706,9 +788,7 @@ jQuery(function ($) {
           .done((resp) => {
             const exists = !!(resp && resp.success && resp.data && resp.data.exists);
             if (!exists) {
-              const go = window.confirm(
-                " 此电话号码尚未登记。\n\n 首次登记：点「确定」前往首次登记 \n\n 已登记过：点「取消」返回确认所输入的号码"
-              );
+              const go = window.confirm(T("js_confirm_not_registered"));
 
               if (go) {
                 resetFirstTimeForm();
@@ -732,7 +812,7 @@ jQuery(function ($) {
           .fail(() => {
             // 请求失败也要关掉 loading
             setSubmitting($submit, false);
-            alert("检查电话号码失败，请稍后再试");
+            alert(T("js_check_phone_failed"));
           });
       });
 
@@ -764,25 +844,17 @@ jQuery(function ($) {
 
               if (isNewcomerChecked) {
                 // 用户勾选了“新来宾” → 走完整登记以触发后端“轻确认”与新来宾表写入
-                const go = window.confirm(
-                  "该电话号码已经登记过了，但你勾选了“新来宾”。\n\n" +
-                  "【确定】：仍按“新来宾”签到并会写入[新来宾登记表]\n" +
-                  "【取消】：仅进行签到且不会写入[新来宾登记表]"
-                );
+                const go = window.confirm(T("js_confirm_existing_newcomer"));
                 if (go) {
-                  // 走 handle_submit（es_handle_attendance），里面会返回 ok:'confirm' → 二次提交携带 es_force_newcomer=1
-                  doFullAttendance($form, $submit, { forceNewcomer: true });
+                  // 走 handle_submit（es_handle_attendance）：已登记的人 + 勾选新来宾 → 直接写入新来宾表
+                  doFullAttendance($form, $submit);
                 } else {
                   // 只签到，不写新来宾表
                   doQuickAttendanceFromFirstTime(phone, $form, $submit);
                 }
               } else {
                 // 未勾选新来宾，保持原有文案与行为：直接快速签到 or 回到快速签到页
-                const userChoice = window.confirm(
-                  "该电话号码已经登记过了。\n" +
-                  "点击「确定」直接为该号码签到\n" +
-                  "点击「取消」返回快速签页面"
-                );
+                const userChoice = window.confirm(T("js_confirm_existing_check_in"));
 
                 if (userChoice) {
                   doQuickAttendanceFromFirstTime(phone, $form, $submit);
@@ -792,7 +864,7 @@ jQuery(function ($) {
                   $quickForm.find("select[name=es_phone_country_code]").val(cc);
                   $quickForm.find("input[name=es_phone_number]").val(num);
                   switchToForm(S.quickForm);
-                  displayMessage($quickForm, "已切换到快速签到页面，电话号码已预填", "green");
+                  displayMessage($quickForm, T("js_switched_to_quick"), "green");
                 }
               }
             } else {
@@ -803,7 +875,7 @@ jQuery(function ($) {
           })
           .fail(() => {
             // 检查失败，走保守路径；由 doFullAttendance 自行关闭
-            const go = window.confirm("无法确认该号码是否已登记。\n\n选择「确定」：直接进行快速签到；\n选择「取消」：仍然按首次登记提交。");
+            const go = window.confirm(T("js_confirm_check_failed"));
             if (go) {
               doQuickAttendanceFromFirstTime(phone, $form, $submit); // 不改资料
             } else {
@@ -832,7 +904,7 @@ jQuery(function ($) {
       resetProfileForm(); // 显示查找区、隐藏资料区并清空资料字段
       // 恢复查找按钮
       const $btn = $("#check-profile-phone");
-      $btn.prop("disabled", false).text("查找");
+      $btn.prop("disabled", false).text(T("btn_find_profile"));
       // 隐藏"修改其他号码"按钮，保留"取消"隐藏（reset 后也不可见）
       $form.find("#profile-edit-other").hide();
     });
@@ -842,8 +914,13 @@ jQuery(function ($) {
       const $form = $(S.profileForm);
       resetProfileForm();
       const $btn = $("#check-profile-phone");
-      $btn.prop("disabled", false).text("查找");
+      $btn.prop("disabled", false).text(T("btn_find_profile"));
       $(this).hide(); // 自己隐藏
+    });
+
+    // 修改所属堂 → 团契下拉换成该堂的团契
+    $(document).on("change", S.profileForm + " select[name=es_home_congregation]", function () {
+      rebuildProfileFellowships($(S.profileForm), true);
     });
 
     // 清除消息当聚焦到输入框
@@ -898,7 +975,7 @@ jQuery(function ($) {
         renderTableHTML(resp.data.table_html);
         storage.set("filter_params", params);
       } else {
-        alert("加载失败，请稍后再试。");
+        alert(T("js_load_failed"));
       }
     }).always(() => showLoader(false));
   }
@@ -927,7 +1004,7 @@ jQuery(function ($) {
         const params = storage.get("filter_params") || getFilters();
         fetchFilteredResults(params.paged || 1);
       })
-      .fail(() => { alert('更新失败，请稍后再试。'); })
+      .fail(() => { alert(T('js_update_failed')); })
       .always(() => { showLoader(false); });
   }
 
@@ -959,7 +1036,7 @@ jQuery(function ($) {
       if ($fe.length) {
         const s = $fe.find("#fe_start_date_filter").val();
         const e = $fe.find("#fe_end_date_filter").val();
-        return { start: s || ymd(new Date()), end: e || ymd(new Date()) };
+        return { start: s || ymd(new Date()), end: e || ymd(new Date()), congregation: $fe.find("#fe_congregation_filter").val() || "" };
       }
       const s = $("#start_date_filter").val();
       const e = $("#end_date_filter").val();
@@ -993,7 +1070,8 @@ jQuery(function ($) {
           nonce: esAjax.nonce,
           attendance_id: id,
           start_date_filter: dr.start,
-          end_date_filter: dr.end
+          end_date_filter: dr.end,
+          congregation: dr.congregation
         }
       })
         .done(function (html) {
@@ -1003,7 +1081,7 @@ jQuery(function ($) {
         })
         .fail(function (xhr, status) {
           if (status === "abort") return;
-          $(S.modalContent).html('<div class="ap-modal-error">加载失败，请稍后再试。</div>');
+          $(S.modalContent).html($('<div class="ap-modal-error"/>').text(T("js_load_failed")));
         });
     });
 
@@ -1042,6 +1120,7 @@ jQuery(function ($) {
     }
     function feGetFilters($c) {
       return {
+        congregation: $c.find("#fe_congregation_filter").val() || "",
         fellowship: $c.find("#fe_fellowship_filter").val(),
         is_member: $c.find("#fe_member_filter").val(),
         last_name: $c.find("#fe_last_name_filter").val(),
@@ -1087,10 +1166,10 @@ jQuery(function ($) {
             });
             requestAnimationFrame(function () { feScrollToContainerTop($c, 10); });
           } else {
-            alert("加载失败，请稍后再试。");
+            alert(T("js_load_failed"));
           }
         })
-        .fail(function () { alert("加载失败，请稍后再试。"); })
+        .fail(function () { alert(T("js_load_failed")); })
         .always(function () { feShowLoader($c, false); });
     }
 
@@ -1133,7 +1212,7 @@ jQuery(function ($) {
         url: esAjax.ajaxurl,
         type: "POST",
         dataType: "json",
-        data: { action: "handle_member_status_update", nonce: esAjax.nonce, ids, member_action: action },
+        data: { action: "handle_member_status_update", nonce: esAjax.nonce, ids, member_action: action, congregation: $c.find("#fe_congregation_filter").val() || "" },
       })
         .done(function (resp) {
           alert((resp && resp.data && resp.data.message) || "Member status updated.");
@@ -1146,7 +1225,7 @@ jQuery(function ($) {
         .fail(function () {
           feShowLoader($c, false);
           $btn.prop("disabled", false).removeAttr("aria-busy").text(oldText);
-          alert("更新失败，请稍后再试。");
+          alert(T("js_update_failed"));
         });
     }
 
@@ -1158,6 +1237,29 @@ jQuery(function ($) {
         e.preventDefault();
         const params = { ...feGetFilters($c), paged: 1 };
         feRenderTable($c, params);
+      });
+
+      // 管理员换堂筛选 → 团契筛选只列该堂的团契（全部堂时按堂分组）
+      $c.on("change", "#fe_congregation_filter", function () {
+        const $f = $c.find("#fe_fellowship_filter");
+        const sel = $(this).val();
+        const all = CTX.fellowships || {};
+        $f.empty().append($("<option>", { value: "", text: T("filter_all_fellowships") }));
+        if (sel && all[sel]) {
+          Object.keys(all[sel]).forEach((k) => $f.append($("<option>", { value: k, text: all[sel][k] })));
+        } else {
+          let otherText = "";
+          Object.keys(all).forEach((cg) => {
+            const $g = $("<optgroup>", { label: cLabel(cg) });
+            Object.keys(all[cg]).forEach((k) => {
+              if (k === "other") { otherText = otherText || all[cg][k]; return; }
+              $g.append($("<option>", { value: k, text: all[cg][k] }));
+            });
+            $f.append($g);
+          });
+          $f.append($("<option>", { value: "other", text: otherText || "other" }));
+        }
+        $f.val("");
       });
 
       $c.on("click", "#fe-doaction", function (e) {
@@ -1194,6 +1296,9 @@ jQuery(function ($) {
       const e = $c.find("#ap-ft-end").val();
       return { start: s || new Date().toISOString().slice(0, 10), end: e || new Date().toISOString().slice(0, 10) };
     }
+    function getCongregation($c) {
+      return $c.find("#ap-ft-congregation").val() || "";
+    }
     function showLoader($c, show) {
       const $l = $c.find("#ap-ft-loader");
       if (!$l.length) return;
@@ -1228,7 +1333,7 @@ jQuery(function ($) {
         url: apAjaxUrl(),
         type: "POST",
         dataType: "json",
-        data: { action: action, nonce: esAjax.nonce, ...rng }
+        data: { action: action, nonce: esAjax.nonce, ...rng, congregation: getCongregation($c) }
       }).done(function (resp) {
         if (resp && resp.success) {
           // 1) 后端有 html：直接用
@@ -1239,7 +1344,7 @@ jQuery(function ($) {
           } else if (Array.isArray(resp.data && resp.data.rows)) {
             var rows = resp.data.rows;
             if (!rows.length) {
-              $c.find("#ap-ft-list").html('<div class="ap-ft-empty">所选日期内暂无记录。</div>');
+              $c.find("#ap-ft-list").html($('<div class="ap-ft-empty"/>').text(T("js_no_records")));
             } else {
               const isNewcomers = ($c.attr('data-source') === 'newcomers'); // 只有 newcomers 才显示“删除”
               var html = rows.map(function (r) {
@@ -1254,11 +1359,12 @@ jQuery(function ($) {
                   delBtn =
                     '<div class="ap-ft-actions" style="margin-top:6px;">' +
                     '<button type="button" class="ap-btn ap-btn-danger ap-ft-delete" ' +
+                    'data-id="' + esc(r.id || '') + '" ' +
                     'data-first-name="' + fn + '" ' +
                     'data-last-name="' + ln + '" ' +
                     'data-phone="' + ph + '" ' +
                     'data-date="' + dt + '">' +
-                    '移出新来宾名单' +
+                    esc(T('ft_remove')) +
                     '</button>' +
                     '</div>';
                 }
@@ -1266,7 +1372,8 @@ jQuery(function ($) {
                 return (
                   '<div class="ap-ft-card">' +
                   '<div class="ap-ft-name"><strong>' + ln + ' ' + fn + '</strong></div>' +
-                  '<div class="ap-ft-meta">首次来访：' + dt + '</div>' +
+                  '<div class="ap-ft-meta">' + esc(T('ft_first_visit', { date: r.first_attendance_date || '' })) + '</div>' +
+                  (r.seen_elsewhere ? '<div class="ap-ft-meta ap-ft-seen-elsewhere">' + esc(T('seen_elsewhere', { congregation: cLabel(r.seen_elsewhere) })) + '</div>' : '') +
                   (ph ? '<div class="ap-ft-meta">📞 ' + ph + '</div>' : '') +
                   delBtn +
                   '</div>'
@@ -1279,14 +1386,14 @@ jQuery(function ($) {
           // 计数与时间
           $c.attr('data-count', (resp.data && resp.data.count) ? resp.data.count : 0);
           const t = (resp.data && resp.data.generated_at) || '';
-          $c.find("#ap-ft-note").text(t ? `数据生成于 ${t}（本站时区）。` : '');
+          $c.find("#ap-ft-note").text(t ? T("js_generated_at", { time: t }) : '');
 
         } else {
-          alert("加载失败，请稍后再试。");
+          alert(T("js_load_failed"));
         }
       }).fail(function (xhr) {
         console.error('AJAX fail', xhr && xhr.status, xhr && xhr.responseText);
-        alert("加载失败，请稍后再试。");
+        alert(T("js_load_failed"));
       }).always(function () {
         showLoader($c, false);
       });
@@ -1296,7 +1403,7 @@ jQuery(function ($) {
     function exportExcel($c) {
       const cnt = parseInt($c.attr('data-count') || '0', 10);
       if (!Number.isFinite(cnt) || cnt <= 0) {
-        alert('所选日期范围内暂无数据，无法导出。');
+        alert(T('js_export_empty'));
         return;
       }
       const rng = getRange($c);
@@ -1311,6 +1418,7 @@ jQuery(function ($) {
       add("nonce", esAjax.nonce);
       add("start", rng.start);
       add("end", rng.end);
+      add("congregation", getCongregation($c));
       add("_r", Date.now().toString());
 
       document.body.appendChild(form);
@@ -1324,7 +1432,7 @@ jQuery(function ($) {
 
       $c.on("click", "#ap-ft-refresh", function (e) { e.preventDefault(); refreshList($c); });
       $c.on("click", "#ap-ft-export", function (e) { e.preventDefault(); exportExcel($c); });
-      $c.on("change", "#ap-ft-start, #ap-ft-end", function () { refreshList($c); });
+      $c.on("change", "#ap-ft-start, #ap-ft-end, #ap-ft-congregation", function () { refreshList($c); });
     });
   })(jQuery);
 
@@ -1346,7 +1454,8 @@ jQuery(function ($) {
     const id = parseInt(btn.getAttribute('data-id') || '0', 10);
     if (!id || id <= 0) return;
 
-    if (!window.confirm('确定要将此人移出新来宾名单吗？此操作仅移除新来宾记录，不会删除登记资料或签到记录。')) {
+    const T = (window.AP && window.AP.T) || ((k) => k);
+    if (!window.confirm(T('js_confirm_remove_newcomer'))) {
       return;
     }
 
@@ -1359,7 +1468,8 @@ jQuery(function ($) {
     btn.disabled = true;
 
     try {
-      const res = await fetch(ajaxurl, {
+      const url = (window.esAjax && window.esAjax.ajaxurl) || window.ajaxurl;
+      const res = await fetch(url, {
         method: 'POST',
         credentials: 'same-origin',
         body: form
@@ -1367,7 +1477,7 @@ jQuery(function ($) {
       const data = await res.json();
 
       if (!data || !data.success) {
-        const msg = (data && data.data && data.data.message) ? data.data.message : '移出失败';
+        const msg = (data && data.data && data.data.message) ? data.data.message : T('js_remove_failed');
         alert(msg);
         btn.disabled = false;
         return;
@@ -1384,7 +1494,7 @@ jQuery(function ($) {
 
     } catch (err) {
       console.error(err);
-      alert('网络或服务器错误，稍后再试');
+      alert(T('js_network_error'));
       btn.disabled = false;
     }
   });

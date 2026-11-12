@@ -16,6 +16,7 @@ class I18n
     'email_placeholder', 'btn_find_profile', 'ft_remove', 'ft_first_visit', 'ft_referral',
     'seen_elsewhere', 'switch_prompt', 'switch_yes', 'switch_no', 'move_yes', 'move_no',
     'fellowship_placeholder', 'filter_all_fellowships', 'filter_all_congregations',
+    'btn_cancel', 'btn_edit_other_number',
   ];
 
   private const STRINGS = [

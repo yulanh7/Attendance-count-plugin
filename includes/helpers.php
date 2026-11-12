@@ -27,18 +27,8 @@ function ap_enqueue_assets()
   wp_enqueue_script('jquery');
 
   // ✅ 主JS文件 - 添加版本号用于缓存控制
-  wp_enqueue_script(
-    'ap-main',
-    AP_URL . 'assets/js/main.js',
-    ['jquery'],
-    filemtime(AP_PATH . 'assets/js/main.js'), // 使用文件修改时间作为版本号
-    true
-  );
-
-  wp_localize_script('ap-main', 'esAjax', [
-    'ajaxurl' => admin_url('admin-ajax.php', 'relative'),
-    'nonce'   => wp_create_nonce('es_attendance_nonce'),
-  ]);
+  ap_register_main_script();
+  wp_enqueue_script('ap-main');
 
   // ✅ 主样式文件 - 添加版本号
   wp_enqueue_style(
@@ -90,6 +80,60 @@ function ap_is_check_in_day(): bool
   return (bool) apply_filters('ap_is_check_in_day', (int) current_time('w') === get_target_dow());
 }
 
+// 注册主 JS（含 esAjax）；只注册一次
+function ap_register_main_script(): void
+{
+  if (wp_script_is('ap-main', 'registered')) return;
+  wp_register_script(
+    'ap-main',
+    AP_URL . 'assets/js/main.js',
+    ['jquery'],
+    filemtime(AP_PATH . 'assets/js/main.js'), // 使用文件修改时间作为版本号
+    true
+  );
+  wp_localize_script('ap-main', 'esAjax', [
+    'ajaxurl' => admin_url('admin-ajax.php', 'relative'),
+    'nonce'   => wp_create_nonce('es_attendance_nonce'),
+  ]);
+}
+
+/**
+ * 把当前页面的界面文字和堂信息注入前端（window.apI18n / window.apCtx）
+ * 每个页面只注入一次（同一页面放多个 shortcode 时以第一个为准）
+ */
+function provide_js_strings(string $congregation): void
+{
+  static $done = false;
+  if ($done) return;
+  $done = true;
+
+  ap_register_main_script();
+  wp_enqueue_script('ap-main');
+
+  $lang = Congregation::lang($congregation);
+  $strings = [];
+  foreach (I18n::js_keys() as $k) $strings[$k] = I18n::t($k, $lang);
+
+  $fellowships = [];
+  $labels = [];
+  foreach (Congregation::all() as $c) {
+    $fellowships[$c] = Congregation::fellowships($c);
+    $labels[$c] = Congregation::label($c, $lang);
+  }
+  $ctx = [
+    'congregation' => $congregation,
+    'isAdmin'      => Access::is_admin(),
+    'fellowships'  => $fellowships,
+    'labels'       => $labels,
+  ];
+  $flags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP;
+  wp_add_inline_script(
+    'ap-main',
+    'window.apI18n = ' . wp_json_encode($strings, $flags) . '; window.apCtx = ' . wp_json_encode($ctx, $flags) . ';',
+    'before'
+  );
+}
+
 // 通用：统计区间内指定星期几的次数
 // 直接按公式计算，不逐日循环（区间再长也是 O(1)）
 function count_weekday_between(string $start_date, string $end_date, int $targetDow): int
@@ -128,8 +172,18 @@ function csv_excel_text($value): string
 }
 
 // 短代码渲染
-function ap_render_form_shortcode()
+// [attendance_form congregation="mandarin|cantonese|english"]（不写 = 国语堂）
+function ap_render_form_shortcode($atts = []): string
 {
+  $atts = shortcode_atts(['congregation' => ''], $atts, 'attendance_form');
+  $raw = (string) $atts['congregation'];
+  $congregation = trim($raw) === '' ? Congregation::DEFAULT : Congregation::parse_strict($raw);
+  if ($congregation === null) {
+    // 堂代号写错：不显示表单，避免把签到记到错误的堂
+    return '<p class="ap-config-error" style="color:#ef2723">' . esc_html(I18n::t('invalid_congregation_shortcode', 'zh_CN')) . '</p>';
+  }
+
+  provide_js_strings($congregation);
   ob_start();
   include AP_PATH . 'templates/form.php';
   return ap_compact_html(ob_get_clean());

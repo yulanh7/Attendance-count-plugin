@@ -7,14 +7,10 @@ defined('ABSPATH') || exit;
 class Frontend_Page
 {
   /**
-   * 短代码：[attendance_dashboard]
-   * - 登录且具备 read 权限（订阅者及以上）可见
-   * - 默认筛选：今天～今天，且 is_new = true
-   * - 前台使用简单表格渲染（不依赖 WP_List_Table）
+   * 管理页的进入检查：未登录 → 登录链接；没有权限 / 没被指定堂 → 提示；通过 → null
    */
-  public static function render_shortcode(): string
+  private static function gate(): ?string
   {
-    // 权限兜底（真正的未登录跳转请用入口的 template_redirect）
     if (!is_user_logged_in()) {
       $login_url = wp_login_url(get_permalink());
       return '<p>' . sprintf(
@@ -25,8 +21,59 @@ class Frontend_Page
     if (!current_user_can('read')) {
       return '<p>' . esc_html__('You do not have permission to view this page.', 'attendance-plugin') . '</p>';
     }
+    if (!Access::can_access()) {
+      return '<p>' . esc_html(I18n::t('unassigned_congregation', 'zh_CN')) . '</p>';
+    }
+    return null;
+  }
 
-    // 默认日期：今天～今天；默认 is_new = true
+  /** 管理员的「按堂筛选」下拉框 */
+  private static function congregation_filter(string $id, string $lang): string
+  {
+    $html = '<select id="' . esc_attr($id) . '" class="ap-congregation-filter">'
+      . '<option value="" selected>' . esc_html(I18n::t('filter_all_congregations', $lang)) . '</option>';
+    foreach (Congregation::all() as $c) {
+      $html .= '<option value="' . esc_attr($c) . '">' . esc_html(Congregation::label($c, $lang)) . '</option>';
+    }
+    return $html . '</select>';
+  }
+
+  /** 团契筛选选项：管理员看全部堂（按堂分组），同工只看本堂 */
+  private static function fellowship_filter_options(?string $scope, string $lang): string
+  {
+    $html = '<option value="" selected>' . esc_html(I18n::t('filter_all_fellowships', $lang)) . '</option>';
+    if ($scope !== null) {
+      foreach (Congregation::fellowships($scope) as $key => $label) {
+        $html .= '<option value="' . esc_attr($key) . '">' . esc_html($label) . '</option>';
+      }
+      return $html;
+    }
+    foreach (Congregation::all() as $c) {
+      $html .= '<optgroup label="' . esc_attr(Congregation::label($c, $lang)) . '">';
+      foreach (Congregation::fellowships($c) as $key => $label) {
+        if ($key === 'other') continue;
+        $html .= '<option value="' . esc_attr($key) . '">' . esc_html($label) . '</option>';
+      }
+      $html .= '</optgroup>';
+    }
+    return $html . '<option value="other">' . esc_html(Congregation::fellowship_label('other', $lang)) . '</option>';
+  }
+
+  /**
+   * 短代码：[attendance_dashboard]
+   * - 管理员：全部堂 + 按堂筛选；同工：只看所属堂
+   * - 默认筛选：今天～今天，且 is_new = true
+   */
+  public static function render_shortcode(): string
+  {
+    if ($gate = self::gate()) return $gate;
+
+    $scope = Access::scope(null);
+    $ui_c  = Access::ui_congregation();
+    $lang  = Congregation::lang($ui_c);
+    $admin = Access::is_admin();
+    provide_js_strings($ui_c);
+
     $start = current_time('Y-m-d');
     $end   = current_time('Y-m-d');
 
@@ -35,26 +82,21 @@ class Frontend_Page
       'start_date_filter' => $start,
       'end_date_filter'   => $end,
       'is_new'            => 'true',
-    ], Access::scope(null));
+    ], $scope);
 
-    [$rows_page, $page, $pages] = \AP\Admin_Page::paginate_array($rows, 1, AP_FRONT_PER_PAGE);
+    [$rows_page, $page, $pages] = Admin_Page::paginate_array($rows, 1, AP_FRONT_PER_PAGE);
 
     ob_start(); ?>
     <div class="wrap ap-frontend-dashboard">
       <div class="filter-form">
-        <select id="fe_fellowship_filter">
-          <option value="" selected>全部团契</option>
-          <option value="daniel">但以理团契</option>
-          <option value="trueLove">真爱团团契</option>
-          <option value="faithHopeLove">信望爱团契</option>
-          <option value="peaceJoyPrayer">平安喜乐祷告会</option>
-          <option value="other">其他</option>
-        </select>
+        <?php if ($admin) echo self::congregation_filter('fe_congregation_filter', $lang); ?>
+
+        <select id="fe_fellowship_filter"><?php echo self::fellowship_filter_options($scope, $lang); ?></select>
 
         <select id="fe_member_filter">
-          <option value="" selected>全部会友</option>
-          <option value="isMember">会员</option>
-          <option value="isNonMember">非会员</option>
+          <option value="" selected><?php echo esc_html(I18n::t('filter_all_members', $lang)); ?></option>
+          <option value="isMember"><?php echo esc_html(I18n::t('member_yes', $lang)); ?></option>
+          <option value="isNonMember"><?php echo esc_html(I18n::t('member_no', $lang)); ?></option>
         </select>
 
         <input type="text" id="fe_last_name_filter" placeholder="Last Name">
@@ -68,21 +110,14 @@ class Frontend_Page
           <input type="date" id="fe_end_date_filter" value="<?php echo esc_attr($end); ?>">
         </div>
 
-        <!-- <div> -->
-          <!-- <span class="checkbox-container">
-            <input type="checkbox" id="fe_is_new_filter">
-            <label for="fe_is_new_filter">New Attendance</label>
-          </span> -->
-          <span class="checkbox-container">
-            <input type="checkbox" id="fe_percentage_filter">
-            <label for="fe_percentage_filter">&ge; 50%</label>
-          </span>
+        <span class="checkbox-container">
+          <input type="checkbox" id="fe_percentage_filter">
+          <label for="fe_percentage_filter">&ge; 50%</label>
+        </span>
 
-          <button id="fe-filter-button" type="button" class="submit-btn">Filter</button>
-          <button id="fe-export-csv-button" type="button" class="export-csv">Export to CSV</button>
-        </div>
-
-      <!-- </div> -->
+        <button id="fe-filter-button" type="button" class="submit-btn">Filter</button>
+        <button id="fe-export-csv-button" type="button" class="export-csv">Export to CSV</button>
+      </div>
 
       <?php if (ap_user_can_manage()): ?>
         <div class="bulk-action-bar" style="margin-top:8px;">
@@ -98,8 +133,8 @@ class Frontend_Page
       <div id="filter-table-response">
         <div id="table-wrap">
           <?php
-          \AP\Admin_Page::render_table_simple($rows_page);
-          \AP\Admin_Page::render_pagination_simple($page, $pages);
+          Admin_Page::render_table_simple($rows_page, $scope);
+          Admin_Page::render_pagination_simple($page, $pages);
           ?>
         </div>
 
@@ -120,18 +155,9 @@ class Frontend_Page
     return ap_compact_html(ob_get_clean());
   }
 
-  public static function render_first_timers_shortcode($atts = []): string
+  /** 新来宾 / 首访名单页面的共用外框 */
+  private static function render_list_page(string $start, string $end, string $list_html, int $count, array $data_attrs): string
   {
-    if (!is_user_logged_in()) {
-      $login_url = wp_login_url(get_permalink());
-      return '<p>' . sprintf(
-        esc_html__('Please %s to view this page.', 'attendance-plugin'),
-        '<a href="' . esc_url($login_url) . '">' . esc_html__('log in', 'attendance-plugin') . '</a>'
-      ) . '</p>';
-    }
-    if (!current_user_can('read')) {
-      return '<p>' . esc_html__('You do not have permission to view this page.', 'attendance-plugin') . '</p>';
-    }
     if (!headers_sent()) {
       nocache_headers();
       header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
@@ -139,67 +165,80 @@ class Frontend_Page
       header('Expires: 0');
       header('Vary: Cookie');
     }
-
-    $today = current_time('Y-m-d');
+    $ui_c = Access::ui_congregation();
+    $lang = Congregation::lang($ui_c);
+    provide_js_strings($ui_c);
     $generated_at = date_i18n('Y-m-d H:i', current_time('timestamp'));
 
-    $a = shortcode_atts([
-      'start' => $today,
-      'end'   => $today,
-    ], $atts, 'attendance_first_timers');
+    $attrs = '';
+    foreach ($data_attrs as $k => $v) $attrs .= ' data-' . $k . '="' . esc_attr($v) . '"';
 
-    // 规范化日期
-    $to_date = function ($s) {
-      $dt = \DateTime::createFromFormat('Y-m-d', $s);
-      return $dt ? $dt->format('Y-m-d') : null;
-    };
-    $start = $to_date($a['start']) ?: $today;
-    $end   = $to_date($a['end'])   ?: $today;
-
-    // 权限：登录且具备 read（subscriber 及以上）可看电话
-    $can_view_phone = (is_user_logged_in() && current_user_can('read'));
-
-    // —— 服务器端首屏渲染一份（避免首屏空白），后续用 AJAX 刷新 ——
-    $rows = Attendance_DB::query_first_timers($start, $end, Access::scope(null));
-
-    $list_html = self::render_first_timers_list_html($rows, $can_view_phone, false, false, ap_ui_lang(), false);
-
-    // UI：筛选 + 按钮 + 列表容器（列表有服务端首屏，按钮点了走 AJAX 替换）
     ob_start(); ?>
-    <div class="ap-first-timers-v2" id="ap-first-timers"
-      data-count="<?php echo (int) count($rows); ?>">
-
+    <div class="ap-first-timers-v2" id="ap-first-timers" data-count="<?php echo (int) $count; ?>"<?php echo $attrs; ?>>
       <form class="ap-ft-toolbar" onsubmit="return false;">
+        <?php if (Access::is_admin()): ?>
+          <div class="ap-ft-row"><?php echo self::congregation_filter('ap-ft-congregation', $lang); ?></div>
+        <?php endif; ?>
         <div class="ap-ft-time-row">
           <span class="ap-ft-field" style="margin-right: 5px;">
-            <span class="ap-ft-label">开始：</span>
-            <input type="date" id="ap-ft-start" aria-label="开始日期" value="<?php echo esc_attr($start); ?>">
+            <span class="ap-ft-label"><?php echo esc_html(I18n::t('ft_start', $lang)); ?></span>
+            <input type="date" id="ap-ft-start" aria-label="<?php echo esc_attr(I18n::t('ft_start_aria', $lang)); ?>" value="<?php echo esc_attr($start); ?>">
           </span>
           <span class="ap-ft-field">
-            <span class="ap-ft-label">结束：</span>
-            <input type="date" id="ap-ft-end" aria-label="结束日期" value="<?php echo esc_attr($end); ?>">
+            <span class="ap-ft-label"><?php echo esc_html(I18n::t('ft_end', $lang)); ?></span>
+            <input type="date" id="ap-ft-end" aria-label="<?php echo esc_attr(I18n::t('ft_end_aria', $lang)); ?>" value="<?php echo esc_attr($end); ?>">
           </span>
         </div>
         <div class="ap-ft-row">
-          <button type="button" class="button button-left" id="ap-ft-refresh">刷新数据</button>
-          <button type="button" class="button button-right" id="ap-ft-export">导出Excel</button>
+          <button type="button" class="button button-left" id="ap-ft-refresh"><?php echo esc_html(I18n::t('ft_refresh', $lang)); ?></button>
+          <button type="button" class="button button-right" id="ap-ft-export"><?php echo esc_html(I18n::t('ft_export', $lang)); ?></button>
         </div>
         <div>
           <small id="ap-ft-note" style="margin-left:8px;color:#666;">
-            数据生成于 <?php echo esc_html($generated_at); ?>（本站时区）。点击"刷新数据"获取最新。
+            <?php echo esc_html(I18n::t('ft_generated_note', $lang, ['time' => $generated_at])); ?>
           </small>
         </div>
       </form>
+
       <div id="ap-ft-loader" style="display:none;margin:8px 0;">
         <div class="ap-ft-spinner" aria-label="Loading" role="status"></div>
       </div>
 
       <div id="ap-ft-list"><?php echo $list_html; ?></div>
     </div>
-
-
   <?php
     return ap_compact_html(ob_get_clean());
+  }
+
+  /** @return array{0:string,1:string} shortcode 的 start/end 属性（无效则今天） */
+  private static function shortcode_range($atts, string $tag): array
+  {
+    $today = current_time('Y-m-d');
+    $a = shortcode_atts(['start' => $today, 'end' => $today], $atts, $tag);
+    return [ap_valid_ymd((string) $a['start']) ?? $today, ap_valid_ymd((string) $a['end']) ?? $today];
+  }
+
+  /** 短代码：[attendance_first_timers]（按全教会第一次出席日期） */
+  public static function render_first_timers_shortcode($atts = []): string
+  {
+    if ($gate = self::gate()) return $gate;
+    [$start, $end] = self::shortcode_range($atts, 'attendance_first_timers');
+    $rows = Attendance_DB::query_first_timers($start, $end, Access::scope(null));
+    $list = self::render_first_timers_list_html($rows, true, false, false, ap_ui_lang(), false);
+    return self::render_list_page($start, $end, $list, count($rows), []);
+  }
+
+  /** 短代码：[attendance_newcomers]（新来宾名单，按堂） */
+  public static function render_newcomers_shortcode($atts = []): string
+  {
+    if ($gate = self::gate()) return $gate;
+    [$start, $end] = self::shortcode_range($atts, 'attendance_newcomers');
+    $rows = Attendance_DB::query_first_timers_log($start, $end, Access::scope(null));
+    $list = self::render_first_timers_list_html($rows, true, true, true, ap_ui_lang(), Access::is_admin());
+    return self::render_list_page($start, $end, $list, count($rows), [
+      'source' => 'newcomers',
+      'nonce'  => wp_create_nonce('ap_ft_delete_newcomer'),
+    ]);
   }
 
   /**
@@ -244,96 +283,5 @@ class Frontend_Page
         . '</div>';
     }
     return '<div class="ap-ft-grid">' . $cards . '</div>';
-  }
-
-
-  /**
-   * 新来宾记录短代码：[attendance_newcomers]
-   * - 与 first_timers 完全一样的UI，但数据来源是 attendance_first_time_attendance_dates 表
-   */
-  public static function render_newcomers_shortcode($atts = []): string
-  {
-    if (!is_user_logged_in()) {
-      $login_url = wp_login_url(get_permalink());
-      return '<p>' . sprintf(
-        esc_html__('Please %s to view this page.', 'attendance-plugin'),
-        '<a href="' . esc_url($login_url) . '">' . esc_html__('log in', 'attendance-plugin') . '</a>'
-      ) . '</p>';
-    }
-    if (!current_user_can('read')) {
-      return '<p>' . esc_html__('You do not have permission to view this page.', 'attendance-plugin') . '</p>';
-    }
-    if (!headers_sent()) {
-      nocache_headers();
-      header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
-      header('Pragma: no-cache');
-    }
-
-    $today = current_time('Y-m-d');
-    $generated_at = date_i18n('Y-m-d H:i', current_time('timestamp'));
-
-    $a = shortcode_atts([
-      'start' => $today,
-      'end'   => $today,
-    ], $atts, 'attendance_newcomers');
-
-    // 规范化日期
-    $to_date = function ($s) {
-      $dt = \DateTime::createFromFormat('Y-m-d', $s);
-      return $dt ? $dt->format('Y-m-d') : null;
-    };
-    $start = $to_date($a['start']) ?: $today;
-    $end   = $to_date($a['end'])   ?: $today;
-
-    // 权限：登录且具备 read（subscriber 及以上）可看电话
-    $can_view_phone = (is_user_logged_in() && current_user_can('read'));
-
-    // 首屏数据直接来自 attendance_first_time_attendance_dates 表
-    $rows = Attendance_DB::query_first_timers_log($start, $end, Access::scope(null));
-
-    $list_html = self::render_first_timers_list_html($rows, $can_view_phone, true, true, ap_ui_lang(), Access::is_admin());
-    $nonce = wp_create_nonce('ap_ft_delete_newcomer');
-
-    // UI：与 first_timers 一样，但容器标记为 data-source="newcomers"
-    ob_start(); ?>
-
-    <div class="ap-first-timers-v2" id="ap-first-timers"
-      data-count="<?php echo (int) count($rows); ?>"
-      data-source="newcomers"
-      data-nonce="<?php echo esc_attr($nonce); ?>">
-
-
-      <form class="ap-ft-toolbar" onsubmit="return false;">
-        <div class="ap-ft-time-row">
-          <span class="ap-ft-field" style="margin-right: 5px;">
-            <span class="ap-ft-label">开始：</span>
-            <input type="date" id="ap-ft-start" aria-label="开始日期" value="<?php echo esc_attr($start); ?>">
-          </span>
-          <span class="ap-ft-field">
-            <span class="ap-ft-label">结束：</span>
-            <input type="date" id="ap-ft-end" aria-label="结束日期" value="<?php echo esc_attr($end); ?>">
-          </span>
-        </div>
-        <div class="ap-ft-row">
-          <button type="button" class="button button-left" id="ap-ft-refresh">刷新数据</button>
-          <button type="button" class="button button-right" id="ap-ft-export">导出Excel</button>
-        </div>
-        <div>
-          <small id="ap-ft-note" style="margin-left:8px;color:#666;">
-            数据生成于 <?php echo esc_html($generated_at); ?>（本站时区）。点击"刷新数据"获取最新。
-          </small>
-        </div>
-      </form>
-
-      <div id="ap-ft-loader" style="display:none;margin:8px 0;">
-        <div class="ap-ft-spinner" aria-label="Loading" role="status"></div>
-      </div>
-
-      <div id="ap-ft-list"><?php echo $list_html; ?></div>
-    </div>
-
-
-<?php
-    return ap_compact_html(ob_get_clean());
   }
 }

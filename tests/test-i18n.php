@@ -36,4 +36,13 @@ return [
       assert_true(isset($en[$k]), "js key {$k} missing");
     }
   },
+  'test_i18n_every_js_key_used_in_main_js_is_exported' => function () {
+    $js = file_get_contents(AP_PATH . 'assets/js/main.js');
+    preg_match_all('/\bT\(\s*["\']([a-z0-9_]+)["\']/', $js, $m);
+    $keys = array_unique($m[1]);
+    assert_true(count($keys) > 20, 'found T() calls');
+    $exported = I18n::js_keys();
+    $missing = array_values(array_diff($keys, $exported));
+    assert_same([], $missing, 'keys used in main.js but not exported');
+  },
 ];

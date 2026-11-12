@@ -118,7 +118,8 @@ class Ajax
   public static function filter_attendance()
   {
     self::require_cap(ap_user_can_view());
-    $rows = \AP\Attendance_DB::query_filtered($_POST, self::request_scope());
+    $scope = self::request_scope();
+    $rows = \AP\Attendance_DB::query_filtered($_POST, $scope);
 
     $is_frontend = !empty($_POST['fe']) && $_POST['fe'] == '1';
 
@@ -127,7 +128,7 @@ class Ajax
       // 前台：表格 + 分页
       $paged = max(1, absint($_POST['paged'] ?? 1));
       list($rows_page, $page, $pages) = \AP\Admin_Page::paginate_array($rows, $paged, AP_FRONT_PER_PAGE);
-      \AP\Admin_Page::render_table_simple($rows_page);
+      \AP\Admin_Page::render_table_simple($rows_page, $scope);
       \AP\Admin_Page::render_pagination_simple($page, $pages);
     } else {
       // 后台：WP_List_Table + loader

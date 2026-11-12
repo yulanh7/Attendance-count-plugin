@@ -238,9 +238,15 @@ class Admin_Page
   }
 
 
-  public static function render_table_simple(array $rows)
+  /**
+   * 前台表格；$scope = 当前筛选的堂（null = 全部堂）
+   * - 管理员多一列「堂」：全部堂时显示「国语 3、粤语 1」，否则显示堂名
+   */
+  public static function render_table_simple(array $rows, ?string $scope = null)
   {
     $is_admin = ap_user_can_manage();
+    $show_c = Access::is_admin();
+    $lang = ap_ui_lang();
   ?>
     <?php if ($is_admin): ?>
       <form method="post" id="attendance-bulk-form">
@@ -253,6 +259,9 @@ class Admin_Page
               <th><input type="checkbox" id="fe-check-all"></th>
             <?php endif; ?>
             <th>No.</th>
+            <?php if ($show_c): ?>
+              <th><?php echo esc_html(I18n::t('column_congregation', $lang)); ?></th>
+            <?php endif; ?>
             <th>Fellowships</th>
             <th>First Name</th>
             <th>Last Name</th>
@@ -269,7 +278,7 @@ class Admin_Page
         <tbody>
           <?php if (empty($rows)): ?>
             <tr>
-              <td colspan="<?php echo $is_admin ? 13 : 12; ?>">No data</td>
+              <td colspan="<?php echo 12 + ($is_admin ? 1 : 0) + ($show_c ? 1 : 0); ?>">No data</td>
             </tr>
             <?php else: foreach ($rows as $item): ?>
               <tr>
@@ -277,6 +286,11 @@ class Admin_Page
                   <td><input type="checkbox" class="fe-check-item" name="bulk-select[]" value="<?php echo esc_attr($item['id']); ?>"></td>
                 <?php endif; ?>
                 <td><?php echo esc_html($item['row_num']); ?></td>
+                <?php if ($show_c): ?>
+                  <td><?php echo esc_html($scope === null
+                        ? Attendance_DB::format_congregation_counts($item['congregation_counts'] ?? [], $lang)
+                        : Congregation::label($scope, $lang)); ?></td>
+                <?php endif; ?>
                 <td><?php echo esc_html(Congregation::fellowship_label((string) $item['fellowship'], ap_ui_lang())); ?></td>
                 <td><?php echo esc_html($item['first_name']); ?></td>
                 <td><?php echo esc_html($item['last_name']); ?></td>
