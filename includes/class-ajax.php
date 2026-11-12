@@ -163,7 +163,7 @@ class Ajax
     $start = sanitize_text_field($_POST['start_date_filter'] ?? '');
     $end  = sanitize_text_field($_POST['end_date_filter'] ?? '');
     $data = Attendance_DB::get_detail($id, $start, $end, self::request_scope());
-    $show_c = Access::is_admin();
+    $show_c = true; // 所有人都显示每次签到在哪个堂（本堂会友去别的堂也看得到）
     $lang = ap_ui_lang();
 
     ob_start(); ?>

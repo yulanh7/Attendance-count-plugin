@@ -488,29 +488,34 @@ class Attendance_DB
     $start = $start_raw ? date('Y-m-d', strtotime($start_raw)) : current_time('Y-m-d');
     $end   = $end_raw   ? date('Y-m-d', strtotime($end_raw))   : current_time('Y-m-d');
 
-    // R：区间内（本堂）次数（INNER JOIN => 只保留区间内在本堂出席过的人）
-    // S：全历史次数（判断 is_new，不分堂）+ 最后出席日（本堂范围内）
-    $r_scope = $congregation !== null ? $wpdb->prepare(' AND congregation = %s', $congregation) : '';
-    $last_expr = $congregation !== null
-      ? $wpdb->prepare('MAX(IF(congregation = %s, date_attended, NULL))', $congregation)
-      : 'MAX(date_attended)';
-    // 本堂出席率从这个人第一次在本堂签到那天算起（转堂的人不会被之前的主日拉低）
+    // 按堂查看时，哪些签到算进来：
+    // - 本堂所属的会友：他在所有堂的签到（去别的堂也是来了教会）
+    // - 从别堂来的访客：只算他来本堂的签到
+    $in_scope = self::scope_condition($congregation, 'D', 'P');
+    // 访客的出席率从他第一次来本堂那天算起；本堂会友照旧从全教会第一次出席算起
     $first_here_expr = $congregation !== null
-      ? $wpdb->prepare('MIN(IF(congregation = %s, date_attended, NULL))', $congregation)
+      ? $wpdb->prepare('MIN(IF(D.congregation = %s AND P.home_congregation <> %s, D.date_attended, NULL))', $congregation, $congregation)
       : 'NULL';
+
+    // R：区间内次数（INNER JOIN => 只保留区间内有算进来的签到的人）
+    // S：全历史次数（判断 is_new，不分堂）+ 最后出席日（同样的范围规则）
     $q = $wpdb->prepare(
       "SELECT A.*, R.times, S.times_all, S.last_attended, S.first_here
          FROM $attendance AS A
          INNER JOIN (
-           SELECT attendance_id, COUNT(*) AS times
-             FROM $dates
-            WHERE date_attended BETWEEN %s AND %s{$r_scope}
-            GROUP BY attendance_id
+           SELECT D.attendance_id, COUNT(*) AS times
+             FROM $dates AS D
+             INNER JOIN $attendance AS P ON P.id = D.attendance_id
+            WHERE D.date_attended BETWEEN %s AND %s AND {$in_scope}
+            GROUP BY D.attendance_id
          ) AS R ON R.attendance_id = A.id
          INNER JOIN (
-           SELECT attendance_id, COUNT(*) AS times_all, {$last_expr} AS last_attended, {$first_here_expr} AS first_here
-             FROM $dates
-            GROUP BY attendance_id
+           SELECT D.attendance_id, COUNT(*) AS times_all,
+                  MAX(IF({$in_scope}, D.date_attended, NULL)) AS last_attended,
+                  {$first_here_expr} AS first_here
+             FROM $dates AS D
+             INNER JOIN $attendance AS P ON P.id = D.attendance_id
+            GROUP BY D.attendance_id
          ) AS S ON S.attendance_id = A.id
         WHERE 1=1",
       $start,
@@ -648,6 +653,32 @@ class Attendance_DB
    * 批量更新 member
    * - $congregation 不为 null（同工）：只更新在该堂有出席记录的人，其余 id 跳过
    */
+  /**
+   * 按堂查看时哪些签到算进来（SQL 条件）：签到在本堂，或这个人的所属堂是本堂
+   * $d = 出席表别名，$p = 人员表别名；null = 全部堂
+   */
+  private static function scope_condition(?string $congregation, string $d, string $p): string
+  {
+    global $wpdb;
+    if ($congregation === null) return '1=1';
+    return $wpdb->prepare("({$d}.congregation = %s OR {$p}.home_congregation = %s)", $congregation, $congregation);
+  }
+
+  /** 这个人是否在本堂的范围内（在本堂签到过，或所属堂是本堂） */
+  private static function person_in_scope(int $aid, string $congregation): bool
+  {
+    global $wpdb;
+    return (bool) $wpdb->get_var($wpdb->prepare(
+      "SELECT 1 FROM {$wpdb->prefix}attendance AS P
+        WHERE P.id = %d
+          AND (P.home_congregation = %s
+               OR EXISTS (SELECT 1 FROM {$wpdb->prefix}attendance_dates AS D WHERE D.attendance_id = P.id AND D.congregation = %s))",
+      $aid,
+      $congregation,
+      $congregation
+    ));
+  }
+
   public static function bulk_update_member(array $post, ?string $congregation): string
   {
     global $wpdb;
@@ -655,12 +686,9 @@ class Attendance_DB
     $action    = sanitize_text_field($post['member_action'] ?? '');
     $is_member = ($action === 'make_member') ? 1 : 0;
 
+    // 同工只能改本堂范围内的人（在本堂签到过，或所属堂是本堂）
     if ($congregation !== null && $ids) {
-      $in = implode(',', $ids);
-      $ids = array_map('intval', $wpdb->get_col($wpdb->prepare(
-        "SELECT DISTINCT attendance_id FROM {$wpdb->prefix}attendance_dates WHERE congregation = %s AND attendance_id IN ($in)",
-        $congregation
-      )));
+      $ids = array_values(array_filter($ids, fn($id) => self::person_in_scope($id, $congregation)));
     }
 
     foreach ($ids as $id) {
@@ -755,12 +783,8 @@ class Attendance_DB
     $attendance = $wpdb->prefix . 'attendance';
     $dates      = $wpdb->prefix . 'attendance_dates';
 
-    // 同工：这个人在本堂从未出席过 → 不返回任何资料
-    if ($congregation !== null && !$wpdb->get_var($wpdb->prepare(
-      "SELECT 1 FROM $dates WHERE attendance_id = %d AND congregation = %s LIMIT 1",
-      $attendance_id,
-      $congregation
-    ))) {
+    // 同工：这个人不在本堂范围内（没来过本堂、也不是本堂的人）→ 不返回任何资料
+    if ($congregation !== null && !self::person_in_scope($attendance_id, $congregation)) {
       return ['user' => null, 'list' => []];
     }
 
@@ -769,13 +793,15 @@ class Attendance_DB
       $attendance_id
     ));
 
-    $scope = $congregation !== null ? $wpdb->prepare(' AND congregation = %s', $congregation) : '';
+    // 本堂会友：所有堂的签到（注明在哪个堂）；访客：只有来本堂的
+    $in_scope = self::scope_condition($congregation, 'D', 'P');
     $list = $wpdb->get_results($wpdb->prepare(
-      "SELECT date_attended, congregation
-         FROM $dates
-        WHERE attendance_id = %d
-          AND date_attended BETWEEN %s AND %s{$scope}
-        ORDER BY date_attended ASC",
+      "SELECT D.date_attended, D.congregation
+         FROM $dates AS D
+         INNER JOIN $attendance AS P ON P.id = D.attendance_id
+        WHERE D.attendance_id = %d
+          AND D.date_attended BETWEEN %s AND %s AND {$in_scope}
+        ORDER BY D.date_attended ASC",
       $attendance_id,
       $start,
       $end

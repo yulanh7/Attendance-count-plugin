@@ -32,13 +32,17 @@ return [
   'test_dashboard_percentage_per_congregation_and_all' => function () {
     [$a] = ap_db_fixture();
     $post = ap_db_post();
-    assert_same('50.00', ap_db_row(Attendance_DB::query_filtered($post, 'mandarin'), $a)['percentage']);
+    // Alice 所属国语堂：国语堂把她在粤语堂的签到也算进来 → 4/4
+    assert_same('100.00', ap_db_row(Attendance_DB::query_filtered($post, 'mandarin'), $a)['percentage']);
+    assert_same(4, ap_db_row(Attendance_DB::query_filtered($post, 'mandarin'), $a)['times']);
     // 本堂出席率从第一次在本堂签到算起：粤语堂 11-01、11-08 两个主日都来 → 100%
     assert_same('100.00', ap_db_row(Attendance_DB::query_filtered($post, 'cantonese'), $a)['percentage']);
     assert_same('100.00', ap_db_row(Attendance_DB::query_filtered($post, null), $a)['percentage']);
     assert_same(2, ap_db_row(Attendance_DB::query_filtered($post, 'cantonese'), $a)['times']);
     assert_same('2026-11-08', ap_db_row(Attendance_DB::query_filtered($post, null), $a)['last_attended']);
-    assert_same('2026-10-25', ap_db_row(Attendance_DB::query_filtered($post, 'mandarin'), $a)['last_attended']);
+    assert_same('2026-11-08', ap_db_row(Attendance_DB::query_filtered($post, 'mandarin'), $a)['last_attended']);
+    // 粤语堂（她是访客）只算她来粤语堂的
+    assert_same('2026-11-08', ap_db_row(Attendance_DB::query_filtered($post, 'cantonese'), $a)['last_attended']);
   },
   'test_dashboard_subscriber_scope_excludes_other_congregation_people' => function () {
     [$a, $b] = ap_db_fixture();
@@ -59,6 +63,37 @@ return [
     Attendance_DB::query_filtered($post, 'mandarin');
     $rows = Attendance_DB::query_filtered($post, 'cantonese');
     assert_same(null, ap_db_row($rows, $b), 'cantonese must not reuse mandarin cache');
+  },
+  'test_home_member_listed_even_if_only_elsewhere_in_range' => function () {
+    [$a] = ap_db_fixture();
+    $rows = Attendance_DB::query_filtered(ap_db_post(['start_date_filter' => '2026-11-01', 'end_date_filter' => '2026-11-08']), 'mandarin');
+    $r = ap_db_row($rows, $a);
+    assert_true($r !== null, 'Alice listed at her home congregation');
+    assert_same(2, $r['times']);
+  },
+  'test_visitor_not_listed_where_only_home_attended' => function () {
+    [, $b] = ap_db_fixture(); // Bob 所属国语堂，只去国语堂
+    assert_same(null, ap_db_row(Attendance_DB::query_filtered(ap_db_post(), 'cantonese'), $b));
+  },
+  'test_detail_home_member_shows_all_congregations' => function () {
+    [$a] = ap_db_fixture();
+    $d = Attendance_DB::get_detail($a, '2026-10-01', '2026-11-30', 'mandarin');
+    assert_same(['2026-10-18', '2026-10-25', '2026-11-01', '2026-11-08'], array_column($d['list'], 'date_attended'));
+    assert_same(['mandarin', 'mandarin', 'cantonese', 'cantonese'], array_column($d['list'], 'congregation'));
+  },
+  'test_detail_home_member_never_attended_here_still_visible' => function () {
+    $p = make_person(['home_congregation' => 'english', 'first_attendance_date' => '2026-11-01']);
+    add_attendance($p, '2026-11-01', 'mandarin');
+    $d = Attendance_DB::get_detail($p, '2026-10-01', '2026-11-30', 'english');
+    assert_true($d['user'] !== null, 'home congregation can see its member');
+    assert_same(['mandarin'], array_column($d['list'], 'congregation'));
+  },
+  'test_bulk_update_allows_home_members' => function () {
+    global $wpdb;
+    $p = make_person(['home_congregation' => 'english']);
+    add_attendance($p, '2026-11-01', 'mandarin');
+    Attendance_DB::bulk_update_member(['ids' => [$p], 'member_action' => 'make_member'], 'english');
+    assert_same('1', $wpdb->get_var($wpdb->prepare("SELECT is_member FROM {$wpdb->prefix}attendance WHERE id = %d", $p)));
   },
   'test_bulk_update_rejects_out_of_scope_ids' => function () {
     global $wpdb;
