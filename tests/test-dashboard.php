@@ -50,13 +50,6 @@ return [
     assert_true(ap_db_row($rows, $a) !== null, 'A present');
     assert_same(null, ap_db_row($rows, $b));
   },
-  'test_dashboard_all_scope_has_congregation_counts' => function () {
-    [$a, $b] = ap_db_fixture();
-    $rows = Attendance_DB::query_filtered(ap_db_post(), null);
-    assert_same(['mandarin' => 2, 'cantonese' => 2], ap_db_row($rows, $a)['congregation_counts']);
-    assert_same(['mandarin' => 1], ap_db_row($rows, $b)['congregation_counts']);
-    assert_same(false, array_key_exists('congregation_counts', ap_db_row(Attendance_DB::query_filtered(ap_db_post(), 'mandarin'), $a)));
-  },
   'test_dashboard_cache_separated_by_scope' => function () {
     [$a, $b] = ap_db_fixture();
     $post = ap_db_post(); // 同一个 $post（同一个缓存参数）
@@ -118,13 +111,32 @@ return [
     assert_same(null, $d['user']);
     assert_same([], $d['list']);
   },
+  'test_filter_by_name_matches_first_last_or_full' => function () {
+    $p = make_person(['first_name' => 'Zelda', 'last_name' => 'Quill', 'first_attendance_date' => '2026-10-18']);
+    add_attendance($p, '2026-10-18', 'mandarin');
+    foreach (['zel', 'quil', 'Zelda Quill', 'Quill Zelda'] as $q) {
+      $rows = Attendance_DB::query_filtered(ap_db_post(['name' => $q]), 'mandarin');
+      assert_true(ap_db_row($rows, $p) !== null, "name '$q' matches");
+    }
+    $rows = Attendance_DB::query_filtered(ap_db_post(['name' => 'Zelda Nope']), 'mandarin');
+    assert_true(ap_db_row($rows, $p) === null, 'wrong full name does not match');
+  },
+  'test_detail_and_csv_keep_email' => function () {
+    $p = make_person(['first_name' => 'Mailer', 'email' => 'mailer@example.com', 'first_attendance_date' => '2026-10-18']);
+    add_attendance($p, '2026-10-18', 'mandarin');
+    $d = Attendance_DB::get_detail($p, '2026-10-01', '2026-11-30', 'mandarin');
+    assert_same('mailer@example.com', $d['user']->email ?? null, 'detail has email');
+    $csv = Attendance_DB::build_csv(ap_db_post(['name' => 'Mailer']), 'mandarin', false);
+    assert_true(strpos($csv, 'mailer@example.com') !== false, 'csv has email');
+  },
   'test_csv_congregation_column_admin_only' => function () {
     [$a] = ap_db_fixture();
     $csv_sub = Attendance_DB::build_csv(ap_db_post(['first_name' => 'Alice']), 'cantonese', false);
-    assert_true(strpos($csv_sub, '"堂"') === false, 'subscriber csv has no congregation column');
+    assert_true(strpos($csv_sub, '"Congregation"') === false, 'subscriber csv has no congregation column');
     $csv_admin = Attendance_DB::build_csv(ap_db_post(['first_name' => 'Alice']), null, true);
-    assert_true(strpos($csv_admin, '"堂"') !== false, 'admin csv has congregation column');
-    assert_true(strpos($csv_admin, '国语 2、粤语 2') !== false, 'admin csv shows breakdown');
+    assert_true(strpos($csv_admin, '"Congregation"') !== false, 'admin csv has congregation column');
+    assert_true(strpos($csv_admin, '"Mandarin"') !== false, 'admin csv shows home congregation in English');
+    assert_true(strpos($csv_admin, '国语 2') === false, 'no per-congregation counts');
   },
   'test_fellowship_shows_home_when_not_this_congregation' => function () {
     assert_same('但以理团契（国语堂）', \AP\Congregation::fellowship_with_home('daniel', 'mandarin', 'cantonese', 'zh_CN'));
@@ -141,7 +153,7 @@ return [
     ob_start();
     \AP\Admin_Page::render_table_simple($rows, 'cantonese');
     $html = ob_get_clean();
-    assert_true(strpos($html, '但以理团契（國語堂）') !== false, 'visitor fellowship + home shown');
+    assert_true(strpos($html, '但以理团契 (Mandarin)') !== false, 'visitor fellowship + home shown');
   },
   'test_dashboard_fellowship_label_by_owner' => function () {
     assert_same('伊甸團契', \AP\Congregation::fellowship_label('eden', 'zh_CN'));

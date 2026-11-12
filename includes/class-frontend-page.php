@@ -33,7 +33,7 @@ class Frontend_Page
     $html = '<select id="' . esc_attr($id) . '" class="ap-congregation-filter">'
       . '<option value="" selected>' . esc_html(I18n::t('filter_all_congregations', $lang)) . '</option>';
     foreach (Congregation::all() as $c) {
-      $html .= '<option value="' . esc_attr($c) . '">' . esc_html(Congregation::label($c, $lang)) . '</option>';
+      $html .= '<option value="' . esc_attr($c) . '">' . esc_html(Congregation::prompt_label($c, $lang)) . '</option>';
     }
     return $html . '</select>';
   }
@@ -43,13 +43,13 @@ class Frontend_Page
   {
     $html = '<option value="" selected>' . esc_html(I18n::t('filter_all_fellowships', $lang)) . '</option>';
     if ($scope !== null) {
-      foreach (Congregation::fellowships($scope) as $key => $label) {
-        $html .= '<option value="' . esc_attr($key) . '">' . esc_html($label) . '</option>';
+      foreach (array_keys(Congregation::fellowships($scope)) as $key) {
+        $html .= '<option value="' . esc_attr($key) . '">' . esc_html(Congregation::fellowship_label($key, $lang)) . '</option>';
       }
       return $html;
     }
     foreach (Congregation::all() as $c) {
-      $html .= '<optgroup label="' . esc_attr(Congregation::label($c, $lang)) . '">';
+      $html .= '<optgroup label="' . esc_attr(Congregation::prompt_label($c, $lang)) . '">';
       foreach (Congregation::fellowships($c) as $key => $label) {
         if ($key === 'other') continue;
         $html .= '<option value="' . esc_attr($key) . '">' . esc_html($label) . '</option>';
@@ -82,15 +82,21 @@ class Frontend_Page
    * - 默认日期：最近 3 个月（出席率需要较长时间才有意义）；打开时列出所有人（与按 Filter 的结果一致）
    * - 日期旁有快捷按钮：最近一个主日 / 最近 1 个月 / 最近 3 个月 / 今年
    */
+  /** 表格上方显示的人数：「45 people」/「1 person」 */
+  public static function result_count_text(int $n): string
+  {
+    return $n === 1 ? '1 person' : "{$n} people";
+  }
+
   public static function render_shortcode(): string
   {
     if ($gate = self::gate()) return $gate;
 
     $scope = Access::scope(null);
     $ui_c  = Access::ui_congregation();
-    $lang  = Congregation::lang($ui_c);
+    $lang  = ap_records_lang();
     $admin = Access::is_admin();
-    provide_js_strings($ui_c);
+    provide_js_strings($ui_c, $lang);
 
     $ranges = self::quick_ranges(ap_today());
     [$start, $end] = $ranges['range_3m'];
@@ -105,52 +111,60 @@ class Frontend_Page
 
     ob_start(); ?>
     <div class="wrap ap-frontend-dashboard">
-      <div class="ap-quick-ranges" role="group">
-        <?php foreach ($ranges as $key => [$rs, $re]): ?>
-          <button type="button" class="ap-range-btn<?php echo $key === 'range_3m' ? ' is-active' : ''; ?>" data-start="<?php echo esc_attr($rs); ?>" data-end="<?php echo esc_attr($re); ?>"><?php echo esc_html(I18n::t($key, $lang)); ?></button>
-        <?php endforeach; ?>
-      </div>
       <div class="filter-form">
-        <?php if ($admin) echo self::congregation_filter('fe_congregation_filter', $lang); ?>
-
-        <select id="fe_fellowship_filter"><?php echo self::fellowship_filter_options($scope, $lang); ?></select>
-
-        <select id="fe_member_filter">
-          <option value="" selected><?php echo esc_html(I18n::t('filter_all_members', $lang)); ?></option>
-          <option value="isMember"><?php echo esc_html(I18n::t('member_yes', $lang)); ?></option>
-          <option value="isNonMember"><?php echo esc_html(I18n::t('member_no', $lang)); ?></option>
-        </select>
-
-        <input type="text" id="fe_last_name_filter" placeholder="Last Name">
-        <input type="text" id="fe_first_name_filter" placeholder="First Name">
-        <input type="text" id="fe_phone_filter" placeholder="Phone">
-        <input type="text" id="fe_email_filter" placeholder="Email">
-
-        <div class="date-range-group">
-          <input type="date" id="fe_start_date_filter" value="<?php echo esc_attr($start); ?>">
-          <span class="date-range-sep">—</span>
-          <input type="date" id="fe_end_date_filter" value="<?php echo esc_attr($end); ?>">
+        <!-- 第一行：什么时候（快捷按钮 + 日期） -->
+        <div class="ap-filter-row ap-filter-when">
+          <div class="ap-quick-ranges" role="group">
+            <?php foreach ($ranges as $key => [$rs, $re]): ?>
+              <button type="button" class="ap-range-btn<?php echo $key === 'range_3m' ? ' is-active' : ''; ?>" data-start="<?php echo esc_attr($rs); ?>" data-end="<?php echo esc_attr($re); ?>"><?php echo esc_html(I18n::t($key, $lang)); ?></button>
+            <?php endforeach; ?>
+          </div>
+          <div class="date-range-group">
+            <input type="date" id="fe_start_date_filter" value="<?php echo esc_attr($start); ?>">
+            <span class="date-range-sep">—</span>
+            <input type="date" id="fe_end_date_filter" value="<?php echo esc_attr($end); ?>">
+          </div>
         </div>
 
-        <span class="checkbox-container">
-          <input type="checkbox" id="fe_percentage_filter">
-          <label for="fe_percentage_filter">&ge; 50%</label>
-        </span>
+        <!-- 第二行：哪些人 + Filter（固定在最右） -->
+        <div class="ap-filter-row ap-filter-who">
+          <?php if ($admin) echo self::congregation_filter('fe_congregation_filter', $lang); ?>
 
-        <button id="fe-filter-button" type="button" class="submit-btn">Filter</button>
-        <button id="fe-export-csv-button" type="button" class="export-csv">Export to CSV</button>
+          <select id="fe_fellowship_filter"><?php echo self::fellowship_filter_options($scope, $lang); ?></select>
+
+          <select id="fe_member_filter">
+            <option value="" selected><?php echo esc_html(I18n::t('filter_all_members', $lang)); ?></option>
+            <option value="isMember"><?php echo esc_html(I18n::t('member_yes', $lang)); ?></option>
+            <option value="isNonMember"><?php echo esc_html(I18n::t('member_no', $lang)); ?></option>
+          </select>
+
+          <input type="text" id="fe_name_filter" placeholder="Name">
+          <input type="text" id="fe_phone_filter" placeholder="Phone">
+
+          <span class="checkbox-container">
+            <input type="checkbox" id="fe_percentage_filter">
+            <label for="fe_percentage_filter">&ge; 50%</label>
+          </span>
+
+          <button id="fe-filter-button" type="button" class="submit-btn">Filter</button>
+        </div>
       </div>
 
-      <?php if (ap_user_can_manage()): ?>
-        <div class="bulk-action-bar" style="margin-top:8px;">
-          <select id="fe-bulk-action-selector">
-            <option value=""><?php esc_html_e('Bulk actions', 'attendance-plugin'); ?></option>
-            <option value="make_member"><?php esc_html_e('Make Member', 'attendance-plugin'); ?></option>
-            <option value="make_non_member"><?php esc_html_e('Make Non-Member', 'attendance-plugin'); ?></option>
-          </select>
-          <button id="fe-doaction" class="button action"><?php esc_html_e('Apply', 'attendance-plugin'); ?></button>
-        </div>
-      <?php endif; ?>
+      <!-- 表格上方：对结果做什么（批量操作 / 人数 / 导出） -->
+      <div class="ap-results-bar">
+        <?php if (ap_user_can_manage()): ?>
+          <div class="bulk-action-bar">
+            <select id="fe-bulk-action-selector">
+              <option value=""><?php esc_html_e('Bulk actions', 'attendance-plugin'); ?></option>
+              <option value="make_member"><?php esc_html_e('Make Member', 'attendance-plugin'); ?></option>
+              <option value="make_non_member"><?php esc_html_e('Make Non-Member', 'attendance-plugin'); ?></option>
+            </select>
+            <button id="fe-doaction" class="button action"><?php esc_html_e('Apply', 'attendance-plugin'); ?></button>
+          </div>
+        <?php endif; ?>
+        <span class="ap-result-count"><?php echo esc_html(self::result_count_text(count($rows))); ?></span>
+        <button id="fe-export-csv-button" type="button" class="export-csv">Export CSV</button>
+      </div>
 
       <div id="filter-table-response">
         <div id="table-wrap">

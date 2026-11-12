@@ -1,6 +1,7 @@
 <?php
 
 use function AP\Tests\assert_true;
+use function AP\Tests\assert_same;
 use function AP\Tests\make_user;
 
 function ap_rd_has(string $html, string $needle): bool { return strpos($html, $needle) !== false; }
@@ -21,7 +22,24 @@ return [
     assert_true(ap_rd_has($h, 'data-start="2026-10-12" data-end="2026-11-12"'), '1 month');
     assert_true(ap_rd_has($h, 'data-start="2026-08-12" data-end="2026-11-12"'), '3 months');
     assert_true(ap_rd_has($h, 'data-start="2026-01-01" data-end="2026-11-12"'), 'this year');
-    assert_true(ap_rd_has($h, '最近一個主日') && ap_rd_has($h, '今年'), 'labels in page language');
+    assert_true(ap_rd_has($h, 'Last Sunday') && ap_rd_has($h, 'This year'), 'records page is English');
+    assert_true(ap_rd_has($h, 'All fellowships') && ap_rd_has($h, 'All attendees') && ap_rd_has($h, 'Non-member'), 'filters English');
+    assert_true(ap_rd_has($h, '伊甸團契') && !ap_rd_has($h, '全部') && !ap_rd_has($h, '其他'), 'fellowship names stay in their own language, nothing else Chinese');
+  },
+  'test_dashboard_layout_rows_and_results_bar' => function () {
+    \AP\Tests\force_check_in_day('2026-11-12');
+    make_user('administrator', null);
+    $h = do_shortcode('[attendance_dashboard]');
+    // 第一行：快捷时间 + 日期；第二行：筛选条件 + Filter
+    assert_true((bool) preg_match('~class="ap-filter-row ap-filter-when">.*?ap-range-btn.*?fe_start_date_filter.*?</div></div>~s', $h), 'when row has ranges and dates');
+    assert_true((bool) preg_match('~class="ap-filter-row ap-filter-who">.*?fe_name_filter.*?fe-filter-button~s', $h), 'who row ends with Filter');
+    // 表格上方：批量操作 + 人数 + 导出
+    assert_true((bool) preg_match('~class="ap-results-bar">.*?fe-bulk-action-selector.*?class="ap-result-count">\d+ (people|person)</span>.*?fe-export-csv-button~s', $h), 'results bar');
+  },
+  'test_dashboard_result_count_text' => function () {
+    assert_same('1 person', \AP\Frontend_Page::result_count_text(1));
+    assert_same('0 people', \AP\Frontend_Page::result_count_text(0));
+    assert_same('45 people', \AP\Frontend_Page::result_count_text(45));
   },
   'test_dashboard_first_load_lists_everyone_not_only_new' => function () {
     \AP\Tests\force_check_in_day('2026-11-12');
@@ -65,7 +83,7 @@ return [
     make_user('administrator', null);
     $h = do_shortcode('[attendance_dashboard]');
     assert_true(ap_rd_has($h, 'id="fe_congregation_filter"'), 'filter');
-    assert_true(ap_rd_has($h, '全部堂') && ap_rd_has($h, '伊甸團契') && ap_rd_has($h, '但以理团契'), 'all fellowships');
+    assert_true(ap_rd_has($h, 'All congregations') && ap_rd_has($h, '>Mandarin<') && ap_rd_has($h, '伊甸團契') && ap_rd_has($h, '但以理团契'), 'all fellowships');
     $n = do_shortcode('[attendance_newcomers]');
     assert_true(ap_rd_has($n, 'id="ap-ft-congregation"'), 'newcomers filter');
   },
@@ -85,13 +103,31 @@ return [
     ob_start();
     \AP\Admin_Page::render_table_simple([['row_num' => 1, 'id' => 1, 'fellowship' => 'eden', 'first_name' => 'A', 'last_name' => 'B', 'phone' => '', 'email' => '',
       'times' => 2, 'percentage' => '50.00', 'first_attendance_date' => '2026-11-01', 'last_attended' => '2026-11-08', 'is_member' => 0,
-      'congregation_counts' => ['mandarin' => 1, 'cantonese' => 1]]], null);
+      'home_congregation' => 'cantonese']], null);
     $h = ob_get_clean();
-    assert_true(ap_rd_has($h, '<th>堂</th>') && ap_rd_has($h, '国语 1、粤语 1'), 'admin column');
+    assert_true(ap_rd_has($h, '<th>Congregation</th>') && ap_rd_has($h, '<td>Cantonese</td>'), 'admin column shows home congregation in English');
+    assert_true(!ap_rd_has($h, '粤语 1'), 'no per-congregation counts');
+    assert_true(!ap_rd_has($h, '(Cantonese)'), 'fellowship has no home suffix when the column shows it');
     make_user('subscriber', 'cantonese');
     ob_start();
     \AP\Admin_Page::render_table_simple([], 'cantonese');
-    assert_true(!ap_rd_has(ob_get_clean(), '<th>堂</th>'), 'no column for staff');
+    assert_true(!ap_rd_has(ob_get_clean(), '<th>Congregation</th>'), 'no column for staff');
+  },
+  'test_render_table_name_column_no_email' => function () {
+    make_user('subscriber', 'mandarin');
+    ob_start();
+    \AP\Admin_Page::render_table_simple([['row_num' => 1, 'id' => 1, 'fellowship' => 'daniel', 'first_name' => 'Rachel', 'last_name' => 'Huang', 'phone' => '+61400000000', 'email' => 'r@example.com',
+      'times' => 2, 'percentage' => '50.00', 'first_attendance_date' => '2026-11-01', 'last_attended' => '2026-11-08', 'is_member' => 0, 'home_congregation' => 'mandarin']], 'mandarin');
+    $h = ob_get_clean();
+    assert_true(!ap_rd_has($h, 'Email') && !ap_rd_has($h, 'r@example.com'), 'no email column');
+    assert_true(!ap_rd_has($h, '<th>First Name</th>') && !ap_rd_has($h, '<th>Last Name</th>'), 'no separate name columns');
+    assert_true(ap_rd_has($h, '<th>Name</th>') && ap_rd_has($h, '<td>Rachel Huang</td>'), 'combined name column');
+  },
+  'test_dashboard_filters_single_name_no_email' => function () {
+    make_user('subscriber', 'mandarin');
+    $h = do_shortcode('[attendance_dashboard]');
+    assert_true(ap_rd_has($h, 'id="fe_name_filter"'), 'one name filter');
+    assert_true(!ap_rd_has($h, 'fe_email_filter') && !ap_rd_has($h, 'fe_first_name_filter') && !ap_rd_has($h, 'fe_last_name_filter'), 'old filters gone');
   },
   'test_render_js_strings_provided' => function () {
     \AP\provide_js_strings('cantonese');

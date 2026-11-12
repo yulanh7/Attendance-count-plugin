@@ -1190,10 +1190,8 @@ jQuery(function ($) {
         congregation: $c.find("#fe_congregation_filter").val() || "",
         fellowship: $c.find("#fe_fellowship_filter").val(),
         is_member: $c.find("#fe_member_filter").val(),
-        last_name: $c.find("#fe_last_name_filter").val(),
-        first_name: $c.find("#fe_first_name_filter").val(),
+        name: $c.find("#fe_name_filter").val(),
         phone: $c.find("#fe_phone_filter").val(),
-        email: $c.find("#fe_email_filter").val(),
         start_date_filter: $c.find("#fe_start_date_filter").val(),
         end_date_filter: $c.find("#fe_end_date_filter").val(),
         is_new: $c.find("#fe_is_new_filter").is(":checked") ? 'true' : '',
@@ -1222,6 +1220,7 @@ jQuery(function ($) {
         .done(function (resp) {
           if (resp && resp.success) {
             $c.find("#table-wrap").html(resp.data.table_html);
+            if (resp.data.total_text) $c.find(".ap-result-count").text(resp.data.total_text);
             $c.find('#fe-check-all').prop('checked', false);
             $c.off("click.fePage", ".ap-pager a").on("click.fePage", ".ap-pager a", function (e) {
               e.preventDefault();
@@ -1336,7 +1335,7 @@ jQuery(function ($) {
         } else {
           let otherText = "";
           Object.keys(all).forEach((cg) => {
-            const $g = $("<optgroup>", { label: cLabel(cg) });
+            const $g = $("<optgroup>", { label: (CTX.promptLabels && CTX.promptLabels[cg]) || cLabel(cg) });
             Object.keys(all[cg]).forEach((k) => {
               if (k === "other") { otherText = otherText || all[cg][k]; return; }
               $g.append($("<option>", { value: k, text: all[cg][k] }));

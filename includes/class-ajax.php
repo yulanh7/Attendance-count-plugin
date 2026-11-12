@@ -135,7 +135,10 @@ class Ajax
       \AP\Admin_Page::render_table($rows);
       echo '<div id="loader-box" style="display:none;"><div id="es-loading-spinner" class="loader"></div></div>';
     }
-    wp_send_json_success(['table_html' => ob_get_clean()]);
+    wp_send_json_success([
+      'table_html' => ob_get_clean(),
+      'total_text' => \AP\Frontend_Page::result_count_text(count($rows)),
+    ]);
   }
 
   public static function export_csv()
@@ -164,7 +167,7 @@ class Ajax
     $end  = sanitize_text_field($_POST['end_date_filter'] ?? '');
     $data = Attendance_DB::get_detail($id, $start, $end, self::request_scope());
     $show_c = true; // 所有人都显示每次签到在哪个堂（本堂会友去别的堂也看得到）
-    $lang = ap_ui_lang();
+    $lang = ap_records_lang();
 
     ob_start(); ?>
     <div class="ap-modal-header">
@@ -172,6 +175,9 @@ class Ajax
     </div>
     <div><?php echo esc_html(($data['user']->first_name ?? '') . ' ' . ($data['user']->last_name ?? '')); ?></div>
     <p><?php echo esc_html($data['user']->phone ?? ''); ?></p>
+    <?php if (!empty($data['user']->email)): ?>
+      <p><?php echo esc_html($data['user']->email); ?></p>
+    <?php endif; ?>
     <p><?php echo esc_html(\AP\format_date_dmy($start)); ?> to <?php echo esc_html(\AP\format_date_dmy($end)); ?></p>
     <div style="max-height:300px; overflow-y:auto; margin-top:10px;">
       <table style="width:100%; border-collapse:collapse;">
@@ -190,7 +196,7 @@ class Ajax
                 <?php echo esc_html(\AP\format_date_dmy($row['date_attended'])); ?>
               </td>
               <?php if ($show_c): ?>
-                <td style="border:1px solid #ccc; padding:6px;"><?php echo esc_html(Congregation::label($row['congregation'], $lang)); ?></td>
+                <td style="border:1px solid #ccc; padding:6px;"><?php echo esc_html(Congregation::prompt_label($row['congregation'], $lang)); ?></td>
               <?php endif; ?>
             </tr>
           <?php endforeach; ?>

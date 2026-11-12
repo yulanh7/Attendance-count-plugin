@@ -454,8 +454,8 @@ class Attendance_DB
    * - 每人一行：times = 区间内出席次数；times_all / last_attended = 全历史
    * - is_new 过滤按"全历史仅 1 次"判断（与日期区间无关）
    * - 所有统计都在一条 SQL 里完成，避免逐行查询
-   * - $congregation：只统计该堂的签到（times / last_attended / 出席率）；null = 全部堂，
-   *   并额外给每行 congregation_counts（区间内各堂次数）。范围由调用方经 Access::scope() 解析。
+   * - $congregation：只统计该堂的签到（times / last_attended / 出席率）；null = 全部堂。
+   *   范围由调用方经 Access::scope() 解析。
    */
   public static function query_filtered(array $post, ?string $congregation): array
   {
@@ -475,6 +475,7 @@ class Attendance_DB
     $last_name  = sanitize_text_field($post['last_name'] ?? '');
     $first_name = sanitize_text_field($post['first_name'] ?? '');
     $email      = sanitize_text_field($post['email'] ?? '');
+    $name       = sanitize_text_field($post['name'] ?? '');
     $phone      = sanitize_text_field($post['phone'] ?? '');
     $is_member  = sanitize_text_field($post['is_member'] ?? '');
 
@@ -525,6 +526,11 @@ class Attendance_DB
     if ($fellowship) $q .= $wpdb->prepare(" AND A.fellowship = %s", $fellowship);
     if ($first_name) $q .= $wpdb->prepare(" AND A.first_name LIKE %s", '%' . $wpdb->esc_like($first_name) . '%');
     if ($last_name)  $q .= $wpdb->prepare(" AND A.last_name  LIKE %s", '%' . $wpdb->esc_like($last_name)  . '%');
+    // 姓名搜索：每个词都要出现在名或姓里（"Rachel Huang"、"Huang Rachel"、"rach" 都能找到）
+    foreach (preg_split('/\s+/u', trim($name), -1, PREG_SPLIT_NO_EMPTY) as $word) {
+      $like = '%' . $wpdb->esc_like($word) . '%';
+      $q .= $wpdb->prepare(" AND (A.first_name LIKE %s OR A.last_name LIKE %s)", $like, $like);
+    }
     if ($phone) {
       // 兼容本地格式（如 0468869556）与国际格式（如 +61468869556 / 61468869556）：
       // 只比较数字，并去掉本地拨号前缀的那个 0，这样两种写法都能命中库里存的 +61... 号码
@@ -552,9 +558,6 @@ class Attendance_DB
 
     $rows = $wpdb->get_results($q, ARRAY_A) ?: [];
     $rows = self::decorate_rows($rows, $start, $end, $pct_filter);
-    if ($congregation === null) {
-      $rows = self::attach_congregation_counts($rows, $start, $end);
-    }
 
     // ✅ 缓存结果 5 分钟
     set_transient($cache_key, $rows, 5 * MINUTE_IN_SECONDS);
@@ -612,42 +615,7 @@ class Attendance_DB
     return $out;
   }
 
-  /** 全部堂视图：每行加 congregation_counts（区间内各堂次数，按 Congregation::all() 顺序，只列非 0） */
-  private static function attach_congregation_counts(array $rows, string $start, string $end): array
-  {
-    global $wpdb;
-    $ids = array_map('intval', array_column($rows, 'id'));
-    if (!$ids) return $rows;
 
-    $in = implode(',', $ids);
-    $res = $wpdb->get_results($wpdb->prepare(
-      "SELECT attendance_id, congregation, COUNT(*) AS n
-         FROM {$wpdb->prefix}attendance_dates
-        WHERE date_attended BETWEEN %s AND %s AND attendance_id IN ($in)
-        GROUP BY attendance_id, congregation",
-      $start,
-      $end
-    ), ARRAY_A);
-
-    $map = [];
-    foreach ($res as $r) $map[(int) $r['attendance_id']][$r['congregation']] = (int) $r['n'];
-    foreach ($rows as $i => $row) {
-      $counts = [];
-      foreach (Congregation::all() as $c) {
-        if (!empty($map[(int) $row['id']][$c])) $counts[$c] = $map[(int) $row['id']][$c];
-      }
-      $rows[$i]['congregation_counts'] = $counts;
-    }
-    return $rows;
-  }
-
-  /** 「国语 2、粤语 1」 */
-  public static function format_congregation_counts(array $counts, string $display_lang): string
-  {
-    $parts = [];
-    foreach ($counts as $c => $n) $parts[] = Congregation::short_label($c, $display_lang) . ' ' . $n;
-    return implode('、', $parts);
-  }
 
   /**
    * 批量更新 member
@@ -718,7 +686,7 @@ class Attendance_DB
     $end   = $end_raw   ? date('Y-m-d', strtotime($end_raw))   : current_time('Y-m-d');
 
     $rows = self::query_filtered($post, $congregation);
-    $lang = Congregation::lang(Access::ui_congregation());
+    $lang = \AP\ap_records_lang();
 
     // 标题：日期区间
     $lines      = [];
@@ -745,16 +713,18 @@ class Attendance_DB
 
     // 数据
     foreach ($rows as $r) {
-      $f     = Congregation::fellowship_with_home((string) $r['fellowship'], (string) ($r['home_congregation'] ?? Congregation::DEFAULT), $congregation, $lang);
+      $home  = (string) ($r['home_congregation'] ?? Congregation::DEFAULT);
+      // 有 Congregation 列（管理员）时所属堂已单独显示，团契不再加（X堂）
+      $f     = $with_congregation_column
+        ? Congregation::fellowship_label((string) $r['fellowship'], $lang)
+        : Congregation::fellowship_with_home((string) $r['fellowship'], $home, $congregation, $lang);
       $source = \AP\ap_translate_referral_source($r['referral_source'] ?? '', $lang);
       $first = \AP\format_date_dmy($r['first_attendance_date'] ?? '');
       $last  = \AP\format_date_dmy($r['last_attended'] ?? '');
 
       $cols = [$r['row_num']];
       if ($with_congregation_column) {
-        $cols[] = $congregation === null
-          ? self::format_congregation_counts($r['congregation_counts'] ?? [], $lang)
-          : Congregation::label($congregation, $lang);
+        $cols[] = Congregation::prompt_label($home, $lang);
       }
       $lines[] = implode(',', array_map('\AP\csv_escape', array_merge($cols, [
         $f,
@@ -789,7 +759,7 @@ class Attendance_DB
     }
 
     $user = $wpdb->get_row($wpdb->prepare(
-      "SELECT first_name, last_name, phone FROM $attendance WHERE id = %d",
+      "SELECT first_name, last_name, phone, email FROM $attendance WHERE id = %d",
       $attendance_id
     ));
 

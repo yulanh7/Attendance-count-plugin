@@ -425,27 +425,35 @@
 
 .ap-frontend-dashboard .filter-form {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px 16px;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
   margin: 10px 0 16px;
+}
+
+/* 每一行：横排，Filter / 日期靠右 */
+.ap-frontend-dashboard .ap-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
 }
 
 .ap-frontend-dashboard .filter-form input[type="text"],
 .ap-frontend-dashboard .filter-form input[type="date"],
 .ap-frontend-dashboard .filter-form select {
-  margin-bottom: 8px;
+  margin: 0;
   padding: 6px 10px;
   border-radius: 6px;
   border: 1px solid #d7d7d7;
   background: #fff;
-  min-height: 36px;
+  height: 40px;
   color: #111;
 }
 
-.ap-frontend-dashboard .filter-form select {
-  width: auto;
-}
+/* 下拉框固定宽度：选项文字长短不同也不会把 Filter 挤到下一行 */
+.ap-frontend-dashboard .filter-form select { flex: 0 0 170px; width: 170px; }
+.ap-frontend-dashboard .filter-form #fe_fellowship_filter { flex-basis: 210px; width: 210px; }
+.ap-frontend-dashboard .filter-form input[type="text"] { flex: 1 1 140px; min-width: 120px; width: auto; }
 
 .ap-frontend-dashboard .filter-form .date-range-group {
   display: flex;
@@ -462,13 +470,15 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 6px;
-  min-height: 36px;
-  border-radius: 6px;
+  padding: 0 4px;
+  height: 40px;
+  color: #333;
+  white-space: nowrap;
 }
+.ap-frontend-dashboard .filter-form .checkbox-container label { margin: 0; color: #333; }
 
 .ap-frontend-dashboard .filter-form .submit-btn,
-.ap-frontend-dashboard .filter-form .export-csv,
+.ap-frontend-dashboard .ap-results-bar .export-csv,
 .ap-frontend-dashboard .bulk-action-bar #fe-doaction {
   width: auto;
   min-width: 110px;
@@ -483,6 +493,8 @@
   cursor: pointer;
 }
 
+.ap-frontend-dashboard .filter-form .submit-btn { margin-left: auto; }
+
 .ap-frontend-dashboard .filter-form .submit-btn,
 .ap-frontend-dashboard .bulk-action-bar #fe-doaction {
   background: #ffd400;
@@ -494,22 +506,45 @@
   background: #d6b40c;
 }
 
-.ap-frontend-dashboard .filter-form .export-csv {
-  min-width: 140px;
+.ap-frontend-dashboard .ap-results-bar .export-csv {
   background: #4a7502;
   border: 1px solid #4a7502;
   color: #fff;
 }
 
-.ap-frontend-dashboard .filter-form .export-csv:hover {
+.ap-frontend-dashboard .ap-results-bar .export-csv:hover {
   background: #406502;
+}
+
+/* 表格上方：左边批量操作，右边人数 + 导出 */
+.ap-frontend-dashboard .ap-results-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding-top: 14px;
+  margin: 0 0 12px;
+  border-top: 1px solid #ececec;
 }
 
 .ap-frontend-dashboard .bulk-action-bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 8px 0 15px;
+}
+.ap-frontend-dashboard .bulk-action-bar select {
+  height: 40px;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #d7d7d7;
+  background: #fff;
+}
+
+.ap-frontend-dashboard .ap-result-count {
+  margin-left: auto;
+  color: #555;
+  font-weight: 600;
 }
 
 /* Table & loader */
@@ -539,7 +574,7 @@
 
 .ap-table thead th {
   background: #f6f7f7;
-  text-align: left;
+  text-align: center;
   font-weight: 600;
   padding: 10px 12px;
   border-bottom: 1px solid #e6e6e6;
@@ -548,24 +583,22 @@
 
 .ap-table tbody td {
   padding: 10px 12px;
+  text-align: center;
   border-bottom: 1px solid #f0f0f0;
   vertical-align: top;
   white-space: nowrap;
 }
 
-/* Phone / Email wrap */
-.ap-table td:nth-child(6),
-.ap-table td:nth-child(7) {
+/* Phone wrap */
+.ap-table td.ap-col-phone {
   min-width: 120px;
   white-space: normal;
   word-break: break-word;
 }
 
 /* Date columns */
-.ap-table th:nth-child(10),
-.ap-table th:nth-child(11),
-.ap-table td:nth-child(10),
-.ap-table td:nth-child(11) {
+.ap-table th.ap-col-date,
+.ap-table td.ap-col-date {
   min-width: 120px;
   white-space: normal;
   word-break: break-word;
@@ -924,30 +957,40 @@ button.ap-btn-outline-gold[aria-busy="true"] {
     padding: 10px 16px;
   }
 
-  .ap-frontend-dashboard .filter-form {
-    gap: 10px;
-  }
-
-  .ap-frontend-dashboard .filter-form input[type="text"],
-  .ap-frontend-dashboard .filter-form input[type="date"],
-  .ap-frontend-dashboard .filter-form select {
-    width: 100%;
+  /* 手机：筛选两个一行，按钮整行宽 */
+  .ap-frontend-dashboard .filter-form select,
+  .ap-frontend-dashboard .filter-form #fe_fellowship_filter,
+  .ap-frontend-dashboard .filter-form input[type="text"] {
+    flex: 1 1 calc(50% - 6px);
+    width: auto;
+    min-width: 0;
   }
 
   .ap-frontend-dashboard .filter-form .date-range-group {
     width: 100%;
-    flex-wrap: wrap;
+  }
+  .ap-frontend-dashboard .filter-form .date-range-group input[type="date"] {
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .ap-frontend-dashboard .filter-form .checkbox-container {
-    width: 100%;
-    padding: 4px 0 8px;
+    flex: 1 1 calc(50% - 6px);
   }
 
-  .ap-frontend-dashboard .filter-form .submit-btn,
-  .ap-frontend-dashboard .filter-form .export-csv {
+  .ap-frontend-dashboard .filter-form .submit-btn {
+    width: 100%;
+    margin-left: 0;
+    height: 44px;
+  }
+
+  .ap-frontend-dashboard .bulk-action-bar {
     width: 100%;
   }
+  .ap-frontend-dashboard .bulk-action-bar select { flex: 1 1 auto; }
+
+  .ap-frontend-dashboard .ap-result-count { margin-left: 0; }
+  .ap-frontend-dashboard .ap-results-bar .export-csv { margin-left: auto; }
 
   .ap-table thead th,
   .ap-table tbody td {
@@ -1049,7 +1092,6 @@ button.ap-btn-outline-gold[aria-busy="true"] {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 6px 0 4px;
 }
 .ap-frontend-dashboard .ap-range-btn {
   min-height: 36px;
@@ -1072,6 +1114,7 @@ button.ap-btn-outline-gold[aria-busy="true"] {
 }
 /* 手机：两个一行、按钮够大好点 */
 @media (max-width: 768px) {
+  .ap-frontend-dashboard .ap-quick-ranges { width: 100%; }
   .ap-frontend-dashboard .ap-quick-ranges .ap-range-btn {
     flex: 1 1 calc(50% - 4px);
     min-height: 44px;

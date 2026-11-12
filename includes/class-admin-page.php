@@ -240,13 +240,13 @@ class Admin_Page
 
   /**
    * 前台表格；$scope = 当前筛选的堂（null = 全部堂）
-   * - 管理员多一列「堂」：全部堂时显示「国语 3、粤语 1」，否则显示堂名
+   * - 管理员多一列 Congregation：这个人的所属堂（各堂签到明细在 View 里看）
    */
   public static function render_table_simple(array $rows, ?string $scope = null)
   {
     $is_admin = ap_user_can_manage();
     $show_c = Access::is_admin();
-    $lang = ap_ui_lang();
+    $lang = ap_records_lang();
   ?>
     <?php if ($is_admin): ?>
       <form method="post" id="attendance-bulk-form">
@@ -263,14 +263,12 @@ class Admin_Page
               <th><?php echo esc_html(I18n::t('column_congregation', $lang)); ?></th>
             <?php endif; ?>
             <th>Fellowships</th>
-            <th>First Name</th>
-            <th>Last Name</th>
-            <th>Phone</th>
-            <th>Email</th>
+            <th>Name</th>
+            <th class="ap-col-phone">Phone</th>
             <th>Times</th>
             <th>Percentage</th>
-            <th>First attended Date</th>
-            <th>Last Attended Date</th>
+            <th class="ap-col-date">First attended Date</th>
+            <th class="ap-col-date">Last Attended Date</th>
             <th>Member</th>
             <th>View</th>
           </tr>
@@ -278,7 +276,7 @@ class Admin_Page
         <tbody>
           <?php if (empty($rows)): ?>
             <tr>
-              <td colspan="<?php echo 12 + ($is_admin ? 1 : 0) + ($show_c ? 1 : 0); ?>">No data</td>
+              <td colspan="<?php echo 10 + ($is_admin ? 1 : 0) + ($show_c ? 1 : 0); ?>">No data</td>
             </tr>
             <?php else: foreach ($rows as $item): ?>
               <tr>
@@ -287,19 +285,17 @@ class Admin_Page
                 <?php endif; ?>
                 <td><?php echo esc_html($item['row_num']); ?></td>
                 <?php if ($show_c): ?>
-                  <td><?php echo esc_html($scope === null
-                        ? Attendance_DB::format_congregation_counts($item['congregation_counts'] ?? [], $lang)
-                        : Congregation::label($scope, $lang)); ?></td>
+                  <td><?php echo esc_html(Congregation::prompt_label((string) ($item['home_congregation'] ?? Congregation::DEFAULT), $lang)); ?></td>
                 <?php endif; ?>
-                <td><?php echo esc_html(Congregation::fellowship_with_home((string) $item['fellowship'], (string) ($item['home_congregation'] ?? Congregation::DEFAULT), $scope, ap_ui_lang())); ?></td>
-                <td><?php echo esc_html($item['first_name']); ?></td>
-                <td><?php echo esc_html($item['last_name']); ?></td>
-                <td><?php echo esc_html($item['phone']); ?></td>
-                <td><?php echo esc_html($item['email']); ?></td>
+                <td><?php echo esc_html($show_c
+                      ? Congregation::fellowship_label((string) $item['fellowship'], $lang)
+                      : Congregation::fellowship_with_home((string) $item['fellowship'], (string) ($item['home_congregation'] ?? Congregation::DEFAULT), $scope, $lang)); ?></td>
+                <td><?php echo esc_html(trim($item['first_name'] . ' ' . $item['last_name'])); ?></td>
+                <td class="ap-col-phone"><?php echo esc_html($item['phone']); ?></td>
                 <td><?php echo esc_html($item['times']); ?></td>
                 <td><?php echo esc_html($item['percentage']) . '%'; ?></td>
-                <td><?php echo esc_html(\AP\format_date_dmy($item['first_attendance_date'] ?? '')); ?></td>
-                <td><?php echo esc_html(\AP\format_date_dmy($item['last_attended'] ?? '')); ?></td>
+                <td class="ap-col-date"><?php echo esc_html(\AP\format_date_dmy($item['first_attendance_date'] ?? '')); ?></td>
+                <td class="ap-col-date"><?php echo esc_html(\AP\format_date_dmy($item['last_attended'] ?? '')); ?></td>
                 <td><?php echo !empty($item['is_member']) ? 'Yes' : 'No'; ?></td>
                 <td><button type="button" class="view-attendance-button" data-attendance-id="<?php echo esc_attr($item['id']); ?>">View</button></td>
               </tr>

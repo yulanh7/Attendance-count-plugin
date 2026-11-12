@@ -101,7 +101,8 @@ function ap_register_main_script(): void
  * 把当前页面的界面文字和堂信息注入前端（window.apI18n / window.apCtx）
  * 每个页面只注入一次（同一页面放多个 shortcode 时以第一个为准）
  */
-function provide_js_strings(string $congregation): void
+// $lang：界面语言，默认跟着堂走；出席记录页传 ap_records_lang()
+function provide_js_strings(string $congregation, ?string $lang = null): void
 {
   static $done = false;
   if ($done) return;
@@ -110,7 +111,8 @@ function provide_js_strings(string $congregation): void
   ap_register_main_script();
   wp_enqueue_script('ap-main');
 
-  $lang = Congregation::lang($congregation);
+  $override = $lang !== null;
+  $lang = $lang ?? Congregation::lang($congregation);
   $strings = [];
   foreach (I18n::js_keys() as $k) $strings[$k] = I18n::t($k, $lang);
 
@@ -119,6 +121,7 @@ function provide_js_strings(string $congregation): void
   $prompt_labels = [];
   foreach (Congregation::all() as $c) {
     $fellowships[$c] = Congregation::fellowships($c);
+    if ($override) $fellowships[$c]['other'] = Congregation::fellowship_label('other', $lang);
     $labels[$c] = Congregation::label($c, $lang);
     $prompt_labels[$c] = Congregation::prompt_label($c, $lang);
   }
@@ -225,6 +228,12 @@ function ap_translate_referral_source($key, string $lang = 'zh_CN'): string
 function ap_ui_lang(): string
 {
   return Congregation::lang(Access::ui_congregation());
+}
+
+// 出席记录页（attendance_dashboard：表格、筛选、View、导出 CSV）统一用英文；团契名称保持原文
+function ap_records_lang(): string
+{
+  return 'en';
 }
 
 

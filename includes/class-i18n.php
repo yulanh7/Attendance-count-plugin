@@ -88,7 +88,7 @@ class I18n
       // —— 管理页 ——
       'unassigned_congregation'  => '尚未指定所属堂，请联系管理员',
       'filter_all_congregations' => '全部堂',
-      'column_congregation'      => '堂',
+      'column_congregation'      => 'Congregation',
       'filter_all_fellowships'   => '全部团契',
       'filter_all_members'       => '全部会友',
       'range_last_sunday'        => '最近一个主日',
@@ -217,7 +217,7 @@ class I18n
 
       'unassigned_congregation'  => '尚未指定所屬堂，請聯絡管理員',
       'filter_all_congregations' => '全部堂',
-      'column_congregation'      => '堂',
+      'column_congregation'      => 'Congregation',
       'filter_all_fellowships'   => '全部團契',
       'filter_all_members'       => '全部會友',
       'range_last_sunday'        => '最近一個主日',
