@@ -619,7 +619,7 @@ jQuery(function ($) {
     const buttons = d.can_transfer
       ? [
           { label: T("move_once", { here }), cls: "is-ok", onClick: (close, $b, $all) => doMove($b, $all, close, false) },
-          { label: T("move_transfer", { here }), cls: "is-ok", onClick: (close, $b, $all) => doMove($b, $all, close, true) },
+          { label: T("move_transfer", { here }), cls: "is-transfer", onClick: (close, $b, $all) => doMove($b, $all, close, true) },
         ]
       : [
           { label: T("move_yes", { here }), cls: "is-ok", onClick: (close, $b, $all) => doMove($b, $all, close, false) },

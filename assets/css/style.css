@@ -1042,3 +1042,4 @@ button.ap-btn-outline-gold[aria-busy="true"] {
   text-align: left;
 }
 #es_profile_form .es-join-newcomer input { margin-top: 3px; flex: 0 0 auto; }
+.ap-dialog-ok.is-transfer { background: #FFD700; color: #333; font-weight: 600; }
