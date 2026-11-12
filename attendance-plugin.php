@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Attendance Plugin
  * Description: Manage attendance (split structure).
- * Version: 2.7.0
+ * Version: 2.7.1
  * Author: Rachel Huang
  * Text Domain: attendance-plugin
  */
@@ -35,6 +35,7 @@ require_once AP_PATH . 'includes/class-attendance-db.php';
 require_once AP_PATH . 'includes/class-admin-page.php';
 require_once AP_PATH . 'includes/class-ajax.php';
 require_once AP_PATH . 'includes/class-frontend-page.php';
+require_once AP_PATH . 'includes/class-page-templates.php';
 
 
 // 生命周期
@@ -56,6 +57,9 @@ add_action('plugins_loaded', function () {
 
   // 用户编辑页「所属堂」字段
   AP\Access::register();
+
+  // 签到页面模板（Attendance Standalone）
+  AP\Page_Templates::register();
 
   // 短代码
   add_action('init', function () {
