@@ -302,15 +302,18 @@ class Attendance_DB
     $wpdb->update($dates, ['congregation' => $to], ['id' => (int) $rec->id], ['%s'], ['%d']);
 
     if ($person->first_attendance_date === $today) {
+      // 今天才登记：新来宾与否已由勾选框决定，记录跟着搬过去即可，不再套用首访规则
       $wpdb->update($attendance, ['home_congregation' => $to], ['id' => $aid], ['%s'], ['%d']);
       $wpdb->update($first_dates, ['congregation' => $to], ['attendance_id' => $aid, 'date_attended' => $today], ['%s'], ['%d', '%s']);
       $person->home_congregation = $to;
+      $first_at = true;
+      $suggest  = false;
     } else {
       $wpdb->delete($first_dates, ['attendance_id' => $aid, 'date_attended' => $today, 'congregation' => $from], ['%d', '%s', '%s']);
+      [$first_at, $suggest] = self::apply_first_visit_rule($aid, $to, $person->home_congregation, $today);
     }
     self::clear_attendance_cache();
 
-    [$first_at, $suggest] = self::apply_first_visit_rule($aid, $to, $person->home_congregation, $today);
     return self::result(true, 'ok', self::welcome_msg($person, $to, $first_at), [
       'first_at_congregation' => $first_at,
       'suggest_switch'        => $suggest,

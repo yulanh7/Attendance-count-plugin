@@ -130,6 +130,16 @@ return [
     assert_same(0, ap_ci_newcomers($id, 'mandarin'));
     assert_same(false, $res['suggest_switch']);
   },
+  'test_move_today_brand_new_not_newcomer_stays_off_list' => function () {
+    force_check_in_day('2026-11-15');
+    $reg = ap_ci_register('mandarin', false);
+    $id = ap_ci_id_by_phone($reg['_phone']);
+    $res = Attendance_DB::move_today($reg['_phone'], 'cantonese');
+    assert_same('ok', $res['code']);
+    assert_same('cantonese', ap_ci_person($id)['home_congregation']);
+    assert_same(0, ap_ci_newcomers($id));
+    assert_same(false, $res['suggest_switch']);
+  },
   'test_move_twice_back_and_forth' => function () {
     force_check_in_day('2026-11-15');
     $id = make_person();
