@@ -85,22 +85,17 @@ class Ajax
 
     ob_start();
     if ($is_frontend) {
-      list($rows_page, $page, $pages) = \AP\Admin_Page::paginate_array($rows, (int)$_POST['paged'] ?: 1, AP_FRONT_PER_PAGE);
-      ob_start();
+      // 前台：表格 + 分页
+      $paged = max(1, absint($_POST['paged'] ?? 1));
+      list($rows_page, $page, $pages) = \AP\Admin_Page::paginate_array($rows, $paged, AP_FRONT_PER_PAGE);
       \AP\Admin_Page::render_table_simple($rows_page);
       \AP\Admin_Page::render_pagination_simple($page, $pages);
-      $html = ob_get_clean();
-
-      wp_send_json_success([
-        'table_html' => $html, // 包含表格 + 分页
-      ]);
     } else {
+      // 后台：WP_List_Table + loader
       \AP\Admin_Page::render_table($rows);
+      echo '<div id="loader-box" style="display:none;"><div id="es-loading-spinner" class="loader"></div></div>';
     }
-
-    echo '<div id="loader-box" style="display:none;"><div id="es-loading-spinner" class="loader"></div></div>';
-    $html = ob_get_clean();
-    wp_send_json_success(['table_html' => $html]);
+    wp_send_json_success(['table_html' => ob_get_clean()]);
   }
 
   public static function export_csv()
@@ -291,7 +286,7 @@ class Ajax
 
     $rows = $wpdb->get_results(
       $wpdb->prepare(
-        "SELECT first_name, last_name, phone, first_attendance_date
+        "SELECT first_name, last_name, phone, referral_source, first_attendance_date
            FROM {$attendance}
           WHERE first_attendance_date BETWEEN %s AND %s
           ORDER BY first_attendance_date DESC, last_name, first_name",
@@ -384,6 +379,8 @@ class Ajax
     if ($ins === 0) {
       wp_send_json_error(['message' => '您今天已经签到过了，请勿重复签到!']);
     }
+
+    Attendance_DB::clear_attendance_cache();
 
     wp_send_json_success(['message' => "签到成功！欢迎 {$user->first_name} {$user->last_name}"]);
   }
@@ -484,6 +481,8 @@ class Ajax
     if ($result === false) {
       wp_send_json_error(['message' => '更新资料失败，请稍后再试']);
     }
+
+    Attendance_DB::clear_attendance_cache();
 
     wp_send_json_success(['message' => "资料更新成功！用户：{$first_name} {$last_name}"]);
   }

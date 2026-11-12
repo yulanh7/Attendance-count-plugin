@@ -71,17 +71,17 @@ function ap_enqueue_assets()
 }
 
 // 通用：统计区间内指定星期几的次数
+// 直接按公式计算，不逐日循环（区间再长也是 O(1)）
 function count_weekday_between(string $start_date, string $end_date, int $targetDow): int
 {
   $start = new \DateTime($start_date);
   $end   = new \DateTime($end_date);
-  $iv = new \DateInterval('P1D');
-  $n = 0;
-  while ($start <= $end) {
-    if ((int)$start->format('w') === $targetDow) $n++;
-    $start->add($iv);
-  }
-  return $n;
+  if ($start > $end) return 0;
+
+  $days   = (int) $start->diff($end)->days + 1;                       // 区间总天数（含首尾）
+  $offset = ($targetDow - (int) $start->format('w') + 7) % 7;         // 距第一个目标星期几还有几天
+  if ($offset >= $days) return 0;
+  return intdiv($days - 1 - $offset, 7) + 1;
 }
 
 // CSV 转义
