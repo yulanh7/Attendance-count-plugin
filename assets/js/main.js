@@ -514,7 +514,7 @@ jQuery(function ($) {
   function showPrompt($form, text, buttons) {
     $(".es-prompt").remove();
     const $box = $("<div>", { class: "es-message es-prompt", css: { background: "#fff7e6", color: "#333", border: "1px solid #f99522", padding: "10px", "margin-top": "10px", "border-radius": "5px" } });
-    $("<div>", { class: "es-prompt-text", text: text, css: { "margin-bottom": "8px" } }).appendTo($box);
+    $("<div>", { class: "es-prompt-text", text: text, css: { "margin-bottom": "8px", "white-space": "pre-line" } }).appendTo($box);
     const $row = $("<div>", { class: "es-prompt-actions", css: { display: "flex", gap: "8px", "flex-wrap": "wrap" } }).appendTo($box);
     buttons.forEach((b) => {
       $("<button>", { type: "button", class: "switch-btn " + (b.cls || ""), text: b.label })
@@ -548,14 +548,14 @@ jQuery(function ($) {
     const existing = cLabel(d.existing_congregation);
     showPrompt($form, d.msg || d.message || "", [
       {
-        label: T("move_yes", { here }),
+        label: d.move_yes_label || T("move_yes", { here }),
         onClick: ($box) => {
           api.post("es_move_attendance", { phone: ctx.phone, congregation: CTX.congregation })
             .done((resp2) => { $box.remove(); handleCheckInResult(resp2, $form, ctx); })
             .fail(() => { $box.remove(); displayMessage($form, T("js_check_in_failed_retry"), "red"); });
         },
       },
-      { label: T("move_no", { existing }), onClick: ($box) => { $box.remove(); } },
+      { label: d.move_no_label || T("move_no", { existing }), onClick: ($box) => { $box.remove(); } },
     ]);
   }
 

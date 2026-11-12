@@ -60,11 +60,24 @@ class Attendance_DB
     if ($rec->congregation === $congregation) {
       return self::result(false, 'already_signed', t('already_signed', $congregation));
     }
-    $lang = Congregation::lang($congregation);
-    return self::result(false, 'signed_elsewhere_today', t('signed_elsewhere_prompt', $congregation, [
-      'existing' => Congregation::label($rec->congregation, $lang),
-      'here'     => Congregation::label($congregation, $lang),
-    ]), ['existing_congregation' => $rec->congregation]);
+    // 中英双语：中文页面加英文，英文页面加简体中文（走错堂的人不一定看得懂本堂语言）
+    $bi = function (string $key, string $sep) use ($rec, $congregation): string {
+      $lang  = Congregation::lang($congregation);
+      $other = $lang === 'en' ? 'zh_CN' : 'en';
+      $parts = [];
+      foreach ([$lang, $other] as $l) {
+        $parts[] = I18n::t($key, $l, [
+          'existing' => Congregation::label($rec->congregation, $l),
+          'here'     => Congregation::label($congregation, $l),
+        ]);
+      }
+      return implode($sep, $parts);
+    };
+    return self::result(false, 'signed_elsewhere_today', $bi('signed_elsewhere_prompt', "\n"), [
+      'existing_congregation' => $rec->congregation,
+      'move_yes_label'        => $bi('move_yes', ' / '),
+      'move_no_label'         => $bi('move_no', ' / '),
+    ]);
   }
 
   /**
