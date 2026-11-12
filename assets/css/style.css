@@ -735,7 +735,12 @@
 }
 
 .ap-first-timers-v2 .ap-ft-row button {
-  width: 120px;
+  /* 按文字自动变宽（英文 "Export to Excel" 较长），不折行 */
+  width: auto;
+  min-width: 120px;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: normal;
   font-size: 16px;
   padding: 10px 14px;
   border: none;
