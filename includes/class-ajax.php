@@ -373,129 +373,36 @@ class Ajax
   }
 
   /**
-   * 获取用户资料
+   * 获取用户资料（修改资料用；邮箱只返回打码版本）
    */
   public static function get_user_profile()
   {
     self::verify_nonce();
+    $c = self::request_congregation();
 
     $phone = sanitize_text_field($_POST['phone'] ?? '');
     if (!$phone) {
-      wp_send_json_error(['message' => '电话号码不能为空']);
+      wp_send_json_error(['code' => 'phone_required', 'message' => t('phone_required', $c)]);
     }
 
-    global $wpdb;
-    $attendance = $wpdb->prefix . 'attendance';
-
-    $user = $wpdb->get_row($wpdb->prepare(
-      "SELECT first_name, last_name, phone, email, fellowship FROM $attendance WHERE phone = %s",
-      $phone
-    ));
-
-    if (!$user) {
-      wp_send_json_error(['message' => '找不到该用户资料']);
+    $profile = Attendance_DB::get_profile($phone);
+    if (!$profile) {
+      wp_send_json_error(['code' => 'not_registered', 'message' => t('profile_not_found', $c)]);
     }
-
-    // 解析电话号码
-    $phone_parts = self::parse_phone_number($user->phone);
-
-    wp_send_json_success([
-      'first_name' => $user->first_name,
-      'last_name' => $user->last_name,
-      // 只返回打码后的邮箱，不暴露完整地址
-      'email_masked' => ap_mask_email($user->email),
-      'fellowship' => $user->fellowship,
-      'country_code' => $phone_parts['country_code'],
-      'phone_number' => $phone_parts['phone_number'],
-    ]);
+    wp_send_json_success($profile);
   }
 
   /**
-   * 更新用户资料（需要提供电话号码查找用户）
+   * 更新用户资料（含所属堂；团契需与所属堂匹配）
    */
   public static function update_profile()
   {
     self::verify_nonce();
-
-    $first_name = trim(sanitize_text_field($_POST['es_first_name'] ?? ''));
-    $last_name = trim(sanitize_text_field($_POST['es_last_name'] ?? ''));
-    $email = sanitize_email($_POST['es_email'] ?? '');
-    $fellowship = trim(sanitize_text_field($_POST['es_fellowship'] ?? ''));
-    $country_code = trim(sanitize_text_field($_POST['es_phone_country_code'] ?? ''));
-    $phone_number = trim(sanitize_text_field($_POST['es_phone_number'] ?? ''));
-
-    // 电话号码归一化处理
-    $phone_number = preg_replace('/[\s\-\(\)]/', '', $phone_number);
-    if ($country_code === '+61' && substr($phone_number, 0, 1) === '0') {
-      $phone_number = substr($phone_number, 1);
-    }
-    $phone = $country_code . $phone_number;
-
-    if (!$first_name || !$last_name || !$fellowship || !$phone) {
-      wp_send_json_error(['message' => '请填写所有必填字段']);
-    }
-
-    global $wpdb;
-    $attendance = $wpdb->prefix . 'attendance';
-
-    // 检查用户是否存在
-    $user_id = $wpdb->get_var($wpdb->prepare(
-      "SELECT id FROM $attendance WHERE phone = %s",
-      $phone
-    ));
-
-    if (!$user_id) {
-      wp_send_json_error(['message' => '该电话号码不存在，请先进行首次登记']);
-    }
-
-    // 更新资料；前台只看到打码邮箱，所以邮箱留空 = 不修改
-    $data = [
-      'first_name' => $first_name,
-      'last_name' => $last_name,
-      'fellowship' => $fellowship,
-    ];
-    if ($email !== '') {
-      $data['email'] = $email;
-    }
-    $result = $wpdb->update(
-      $attendance,
-      $data,
-      ['id' => $user_id],
-      array_fill(0, count($data), '%s'),
-      ['%d']
-    );
-
-    if ($result === false) {
-      wp_send_json_error(['message' => '更新资料失败，请稍后再试']);
-    }
-
-    Attendance_DB::clear_attendance_cache();
-
-    wp_send_json_success(['message' => "资料更新成功！用户：{$first_name} {$last_name}"]);
-  }
-
-  /**
-   * 解析电话号码为国家代码和号码
-   */
-  private static function parse_phone_number($full_phone)
-  {
-    // 常见的国家代码
-    $country_codes = ['+61', '+86', '+852', '+886', '+60', '+65'];
-
-    foreach ($country_codes as $code) {
-      if (strpos($full_phone, $code) === 0) {
-        return [
-          'country_code' => $code,
-          'phone_number' => substr($full_phone, strlen($code))
-        ];
-      }
-    }
-
-    // 默认返回
-    return [
-      'country_code' => '+61',
-      'phone_number' => $full_phone
-    ];
+    $c = self::request_congregation();
+    $res = Attendance_DB::update_profile($_POST, $c);
+    $res['message'] = $res['msg'];
+    if ($res['ok']) wp_send_json_success($res);
+    wp_send_json_error($res);
   }
 
   public static function first_timers_log_query(): void

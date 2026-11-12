@@ -318,6 +318,105 @@ class Attendance_DB
     ]);
   }
 
+  /** 常见国家代码：把完整号码拆回「国家代码 + 号码」 */
+  private static function split_phone(string $full_phone): array
+  {
+    foreach (['+61', '+86', '+852', '+886', '+60', '+65'] as $code) {
+      if (strpos($full_phone, $code) === 0) {
+        return ['country_code' => $code, 'phone_number' => substr($full_phone, strlen($code))];
+      }
+    }
+    return ['country_code' => '+61', 'phone_number' => $full_phone];
+  }
+
+  /**
+   * 修改资料：按电话查资料（邮箱只返回打码版本）
+   */
+  public static function get_profile(string $phone): ?array
+  {
+    global $wpdb;
+    if ($phone === '') return null;
+    $row = $wpdb->get_row($wpdb->prepare(
+      "SELECT first_name, last_name, phone, email, fellowship, home_congregation FROM {$wpdb->prefix}attendance WHERE phone = %s",
+      $phone
+    ));
+    if (!$row) return null;
+    return [
+      'first_name'        => $row->first_name,
+      'last_name'         => $row->last_name,
+      'email_masked'      => ap_mask_email($row->email),
+      'fellowship'        => $row->fellowship,
+      'home_congregation' => $row->home_congregation,
+    ] + self::split_phone($row->phone);
+  }
+
+  /**
+   * 修改资料：可切换所属堂；团契必须属于所属堂（或 other），
+   * 或者所属堂没变且团契也没变（保留原来别的堂的团契）
+   */
+  public static function update_profile(array $post, string $page_congregation): array
+  {
+    global $wpdb;
+    $attendance = $wpdb->prefix . 'attendance';
+    $c = $page_congregation;
+
+    $first_name = trim(sanitize_text_field($post['es_first_name'] ?? ''));
+    $last_name  = trim(sanitize_text_field($post['es_last_name'] ?? ''));
+    $email      = sanitize_email($post['es_email'] ?? '');
+    $fellowship = trim(sanitize_text_field($post['es_fellowship'] ?? ''));
+    $phone      = self::normalize_phone(
+      trim(sanitize_text_field($post['es_phone_country_code'] ?? '')),
+      trim(sanitize_text_field($post['es_phone_number'] ?? ''))
+    );
+
+    if (!$first_name || !$last_name || !$fellowship || !$phone) {
+      return ['ok' => false, 'code' => 'missing_fields', 'msg' => t('fields_required', $c)];
+    }
+
+    $current = $wpdb->get_row($wpdb->prepare(
+      "SELECT id, fellowship, home_congregation FROM $attendance WHERE phone = %s",
+      $phone
+    ));
+    if (!$current) {
+      return ['ok' => false, 'code' => 'not_registered', 'msg' => t('phone_not_exist', $c)];
+    }
+
+    $home = $current->home_congregation;
+    if (array_key_exists('es_home_congregation', $post)) {
+      $home = Congregation::parse_strict(sanitize_text_field((string) $post['es_home_congregation']));
+      if ($home === null) {
+        return ['ok' => false, 'code' => 'invalid_congregation', 'msg' => t('invalid_congregation', $c)];
+      }
+    }
+
+    $fellowship_ok = $fellowship === 'other'
+      || Congregation::fellowship_owner($fellowship) === $home
+      || ($home === $current->home_congregation && $fellowship === $current->fellowship);
+    if (!$fellowship_ok) {
+      return ['ok' => false, 'code' => 'fellowship_mismatch', 'msg' => t('fellowship_must_match_home', $c, [
+        'congregation' => Congregation::label($home, Congregation::lang($c)),
+      ])];
+    }
+
+    // 前台只看到打码邮箱，所以邮箱留空 = 不修改
+    $data = [
+      'first_name'        => $first_name,
+      'last_name'         => $last_name,
+      'fellowship'        => $fellowship,
+      'home_congregation' => $home,
+    ];
+    if ($email !== '') {
+      $data['email'] = $email;
+    }
+    $result = $wpdb->update($attendance, $data, ['id' => (int) $current->id], array_fill(0, count($data), '%s'), ['%d']);
+    if ($result === false) {
+      return ['ok' => false, 'code' => 'db_error', 'msg' => t('profile_update_failed', $c)];
+    }
+
+    self::clear_attendance_cache();
+    return ['ok' => true, 'code' => 'ok', 'msg' => t('profile_update_ok', $c, ['name' => "{$first_name} {$last_name}"])];
+  }
+
   private const CACHE_VER_OPTION = 'ap_filtered_cache_ver';
 
   /**
