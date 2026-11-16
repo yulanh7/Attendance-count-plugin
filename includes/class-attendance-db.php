@@ -135,6 +135,9 @@ class Attendance_DB
     $country_code    = trim(sanitize_text_field($post['es_phone_country_code'] ?? ''));
     $phone_number    = trim(sanitize_text_field($post['es_phone_number'] ?? ''));
     $fellowship      = trim(sanitize_text_field($post['es_fellowship'] ?? ''));
+    if ($fellowship === '' || ($fellowship !== 'other' && Congregation::fellowship_owner($fellowship) !== $congregation)) {
+      $fellowship = 'other';
+    }
     $referral_source = trim(sanitize_text_field($post['es_referral_source'] ?? ''));
     $email           = sanitize_email($post['es_email'] ?? '');
     $is_newcomer     = isset($post['es_is_newcomer']) && (string) $post['es_is_newcomer'] === '1';
@@ -175,6 +178,10 @@ class Attendance_DB
       return self::result(false, 'db_error', t('user_save_failed_missing', $congregation));
     }
     $aid = (int) $person->id;
+    // 已登记的人：如果这次选了具体团契，且本堂就是他的所属堂，就更新团契
+    if ($existing && $fellowship !== 'other' && $existing->home_congregation === $congregation) {
+      $wpdb->update($attendance, ['fellowship' => $fellowship], ['id' => $aid], ['%s'], ['%d']);
+    }
 
     $ins = self::insert_today($aid, $today, $congregation);
     if ($ins === false) {
@@ -480,32 +487,32 @@ class Attendance_DB
    * 英文字母排在中文前面
    */
  private static function sort_rows_by_name(array $rows): array
-{
-  $collator = class_exists('\Collator') ? new \Collator('zh_CN') : null;
+  {
+    $collator = class_exists('\Collator') ? new \Collator('zh_CN') : null;
 
-  $cmp = $collator
-    ? fn($a, $b) => $collator->compare($a, $b)
-    : function ($a, $b) {
-        $a = mb_convert_encoding(mb_strtolower($a, 'UTF-8'), 'GBK', 'UTF-8');
-        $b = mb_convert_encoding(mb_strtolower($b, 'UTF-8'), 'GBK', 'UTF-8');
-        return strcmp($a, $b);
-      };
+    $cmp = $collator
+      ? fn($a, $b) => $collator->compare($a, $b)
+      : function ($a, $b) {
+          $a = mb_convert_encoding(mb_strtolower($a, 'UTF-8'), 'GBK', 'UTF-8');
+          $b = mb_convert_encoding(mb_strtolower($b, 'UTF-8'), 'GBK', 'UTF-8');
+          return strcmp($a, $b);
+        };
 
-  // 排序键：中文习惯 = [姓, 名]；其他 = [first, last]
-  $key = function (array $r): array {
-    $f = trim((string) $r['first_name']);
-    $l = trim((string) $r['last_name']);
-    return self::is_chinese_style($f, $l) ? [$l, $f] : [$f, $l];
-  };
+    // 排序键：中文习惯 = [姓, 名]；其他 = [first, last]
+    $key = function (array $r): array {
+      $f = trim((string) $r['first_name']);
+      $l = trim((string) $r['last_name']);
+      return self::is_chinese_style($f, $l) ? [$l, $f] : [$f, $l];
+    };
 
-  usort($rows, function ($x, $y) use ($cmp, $key) {
-    [$x1, $x2] = $key($x);
-    [$y1, $y2] = $key($y);
-    return $cmp($x1, $y1) ?: $cmp($x2, $y2) ?: ((int) $x['id'] <=> (int) $y['id']);
-  });
+    usort($rows, function ($x, $y) use ($cmp, $key) {
+      [$x1, $x2] = $key($x);
+      [$y1, $y2] = $key($y);
+      return $cmp($x1, $y1) ?: $cmp($x2, $y2) ?: ((int) $x['id'] <=> (int) $y['id']);
+    });
 
-  return $rows;
-}
+    return $rows;
+  }
 
   /**
    * 后台/前台筛选列表查询

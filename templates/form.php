@@ -88,7 +88,18 @@ $phone_box = function () use ($country_codes, $c) {
 
       <?php echo $phone_box(); ?>
 
-      <input type="hidden" name="es_fellowship" value="other">
+      <?php
+        $ft_options = Congregation::fellowships($c);
+        if (!isset($ft_options['other'])) {
+          $ft_options['other'] = Congregation::fellowship_label('other', $lang);
+        }
+      ?>
+      <select name="es_fellowship" required>
+        <option value="" disabled selected><?php echo esc_html(t('fellowship_placeholder', $c)); ?></option>
+        <?php foreach ($ft_options as $key => $label): ?>
+          <option value="<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></option>
+        <?php endforeach; ?>
+      </select>
 
       <select name="es_referral_source" required>
         <option value="" disabled selected><?php echo esc_html(t('referral_placeholder', $c)); ?></option>

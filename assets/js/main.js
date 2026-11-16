@@ -488,7 +488,7 @@ jQuery(function ($) {
     $form.find("input[name=es_email]").val("");
     $form.find("select[name=es_phone_country_code]").val("+61"); // 如需默认国家码
     $form.find("input[name=es_phone_number]").val("");
-    $form.find("[name=es_fellowship]").val("other");
+    $form.find("select[name=es_fellowship]").val("");
     $form.find("select[name=es_referral_source]").val("");
     $(".es-message").remove();
   }
