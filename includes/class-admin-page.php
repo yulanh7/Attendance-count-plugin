@@ -290,7 +290,7 @@ class Admin_Page
                 <td><?php echo esc_html($show_c
                       ? Congregation::fellowship_label((string) $item['fellowship'], $lang)
                       : Congregation::fellowship_with_home((string) $item['fellowship'], (string) ($item['home_congregation'] ?? Congregation::DEFAULT), $scope, $lang)); ?></td>
-                <td><?php echo esc_html(trim($item['first_name'] . ' ' . $item['last_name'])); ?></td>
+                <td><?php echo esc_html(Attendance_DB::display_name((string) $item['first_name'], (string) $item['last_name'])); ?></td>
                 <td class="ap-col-phone"><?php echo esc_html($item['phone']); ?></td>
                 <td><?php echo esc_html($item['times']); ?></td>
                 <td><?php echo esc_html($item['percentage']) . '%'; ?></td>

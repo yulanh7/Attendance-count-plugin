@@ -449,6 +449,64 @@ class Attendance_DB
     update_option(self::CACHE_VER_OPTION, (int) get_option(self::CACHE_VER_OPTION, 0) + 1, false);
   }
 
+
+  /** 是否含中文字符 */
+  private static function has_han(string $s): bool
+  {
+    return (bool) preg_match('/\p{Han}/u', $s);
+  }
+
+  /** 中文姓名习惯：first_name 是中文，且 last_name 也是中文（或为空） */
+  private static function is_chinese_style(string $first, string $last): bool
+  {
+    $first = trim($first);
+    $last  = trim($last);
+    return self::has_han($first) && ($last === '' || self::has_han($last));
+  }
+
+  /** 显示用姓名：中文 = 姓+名（无空格）；其他 = First Last */
+  public static function display_name(string $first, string $last): string
+  {
+    $first = trim($first);
+    $last  = trim($last);
+    return self::is_chinese_style($first, $last)
+      ? $last . $first
+      : trim($first . ' ' . $last);
+  }
+
+
+  /**
+   * 按 first name 排序：英文按字母，中文按拼音；同名再按 last name
+   * 英文字母排在中文前面
+   */
+ private static function sort_rows_by_name(array $rows): array
+{
+  $collator = class_exists('\Collator') ? new \Collator('zh_CN') : null;
+
+  $cmp = $collator
+    ? fn($a, $b) => $collator->compare($a, $b)
+    : function ($a, $b) {
+        $a = mb_convert_encoding(mb_strtolower($a, 'UTF-8'), 'GBK', 'UTF-8');
+        $b = mb_convert_encoding(mb_strtolower($b, 'UTF-8'), 'GBK', 'UTF-8');
+        return strcmp($a, $b);
+      };
+
+  // 排序键：中文习惯 = [姓, 名]；其他 = [first, last]
+  $key = function (array $r): array {
+    $f = trim((string) $r['first_name']);
+    $l = trim((string) $r['last_name']);
+    return self::is_chinese_style($f, $l) ? [$l, $f] : [$f, $l];
+  };
+
+  usort($rows, function ($x, $y) use ($cmp, $key) {
+    [$x1, $x2] = $key($x);
+    [$y1, $y2] = $key($y);
+    return $cmp($x1, $y1) ?: $cmp($x2, $y2) ?: ((int) $x['id'] <=> (int) $y['id']);
+  });
+
+  return $rows;
+}
+
   /**
    * 后台/前台筛选列表查询
    * - 每人一行：times = 区间内出席次数；times_all / last_attended = 全历史
@@ -557,6 +615,7 @@ class Attendance_DB
     $q .= " ORDER BY A.id ASC";
 
     $rows = $wpdb->get_results($q, ARRAY_A) ?: [];
+    $rows = self::sort_rows_by_name($rows);  
     $rows = self::decorate_rows($rows, $start, $end, $pct_filter);
 
     // ✅ 缓存结果 5 分钟
